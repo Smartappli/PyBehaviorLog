@@ -50,20 +50,6 @@ coverage run manage.py test
 coverage report --fail-under=80
 ```
 
-## GitHub Actions
-
-The repository includes `.github/workflows/ci.yml` to run:
-
-- pre-commit
-- Django unit tests
-- coverage gate at 80%
-
-on every push and pull request with Python 3.13.
-
-## Notes
-
-I prepared this archive for Python 3.13 minimum. That should not negatively impact Django 6.0.3 usage because Django 6.0 supports Python 3.13. Keep 3.13 as the default runtime for local development and CI. citeturn931282search0turn931282search1
-
 ## License
 
 This archive is marked for **AGPL-3.0** distribution.
