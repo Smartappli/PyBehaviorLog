@@ -1,0 +1,38 @@
+
+[tool.ruff]
+target-version = "py313"
+line-length = 100
+exclude = [
+  "migrations",
+  "media",
+  "staticfiles",
+]
+
+[tool.ruff.lint]
+select = [
+  "E",
+  "F",
+  "I",
+  "B",
+  "UP",
+]
+ignore = [
+  "E501",
+]
+
+[tool.ruff.format]
+quote-style = "single"
+indent-style = "space"
+
+[tool.coverage.run]
+branch = true
+source = ["tracker"]
+omit = [
+  "*/migrations/*",
+  "tracker/admin.py",
+]
+
+[tool.coverage.report]
+fail_under = 80
+show_missing = true
+skip_covered = false

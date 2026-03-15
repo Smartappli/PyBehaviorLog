@@ -154,7 +154,7 @@
                     <li>
                         <div>
                             <a href="{{ session.get_absolute_url }}"><strong>{{ session.title }}</strong></a>
-                            — {{ session.video.title }}
+                            — {{ session.primary_label }}
                             <span class="muted">({{ session.video_links.count }} vidéo{{ session.video_links.count|pluralize }})</span>
                             {% if session.observer %}<span class="muted">· {{ session.observer.username }}</span>{% endif %}
                         </div>

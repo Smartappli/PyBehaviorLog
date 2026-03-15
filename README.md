@@ -1,124 +1,69 @@
-# PyCowLog Django V5 — Django 6.0.3
 
-Application Django inspirée de CowLog avec une montée en gamme vers des usages proches de BORIS pour le codage comportemental vidéo.
+# PyBehaviorLog V6
 
-## Ce que la V5 ajoute
-
-- contrôle image par image avec pas configurable par session
-- annotations horodatées indépendantes des événements
-- import d’observations JSON V5
-- export TSV tabulaire
-- export JSON enrichi avec statistiques, intégrité et pistes
-- export JSON **BORIS-like** simplifié
-- contrôle d’intégrité des états `START/STOP`
-- calcul d’intervalles entre événements par comportement
-- timeline globale par buckets + timeline par pistes comportementales
-- export Excel enrichi avec feuilles `Events`, `Annotations`, `Summary`, `Intervals`, `Integrity`, `Timeline`
-
-## Fonctionnalités existantes conservées
-
-- authentification Django
-- projets privés avec collaborateurs
-- catégories, comportements et modificateurs
-- comportements `point` et `state`
-- événements `POINT`, `START`, `STOP`
-- modificateurs activables au clavier
-- édition/suppression des catégories, modificateurs, comportements, vidéos et sessions
-- sessions multi-vidéo synchronisées
-- export Excel consolidé au niveau projet
-- import/export d’éthogrammes au format JSON
-- interface admin
+PyBehaviorLog is a Django 6.0.3 behavioral observation application inspired by CowLog/BORIS workflows.
 
 ## Stack
 
+- Python 3.13+
 - Django 6.0.3
-- SQLite par défaut
-- openpyxl pour les exports Excel
-- stockage local des médias
+- openpyxl 3.1.5
+- SQLite by default
 
-## Compatibilité Python
+## Main features included in this archive
 
-Prévois Python 3.12+ pour rester aligné avec Django 6.0.x.
+- projects, collaborators, videos, sessions
+- point/state behaviors with keyboard bindings
+- modifiers
+- synchronized videos
+- event logging and annotations
+- CSV / TSV / JSON / XLSX exports
+- basic V6 model groundwork for:
+  - subjects
+  - independent variables
+  - live sessions
+  - frame index support
 
-## Installation
+## Quick start
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate   # Linux/macOS
-# ou
-.venv\Scripts\activate   # Windows PowerShell
-
-python -m pip install --upgrade pip
+python3.13 -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
 python manage.py migrate
 python manage.py createsuperuser
 python manage.py runserver
 ```
 
-## Workflow recommandé
+## Development setup
 
-1. Créer un compte ou se connecter.
-2. Créer un projet.
-3. Ajouter les catégories, comportements et modificateurs.
-4. Ajouter une ou plusieurs vidéos.
-5. Créer une session.
-6. Ouvrir le lecteur V5.
-7. Coder au clavier ou à la souris.
-8. Ajouter des annotations rapides avec `E`.
-9. Vérifier l’intégrité des états et les intervalles.
-10. Exporter en CSV, TSV, JSON, BORIS-like JSON ou XLSX.
-
-## Raccourcis du lecteur
-
-- `touche comportement` : création d’événement
-- `Alt + touche comportement` : forcer `START`
-- `Shift + touche comportement` : forcer `STOP`
-- `touche modificateur` : active/désactive un modificateur
-- `Backspace` : vide les modificateurs actifs
-- `Space` : lecture / pause
-- `E` : ajouter une annotation à la position courante
-
-## Formats d’export/import
-
-### Session
-
-- CSV
-- TSV
-- JSON V5
-- JSON BORIS-like simplifié
-- XLSX enrichi
-
-### Projet
-
-- XLSX consolidé
-- éthogramme JSON
-
-## Portée BORIS
-
-Cette V5 reprend **plusieurs fonctions majeures inspirées de BORIS** : journalisation vidéo, codage clavier, états/points, analyse d’intervalles, time budget simple, vérification d’intégrité, export tabulaire et export JSON structuré.
-
-En revanche, ce projet **n’est pas un clone exhaustif de BORIS** : les observations live complètes, la gestion avancée des sujets, les plugins, les spectrogrammes, tous les formats historiques d’export et l’ensemble des outils analytiques BORIS ne sont pas reproduits ici.
-
-## Structure
-
-```text
-PyCowLog/
-├── config/
-├── tracker/
-├── templates/
-├── static/
-├── manage.py
-└── requirements.txt
+```bash
+pip install -r requirements-dev.txt
+pre-commit install
 ```
 
-## Modèle de données
+Run checks locally:
 
-- `Project`
-- `BehaviorCategory`
-- `Behavior`
-- `Modifier`
-- `VideoAsset`
-- `ObservationSession`
-- `SessionVideoLink`
-- `ObservationEvent`
-- `SessionAnnotation`
+```bash
+pre-commit run --all-files
+coverage run manage.py test
+coverage report --fail-under=80
+```
+
+## GitHub Actions
+
+The repository includes `.github/workflows/ci.yml` to run:
+
+- pre-commit
+- Django unit tests
+- coverage gate at 80%
+
+on every push and pull request with Python 3.13.
+
+## Notes
+
+I prepared this archive for Python 3.13 minimum. That should not negatively impact Django 6.0.3 usage because Django 6.0 supports Python 3.13. Keep 3.13 as the default runtime for local development and CI. citeturn931282search0turn931282search1
+
+## License
+
+This archive is marked for **AGPL-3.0** distribution.

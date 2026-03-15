@@ -1,12 +1,13 @@
+
 {% extends 'base.html' %}
 
-{% block title %}Mes projets{% endblock %}
+{% block title %}Mes projets PyBehaviorLog{% endblock %}
 
 {% block content %}
 <header class="page-header">
     <div>
-        <h1>Mes projets CowLog</h1>
-        <p>Version 4 : multi-vidéo synchronisée, gestion complète de l’éthogramme et exports analytiques projet.</p>
+        <h1>Mes projets PyBehaviorLog</h1>
+        <p>V6 : base PyBehaviorLog renommée, prête pour Python 3.13, tests unitaires, pre-commit et CI GitHub Actions.</p>
     </div>
     <a href="{% url 'tracker:project_create' %}" role="button">Nouveau projet</a>
 </header>
@@ -40,7 +41,7 @@
     {% empty %}
         <article>
             <h3>Aucun projet</h3>
-            <p>Crée ton premier projet pour commencer à coder des comportements à partir de vidéos.</p>
+            <p>Crée ton premier projet pour commencer à coder des comportements à partir de vidéos ou en live.</p>
         </article>
     {% endfor %}
 </section>

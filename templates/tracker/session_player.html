@@ -6,7 +6,7 @@
 <header class="page-header">
     <div>
         <h1>{{ session.title }}</h1>
-        <p>Projet : <a href="{{ session.project.get_absolute_url }}">{{ session.project.name }}</a> · Vidéo principale : {{ session.video.title }}</p>
+        <p>Projet : <a href="{{ session.project.get_absolute_url }}">{{ session.project.name }}</a> · Source principale : {{ session.primary_label }}</p>
         <p class="muted">Observateur : {{ session.observer.username|default:'non défini' }} · Vitesse : {{ session.playback_rate }}x · Pas image : {{ session.frame_step_seconds }} s · {{ synced_videos|length }} vidéo{{ synced_videos|length|pluralize }} synchronisée{{ synced_videos|length|pluralize }}</p>
     </div>
     <div class="action-stack compact">
@@ -24,9 +24,18 @@
     <section>
         <article>
             <h3>Lecteur principal</h3>
+            {% if session.video %}
             <video id="main-video" controls preload="metadata" class="session-video" data-base-rate="{{ session.playback_rate|floatformat:2 }}">
                 <source src="{{ session.video.file.url }}">
             </video>
+            {% else %}
+            <div id="main-video" class="session-video live-panel" data-base-rate="{{ session.playback_rate|floatformat:2 }}">
+                <div class="live-panel-inner">
+                    <strong>Session live</strong>
+                    <p>Aucun média principal n'est associé à cette session. Le chronomètre et la saisie d'événements restent disponibles.</p>
+                </div>
+            </div>
+            {% endif %}
             <div class="video-controls-inline">
                 <button type="button" id="play-pause-btn" class="secondary">Lecture / pause</button>
                 <button type="button" id="back-2-btn" class="secondary">-2 s</button>

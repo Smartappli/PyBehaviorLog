@@ -1,9 +1,11 @@
+
 from __future__ import annotations
 
 from django.conf import settings
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.urls import reverse
+from django.utils import timezone
 
 
 class Project(models.Model):
@@ -72,6 +74,64 @@ class Modifier(models.Model):
         super().save(*args, **kwargs)
 
 
+class Subject(models.Model):
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='subjects')
+    name = models.CharField(max_length=120)
+    description = models.CharField(max_length=255, blank=True)
+    key_binding = models.CharField(max_length=1, blank=True)
+    color = models.CharField(max_length=7, default='#9333ea')
+    sort_order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ['sort_order', 'name']
+        constraints = [
+            models.UniqueConstraint(fields=['project', 'name'], name='unique_subject_name_per_project'),
+        ]
+
+    def __str__(self) -> str:
+        return self.name
+
+    def save(self, *args, **kwargs):
+        self.key_binding = (self.key_binding or '').upper()
+        super().save(*args, **kwargs)
+
+
+class IndependentVariableDefinition(models.Model):
+    TYPE_TEXT = 'text'
+    TYPE_NUMERIC = 'numeric'
+    TYPE_SET = 'set'
+    TYPE_TIMESTAMP = 'timestamp'
+    TYPE_CHOICES = [
+        (TYPE_TEXT, 'Texte'),
+        (TYPE_NUMERIC, 'Numérique'),
+        (TYPE_SET, 'Valeur dans une liste'),
+        (TYPE_TIMESTAMP, 'Horodatage'),
+    ]
+
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='variable_definitions')
+    label = models.CharField(max_length=120)
+    description = models.CharField(max_length=255, blank=True)
+    value_type = models.CharField(max_length=20, choices=TYPE_CHOICES, default=TYPE_TEXT)
+    set_values = models.TextField(blank=True, help_text='Valeurs séparées par des virgules')
+    default_value = models.CharField(max_length=255, blank=True)
+    sort_order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ['sort_order', 'label']
+        constraints = [
+            models.UniqueConstraint(fields=['project', 'label'], name='unique_variable_label_per_project'),
+        ]
+
+    def __str__(self) -> str:
+        return self.label
+
+    @property
+    def value_options(self) -> list[str]:
+        if self.value_type != self.TYPE_SET:
+            return []
+        return [item.strip() for item in self.set_values.split(',') if item.strip()]
+
+
 class Behavior(models.Model):
     MODE_POINT = 'point'
     MODE_STATE = 'state'
@@ -128,9 +188,24 @@ class VideoAsset(models.Model):
 
 
 class ObservationSession(models.Model):
+    KIND_MEDIA = 'media'
+    KIND_LIVE = 'live'
+    KIND_CHOICES = [
+        (KIND_MEDIA, 'Média'),
+        (KIND_LIVE, 'Live'),
+    ]
+
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='sessions')
-    video = models.ForeignKey(VideoAsset, on_delete=models.CASCADE, related_name='sessions')
+    video = models.ForeignKey(
+        VideoAsset,
+        on_delete=models.SET_NULL,
+        related_name='sessions',
+        null=True,
+        blank=True,
+    )
+    session_kind = models.CharField(max_length=10, choices=KIND_CHOICES, default=KIND_MEDIA)
     title = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
     observer = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -151,6 +226,7 @@ class ObservationSession(models.Model):
         default=0.0400,
         validators=[MinValueValidator(0.0010), MaxValueValidator(1.0000)],
     )
+    recorded_at = models.DateTimeField(default=timezone.now)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -166,8 +242,29 @@ class ObservationSession(models.Model):
     def all_videos_ordered(self):
         links = list(self.video_links.select_related('video').order_by('sort_order', 'pk'))
         if links:
-            return [link.video for link in links]
-        return [self.video]
+            return [link.video for link in links if link.video_id]
+        return [self.video] if self.video_id else []
+
+    @property
+    def primary_label(self) -> str:
+        if self.session_kind == self.KIND_LIVE:
+            return 'LIVE'
+        return self.video.title if self.video_id else 'Sans média'
+
+
+class ObservationVariableValue(models.Model):
+    session = models.ForeignKey(ObservationSession, on_delete=models.CASCADE, related_name='variable_values')
+    definition = models.ForeignKey(IndependentVariableDefinition, on_delete=models.CASCADE, related_name='values')
+    value = models.CharField(max_length=255, blank=True)
+
+    class Meta:
+        ordering = ['definition__sort_order', 'definition__label']
+        constraints = [
+            models.UniqueConstraint(fields=['session', 'definition'], name='unique_variable_value_per_session'),
+        ]
+
+    def __str__(self) -> str:
+        return f'{self.session.title} - {self.definition.label}: {self.value}'
 
 
 class SessionVideoLink(models.Model):
@@ -196,9 +293,17 @@ class ObservationEvent(models.Model):
     ]
 
     session = models.ForeignKey(ObservationSession, on_delete=models.CASCADE, related_name='events')
+    subject = models.ForeignKey(
+        Subject,
+        on_delete=models.SET_NULL,
+        related_name='events',
+        null=True,
+        blank=True,
+    )
     behavior = models.ForeignKey(Behavior, on_delete=models.CASCADE, related_name='events')
     event_kind = models.CharField(max_length=10, choices=KIND_CHOICES)
     timestamp_seconds = models.DecimalField(max_digits=10, decimal_places=3)
+    frame_index = models.PositiveIntegerField(null=True, blank=True)
     comment = models.CharField(max_length=255, blank=True)
     modifiers = models.ManyToManyField(Modifier, blank=True, related_name='events')
     created_at = models.DateTimeField(auto_now_add=True)

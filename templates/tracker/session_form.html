@@ -1,11 +1,11 @@
 {% extends 'base.html' %}
 
-{% block title %}{% if mode == 'update' %}Modifier la session{% else %}Nouvelle session{% endif %}{% endblock %}
+{% block title %}{% if mode == 'update' %}Modifier la session PyBehaviorLog{% else %}Nouvelle session{% endif %}{% endblock %}
 
 {% block content %}
 <article class="auth-card wide-card">
     <header>
-        <h1>{% if mode == 'update' %}Modifier la session{% else %}Créer une session{% endif %}</h1>
+        <h1>{% if mode == 'update' %}Modifier la session PyBehaviorLog{% else %}Créer une session PyBehaviorLog{% endif %}</h1>
         <p>Projet : <a href="{{ project.get_absolute_url }}">{{ project.name }}</a></p>
     </header>
 

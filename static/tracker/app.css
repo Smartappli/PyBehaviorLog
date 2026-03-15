@@ -399,3 +399,4 @@ table td .behavior-badge {
         grid-template-columns: 1fr;
     }
 }
+\n.live-panel{display:flex;align-items:center;justify-content:center;min-height:240px;border:1px dashed #94a3b8;border-radius:12px;background:#f8fafc}.live-panel-inner{padding:1rem;text-align:center}\n

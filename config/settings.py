@@ -2,7 +2,7 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = 'django-insecure-cowlog-v4-change-me'
+SECRET_KEY = 'django-insecure-pybehaviorlog-v6-change-me'
 DEBUG = True
 ALLOWED_HOSTS = ['*']
 

@@ -492,7 +492,7 @@ def build_project_statistics(project: Project) -> dict:
             'session_id': session.id,
             'title': session.title,
             'observer': session.observer.username if session.observer else '',
-            'video': session.video.title,
+            'video': session.primary_label,
             'synced_video_count': session.video_links.count(),
             'event_count': stats['session_event_count'],
             'annotation_count': stats['annotation_count'],
@@ -648,10 +648,15 @@ def resolve_event_kind(session: ObservationSession, behavior: Behavior, explicit
 
 
 def _sync_session_videos(session: ObservationSession, additional_videos):
-    video_ids = [session.video_id]
+    video_ids = []
+    if session.video_id:
+        video_ids.append(session.video_id)
     for video in additional_videos:
         if video.pk != session.video_id and video.pk not in video_ids:
             video_ids.append(video.pk)
+    if not video_ids:
+        SessionVideoLink.objects.filter(session=session).delete()
+        return
     SessionVideoLink.objects.filter(session=session).exclude(video_id__in=video_ids).delete()
     for index, video_id in enumerate(video_ids):
         SessionVideoLink.objects.update_or_create(
@@ -667,7 +672,7 @@ def _event_rows(session: ObservationSession):
         yield [
             session.project.name,
             session.title,
-            session.video.title,
+            session.primary_label,
             linked_titles,
             session.observer.username if session.observer else '',
             event.behavior.category.name if event.behavior.category else '',
@@ -716,13 +721,13 @@ def _autosize_workbook(workbook: Workbook):
 
 def build_boris_like_payload(session: ObservationSession) -> dict:
     return {
-        'schema': 'boris-observation-v1',
+        'schema': 'boris-observation-v2',
         'project_name': session.project.name,
         'ethogram': build_ethogram_payload(session.project),
         'observations': [
             {
                 'title': session.title,
-                'primary_video': session.video.title,
+                'primary_video': session.primary_label,
                 'synced_videos': [video.title for video in session.all_videos_ordered],
                 'observer': session.observer.username if session.observer else None,
                 'events': [
@@ -753,10 +758,10 @@ def import_session_payload(session: ObservationSession, payload: dict, clear_exi
     event_items = []
     annotation_items = []
 
-    if payload.get('schema') == 'cowlog-django-v5-session':
+    if payload.get('schema') in {'cowlog-django-v5-session', 'pybehaviorlog-v6-session'}:
         event_items = payload.get('events', [])
         annotation_items = payload.get('annotations', [])
-    elif payload.get('schema') == 'boris-observation-v1' or payload.get('observations'):
+    elif payload.get('schema') in {'boris-observation-v1', 'boris-observation-v2'} or payload.get('observations'):
         observations = payload.get('observations', [])
         if observations:
             event_items = observations[0].get('events', [])
@@ -1066,14 +1071,12 @@ def video_delete(request, pk: int):
 def session_create(request, pk: int):
     project = get_object_or_404(accessible_projects_qs(request.user).prefetch_related('videos'), pk=pk)
     form = ObservationSessionForm(request.POST or None, project=project)
-    if not project.videos.exists():
-        messages.warning(request, "Ajoute d'abord une vidéo au projet.")
-        return redirect(project)
     if request.method == 'POST' and form.is_valid():
         session = form.save(commit=False)
         session.project = project
         session.observer = request.user
         session.save()
+        form.save_variable_values(session)
         _sync_session_videos(session, form.cleaned_data['additional_videos'])
         messages.success(request, 'Session créée.')
         return redirect(session)
@@ -1085,7 +1088,8 @@ def session_update(request, pk: int):
     session = get_accessible_session(request.user, pk)
     form = ObservationSessionForm(request.POST or None, instance=session, project=session.project)
     if request.method == 'POST' and form.is_valid():
-        form.save()
+        session = form.save()
+        form.save_variable_values(session)
         _sync_session_videos(session, form.cleaned_data['additional_videos'])
         messages.success(request, 'Session mise à jour.')
         return redirect(session)
@@ -1329,10 +1333,10 @@ def session_export_tsv(request, pk: int):
 def session_export_json(request, pk: int):
     session = get_accessible_session(request.user, pk)
     payload = {
-        'schema': 'cowlog-django-v5-session',
+        'schema': 'pybehaviorlog-v6-session',
         'project': session.project.name,
         'session': session.title,
-        'video': session.video.title,
+        'video': session.primary_label,
         'synced_videos': [video.title for video in session.all_videos_ordered],
         'observer': session.observer.username if session.observer else None,
         'statistics': build_statistics(session),
