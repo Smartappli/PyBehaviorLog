@@ -145,6 +145,12 @@ class ObservationSession(models.Model):
         default=1.00,
         validators=[MinValueValidator(0.25), MaxValueValidator(4.00)],
     )
+    frame_step_seconds = models.DecimalField(
+        max_digits=7,
+        decimal_places=4,
+        default=0.0400,
+        validators=[MinValueValidator(0.0010), MaxValueValidator(1.0000)],
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -206,3 +212,25 @@ class ObservationEvent(models.Model):
     @property
     def modifiers_display(self) -> str:
         return ', '.join(self.modifiers.order_by('sort_order', 'name').values_list('name', flat=True))
+
+
+class SessionAnnotation(models.Model):
+    session = models.ForeignKey(ObservationSession, on_delete=models.CASCADE, related_name='annotations')
+    timestamp_seconds = models.DecimalField(max_digits=10, decimal_places=3)
+    title = models.CharField(max_length=120)
+    note = models.TextField(blank=True)
+    color = models.CharField(max_length=7, default='#f59e0b')
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='cowlog_annotations',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['timestamp_seconds', 'pk']
+
+    def __str__(self) -> str:
+        return f'{self.session.title} - {self.title} @ {self.timestamp_seconds}s'

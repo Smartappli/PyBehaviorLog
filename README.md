@@ -1,8 +1,21 @@
-# PyCowLog Django V4 — Django 6.0.3
+# CowLog Django V5 — Django 6.0.3
 
-Application Django inspirée de CowLog, prête à exécuter, avec une interface multi-utilisateur pour le codage comportemental à partir de vidéos.
+Application Django inspirée de CowLog avec une montée en gamme vers des usages proches de BORIS pour le codage comportemental vidéo.
 
-## Nouveautés de la V4
+## Ce que la V5 ajoute
+
+- contrôle image par image avec pas configurable par session
+- annotations horodatées indépendantes des événements
+- import d’observations JSON V5
+- export TSV tabulaire
+- export JSON enrichi avec statistiques, intégrité et pistes
+- export JSON **BORIS-like** simplifié
+- contrôle d’intégrité des états `START/STOP`
+- calcul d’intervalles entre événements par comportement
+- timeline globale par buckets + timeline par pistes comportementales
+- export Excel enrichi avec feuilles `Events`, `Annotations`, `Summary`, `Intervals`, `Integrity`, `Timeline`
+
+## Fonctionnalités existantes conservées
 
 - authentification Django
 - projets privés avec collaborateurs
@@ -10,11 +23,8 @@ Application Django inspirée de CowLog, prête à exécuter, avec une interface 
 - comportements `point` et `state`
 - événements `POINT`, `START`, `STOP`
 - modificateurs activables au clavier
-- édition et suppression des catégories, modificateurs, comportements, vidéos et sessions depuis l’interface
+- édition/suppression des catégories, modificateurs, comportements, vidéos et sessions
 - sessions multi-vidéo synchronisées
-- timeline dynamique par buckets d’une minute
-- statistiques automatiques par comportement avec pourcentage d’occupation
-- export CSV, JSON et Excel (`.xlsx`) par session
 - export Excel consolidé au niveau projet
 - import/export d’éthogrammes au format JSON
 - interface admin
@@ -45,96 +55,54 @@ python manage.py createsuperuser
 python manage.py runserver
 ```
 
-## Accès
-
-- Application : http://127.0.0.1:8000/
-- Admin : http://127.0.0.1:8000/admin/
-- Connexion : http://127.0.0.1:8000/accounts/login/
-
 ## Workflow recommandé
 
 1. Créer un compte ou se connecter.
 2. Créer un projet.
-3. Ajouter les catégories, comportements et modificateurs de l’éthogramme.
+3. Ajouter les catégories, comportements et modificateurs.
 4. Ajouter une ou plusieurs vidéos.
-5. Créer une session en choisissant une vidéo principale et éventuellement des vidéos secondaires synchronisées.
-6. Ouvrir le lecteur.
-7. Utiliser les raccourcis clavier pour enregistrer les événements.
-8. Modifier ou supprimer les événements si nécessaire.
-9. Consulter les statistiques et la timeline.
-10. Exporter les données en CSV, JSON ou Excel.
-11. Exporter le projet complet en Excel ou l’éthogramme en JSON.
+5. Créer une session.
+6. Ouvrir le lecteur V5.
+7. Coder au clavier ou à la souris.
+8. Ajouter des annotations rapides avec `E`.
+9. Vérifier l’intégrité des états et les intervalles.
+10. Exporter en CSV, TSV, JSON, BORIS-like JSON ou XLSX.
 
-## Types d'événements
+## Raccourcis du lecteur
 
-### `point`
-
-Événement ponctuel, par exemple :
-- toux
-- coup de tête
-- vocalisation
-
-Une pression sur la touche enregistre directement un événement `POINT`.
-
-### `state`
-
-Événement avec durée, par exemple :
-- alimentation
-- couchage
-- rumination
-
-Une pression sur la touche alterne automatiquement entre `START` et `STOP`.
-
-## Raccourcis disponibles dans le lecteur
-
-- `touche comportement` : toggle automatique
+- `touche comportement` : création d’événement
 - `Alt + touche comportement` : forcer `START`
 - `Shift + touche comportement` : forcer `STOP`
 - `touche modificateur` : active/désactive un modificateur
 - `Backspace` : vide les modificateurs actifs
 - `Space` : lecture / pause
-- clic sur un temps d’événement : repositionne la vidéo
-- clic sur une barre de timeline : saute au début du bucket
+- `E` : ajouter une annotation à la position courante
 
-## Multi-vidéo synchronisée
+## Formats d’export/import
 
-La V4 garde une vidéo principale et permet d’ajouter des vidéos secondaires à la session.
-Toutes les vidéos sont synchronisées avec le lecteur principal :
+### Session
 
-- lecture / pause
-- seek temporel
-- vitesse de lecture
+- CSV
+- TSV
+- JSON V5
+- JSON BORIS-like simplifié
+- XLSX enrichi
 
-## Import / export d’éthogrammes
+### Projet
 
-La V4 exporte la structure d’un projet au format JSON :
+- XLSX consolidé
+- éthogramme JSON
 
-- catégories
-- modificateurs
-- comportements
-- couleurs, ordres d’affichage, modes et raccourcis clavier
+## Portée BORIS
 
-L’import supporte deux modes :
+Cette V5 reprend **plusieurs fonctions majeures inspirées de BORIS** : journalisation vidéo, codage clavier, états/points, analyse d’intervalles, time budget simple, vérification d’intégrité, export tabulaire et export JSON structuré.
 
-- ajout / mise à jour
-- remplacement complet, uniquement si le projet ne contient pas encore de sessions ni d’événements
-
-## Statistiques calculées
-
-Dans le lecteur, dans les exports de session et dans l’export projet, la V4 calcule :
-
-- nombre total d’événements
-- nombre d’événements ponctuels
-- nombre d’états ouverts
-- nombre de segments par comportement
-- durée totale par comportement de type `state`
-- pourcentage d’occupation par comportement de type `state`
-- résumé agrégé par session et par comportement au niveau du projet
+En revanche, ce projet **n’est pas un clone exhaustif de BORIS** : les observations live complètes, la gestion avancée des sujets, les plugins, les spectrogrammes, tous les formats historiques d’export et l’ensemble des outils analytiques BORIS ne sont pas reproduits ici.
 
 ## Structure
 
 ```text
-cowlog_django_v4_6_0_3/
+cowlog_django_v5_6_0_3/
 ├── config/
 ├── tracker/
 ├── templates/
@@ -153,10 +121,4 @@ cowlog_django_v4_6_0_3/
 - `ObservationSession`
 - `SessionVideoLink`
 - `ObservationEvent`
-
-## Notes
-
-- Les médias sont stockés localement dans `media/`.
-- Les collaborateurs peuvent créer, modifier et supprimer leurs sessions et coder des événements.
-- Le propriétaire garde la main sur la configuration du projet, les vidéos et l’import d’éthogrammes.
-- La timeline et les statistiques sont recalculées automatiquement à chaque rafraîchissement de la session.
+- `SessionAnnotation`

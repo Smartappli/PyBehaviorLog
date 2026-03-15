@@ -7,12 +7,15 @@
     <div>
         <h1>{{ session.title }}</h1>
         <p>Projet : <a href="{{ session.project.get_absolute_url }}">{{ session.project.name }}</a> · Vidéo principale : {{ session.video.title }}</p>
-        <p class="muted">Observateur : {{ session.observer.username|default:'non défini' }} · Vitesse : {{ session.playback_rate }}x · {{ synced_videos|length }} vidéo{{ synced_videos|length|pluralize }} synchronisée{{ synced_videos|length|pluralize }}</p>
+        <p class="muted">Observateur : {{ session.observer.username|default:'non défini' }} · Vitesse : {{ session.playback_rate }}x · Pas image : {{ session.frame_step_seconds }} s · {{ synced_videos|length }} vidéo{{ synced_videos|length|pluralize }} synchronisée{{ synced_videos|length|pluralize }}</p>
     </div>
     <div class="action-stack compact">
         <a href="{% url 'tracker:session_update' session.pk %}" role="button" class="secondary">Paramètres</a>
+        <a href="{% url 'tracker:session_import_json' session.pk %}" role="button" class="secondary">Importer JSON</a>
         <a href="{% url 'tracker:session_export_csv' session.pk %}" role="button" class="secondary">CSV</a>
+        <a href="{% url 'tracker:session_export_tsv' session.pk %}" role="button" class="secondary">TSV</a>
         <a href="{% url 'tracker:session_export_json' session.pk %}" role="button" class="secondary">JSON</a>
+        <a href="{% url 'tracker:session_export_boris_json' session.pk %}" role="button" class="secondary">BORIS-like</a>
         <a href="{% url 'tracker:session_export_xlsx' session.pk %}" role="button">XLSX</a>
     </div>
 </header>
@@ -28,6 +31,8 @@
                 <button type="button" id="play-pause-btn" class="secondary">Lecture / pause</button>
                 <button type="button" id="back-2-btn" class="secondary">-2 s</button>
                 <button type="button" id="forward-2-btn" class="secondary">+2 s</button>
+                <button type="button" id="prev-frame-btn" class="secondary">-1 image</button>
+                <button type="button" id="next-frame-btn" class="secondary">+1 image</button>
                 <button type="button" id="clear-modifiers-btn" class="secondary">Vider modificateurs</button>
                 <span id="video-time" class="pill large-pill">0.000 s</span>
             </div>
@@ -56,17 +61,10 @@
 
         <article>
             <h3>Comportements</h3>
-            <div class="keyboard-hint">Touche du comportement = ajout auto · Alt = START forcé · Shift = STOP forcé</div>
+            <div class="keyboard-hint">Touche du comportement = ajout auto · Alt = START forcé · Shift = STOP forcé · E = note rapide</div>
             <div class="behavior-list">
                 {% for behavior in behaviors %}
-                    <button
-                        type="button"
-                        class="behavior-button"
-                        data-behavior-id="{{ behavior.id }}"
-                        data-key="{{ behavior.key_binding|lower }}"
-                        data-mode="{{ behavior.mode }}"
-                        data-color="{{ behavior.color }}"
-                    >
+                    <button type="button" class="behavior-button" data-behavior-id="{{ behavior.id }}" data-key="{{ behavior.key_binding|lower }}" data-mode="{{ behavior.mode }}" data-color="{{ behavior.color }}">
                         <span class="behavior-badge" style="background-color: {{ behavior.color }};"></span>
                         <span>{{ behavior.name }}</span>
                         <span class="pill">{{ behavior.mode }}</span>
@@ -83,12 +81,7 @@
             <div class="keyboard-hint">Touche du modificateur = active/désactive · Backspace = vider</div>
             <div class="modifier-list">
                 {% for modifier in modifiers %}
-                    <button
-                        type="button"
-                        class="modifier-button"
-                        data-modifier-id="{{ modifier.id }}"
-                        data-key="{{ modifier.key_binding|lower }}"
-                    >
+                    <button type="button" class="modifier-button" data-modifier-id="{{ modifier.id }}" data-key="{{ modifier.key_binding|lower }}">
                         <kbd>{{ modifier.key_binding }}</kbd>
                         <span>{{ modifier.name }}</span>
                     </button>
@@ -102,10 +95,18 @@
 
         <article>
             <div class="section-headline">
-                <h3>Timeline</h3>
+                <h3>Timeline globale</h3>
                 <span class="muted">Buckets d’1 minute</span>
             </div>
             <div id="timeline-grid" class="timeline-grid"></div>
+        </article>
+
+        <article>
+            <div class="section-headline">
+                <h3>Timeline par piste</h3>
+                <span class="muted">Vue type BORIS simplifiée</span>
+            </div>
+            <div id="track-container" class="track-container"></div>
         </article>
     </section>
 
@@ -117,6 +118,7 @@
             </div>
             <div class="stats-row stacked" id="summary-strip">
                 <span>{{ stats.session_event_count }} événements</span>
+                <span>{{ stats.annotation_count }} annotations</span>
                 <span>{{ stats.point_event_count }} points</span>
                 <span>{{ stats.open_state_count }} états ouverts</span>
                 <span>{{ stats.observed_span_seconds }} s observées</span>
@@ -141,10 +143,49 @@
 
         <article>
             <div class="section-headline">
+                <h3>Intégrité et intervalles</h3>
+                <button type="button" id="refresh-events-btn" class="secondary">Rafraîchir</button>
+            </div>
+            <div id="integrity-output" class="integrity-box"></div>
+            <div class="table-wrapper compact-table-wrapper">
+                <table id="intervals-table">
+                    <thead>
+                        <tr>
+                            <th>Comportement</th>
+                            <th>Nb</th>
+                            <th>Moyenne</th>
+                            <th>Min</th>
+                            <th>Max</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </article>
+
+        <article>
+            <div class="section-headline">
+                <h3>Annotations</h3>
+                <button type="button" id="add-annotation-btn" class="secondary">Ajouter à la position courante</button>
+            </div>
+            <div class="table-wrapper compact-table-wrapper">
+                <table id="annotations-table">
+                    <thead>
+                        <tr>
+                            <th>Temps</th>
+                            <th>Titre</th>
+                            <th>Note</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </article>
+
+        <article>
+            <div class="section-headline">
                 <h3>Événements</h3>
-                <div class="mini-actions">
-                    <button type="button" id="refresh-events-btn" class="secondary">Rafraîchir</button>
-                </div>
             </div>
             <div class="table-wrapper compact-table-wrapper">
                 <table id="events-table">
@@ -167,25 +208,37 @@
 
 {{ state_status|json_script:'state-status-data' }}
 {{ timeline_buckets|json_script:'timeline-data' }}
+{{ track_rows|json_script:'track-data' }}
+{{ integrity_report|json_script:'integrity-data' }}
+{{ interval_rows|json_script:'interval-data' }}
 
 <script>
 const sessionId = {{ session.id }};
+const frameStep = Number('{{ session.frame_step_seconds }}');
 const mainVideo = document.getElementById('main-video');
 const syncVideos = [...document.querySelectorAll('.sync-video')];
 const behaviorButtons = [...document.querySelectorAll('.behavior-button')];
 const modifierButtons = [...document.querySelectorAll('.modifier-button')];
 const eventsTableBody = document.querySelector('#events-table tbody');
+const annotationsTableBody = document.querySelector('#annotations-table tbody');
 const statsTableBody = document.querySelector('#stats-table tbody');
+const intervalsTableBody = document.querySelector('#intervals-table tbody');
 const summaryStrip = document.getElementById('summary-strip');
 const activeModifiersOutput = document.getElementById('active-modifiers-output');
 const activeStatesContainer = document.getElementById('active-states-container');
 const timelineGrid = document.getElementById('timeline-grid');
+const trackContainer = document.getElementById('track-container');
+const integrityOutput = document.getElementById('integrity-output');
 const videoTime = document.getElementById('video-time');
 const playPauseBtn = document.getElementById('play-pause-btn');
 const back2Btn = document.getElementById('back-2-btn');
 const forward2Btn = document.getElementById('forward-2-btn');
+const prevFrameBtn = document.getElementById('prev-frame-btn');
+const nextFrameBtn = document.getElementById('next-frame-btn');
 const clearModifiersBtn = document.getElementById('clear-modifiers-btn');
 const refreshEventsBtn = document.getElementById('refresh-events-btn');
+const addAnnotationBtn = document.getElementById('add-annotation-btn');
+
 function getCookie(name) {
     return document.cookie.split('; ').find((row) => row.startsWith(`${name}=`))?.split('=')[1] || '';
 }
@@ -193,12 +246,21 @@ const csrfToken = getCookie('csrftoken');
 
 let stateStatus = JSON.parse(document.getElementById('state-status-data').textContent);
 let timelineBuckets = JSON.parse(document.getElementById('timeline-data').textContent);
+let trackRows = JSON.parse(document.getElementById('track-data').textContent);
+let integrityReport = JSON.parse(document.getElementById('integrity-data').textContent);
+let intervalRows = JSON.parse(document.getElementById('interval-data').textContent);
 let activeModifierIds = new Set();
 let syncing = false;
 
 function formatSeconds(value) {
     const numeric = Number(value || 0);
     return `${numeric.toFixed(3)} s`;
+}
+
+function seekAll(seconds) {
+    const t = Math.max(0, Number(seconds || 0));
+    mainVideo.currentTime = t;
+    syncVideos.forEach((video) => { video.currentTime = t; });
 }
 
 function renderModifierStates() {
@@ -221,128 +283,131 @@ function renderActiveStates() {
         return;
     }
     activeStatesContainer.innerHTML = activeButtons.map((button) => `
-        <span class="state-pill" style="border-color:${button.dataset.color};">
-            <span class="behavior-badge" style="background-color:${button.dataset.color};"></span>
+        <span class="state-pill" style="border-color: ${button.dataset.color};">
+            <span class="behavior-badge" style="background-color: ${button.dataset.color};"></span>
             ${button.querySelector('span:nth-child(2)').textContent}
-        </span>
-    `).join('');
+        </span>`).join('');
 }
 
-function renderStats(stats) {
+function renderStats(rows, summary) {
     summaryStrip.innerHTML = `
-        <span>${stats.session_event_count} événements</span>
-        <span>${stats.point_event_count} points</span>
-        <span>${stats.open_state_count} états ouverts</span>
-        <span>${Number(stats.observed_span_seconds || 0).toFixed(3)} s observées</span>
-    `;
-
-    statsTableBody.innerHTML = stats.rows.map((row) => `
+        <span>${summary.session_event_count} événements</span>
+        <span>${summary.annotation_count} annotations</span>
+        <span>${summary.point_event_count} points</span>
+        <span>${summary.open_state_count} états ouverts</span>
+        <span>${formatSeconds(summary.observed_span_seconds)} observées</span>`;
+    statsTableBody.innerHTML = rows.map((row) => `
         <tr>
-            <td>
-                <span class="behavior-badge" style="background-color:${row.color};"></span>
-                ${row.name}
-            </td>
+            <td><span class="behavior-badge" style="background-color:${row.color};"></span>${row.name}</td>
             <td>${row.mode}</td>
             <td>${row.point_count}</td>
             <td>${row.segment_count}</td>
-            <td>${Number(row.total_duration_seconds).toFixed(3)}</td>
-            <td>${Number(row.occupancy_percent || 0).toFixed(2)}%</td>
+            <td>${formatSeconds(row.total_duration_seconds)}</td>
+            <td>${row.occupancy_percent}</td>
             <td>${row.is_open ? 'oui' : 'non'}</td>
-        </tr>
-    `).join('');
+        </tr>`).join('');
 }
 
 function renderTimeline() {
-    if (!timelineBuckets.length) {
-        timelineGrid.innerHTML = '<p class="muted">Aucun point de timeline pour le moment.</p>';
+    timelineGrid.innerHTML = timelineBuckets.map((bucket) => {
+        const height = Math.max(8, bucket.event_count * 8);
+        const label = Object.entries(bucket.labels).map(([name, count]) => `${name} (${count})`).join(' · ');
+        return `
+            <button type="button" class="timeline-bucket jump-button" data-seconds="${bucket.start_seconds}" title="${label}">
+                <div class="timeline-bar" style="height:${height}px"></div>
+                <span class="timeline-count">${bucket.event_count}</span>
+                <span class="timeline-label">${Math.round(bucket.start_seconds)}s</span>
+            </button>`;
+    }).join('');
+}
+
+function renderTracks() {
+    const duration = Math.max(Number(mainVideo.duration || 0), ...trackRows.flatMap((row) => [row.total_duration_seconds, ...row.points, ...row.segments.map((seg) => seg.end_seconds)]), 1);
+    trackContainer.innerHTML = trackRows.map((row) => {
+        const segments = row.segments.map((segment) => {
+            const left = (segment.start_seconds / duration) * 100;
+            const width = Math.max(((segment.end_seconds - segment.start_seconds) / duration) * 100, 0.6);
+            return `<div class="track-segment ${segment.open ? 'open-segment' : ''}" style="left:${left}%; width:${width}%; background:${row.color};"></div>`;
+        }).join('');
+        const points = row.points.map((point) => {
+            const left = (point / duration) * 100;
+            return `<button type="button" class="track-point jump-button" data-seconds="${point}" style="left:${left}%; background:${row.color};" title="${row.name} @ ${point.toFixed(3)} s"></button>`;
+        }).join('');
+        return `
+            <div class="track-row">
+                <div class="track-label"><span class="behavior-badge" style="background:${row.color};"></span>${row.name}<span class="pill">${row.mode}</span></div>
+                <div class="track-lane">${segments}${points}</div>
+            </div>`;
+    }).join('');
+}
+
+function renderIntegrity() {
+    if (!integrityReport.issue_count) {
+        integrityOutput.innerHTML = '<p class="muted">Aucun problème détecté.</p>';
         return;
     }
-    const maxEvents = Math.max(...timelineBuckets.map((bucket) => bucket.event_count), 1);
-    timelineGrid.innerHTML = timelineBuckets.map((bucket) => {
-        const height = bucket.event_count ? Math.max(16, Math.round((bucket.event_count / maxEvents) * 100)) : 10;
-        const labels = Object.entries(bucket.labels || {}).map(([name, count]) => `${name} (${count})`).join(' · ');
-        return `
-            <button type="button" class="timeline-bucket" data-seconds="${bucket.start_seconds}" title="${labels || 'Aucun événement'}">
-                <span class="timeline-bar" style="height:${height}px"></span>
-                <span class="timeline-label">${bucket.start_seconds}s</span>
-                <span class="timeline-count">${bucket.event_count}</span>
-            </button>
-        `;
-    }).join('');
+    integrityOutput.innerHTML = `<ul class="integrity-list">${integrityReport.issues.map((item) => `<li>${item.message}</li>`).join('')}</ul>`;
+}
 
-    timelineGrid.querySelectorAll('.timeline-bucket').forEach((button) => {
-        button.addEventListener('click', () => {
-            mainVideo.currentTime = Number(button.dataset.seconds || 0);
-        });
-    });
+function renderIntervals() {
+    intervalsTableBody.innerHTML = intervalRows.map((row) => `
+        <tr>
+            <td>${row.name}</td>
+            <td>${row.interval_count}</td>
+            <td>${row.mean_interval_seconds ?? ''}</td>
+            <td>${row.min_interval_seconds ?? ''}</td>
+            <td>${row.max_interval_seconds ?? ''}</td>
+        </tr>`).join('');
 }
 
 function renderEvents(events) {
-    if (!events.length) {
-        eventsTableBody.innerHTML = '<tr><td colspan="6">Aucun événement enregistré.</td></tr>';
-        return;
-    }
     eventsTableBody.innerHTML = events.map((event) => `
         <tr>
-            <td><button type="button" class="linkish seek-btn" data-seconds="${event.timestamp_seconds}">${formatSeconds(event.timestamp_seconds)}</button></td>
+            <td><button type="button" class="linkish jump-button" data-seconds="${event.timestamp_seconds}">${formatSeconds(event.timestamp_seconds)}</button></td>
             <td><span class="behavior-badge" style="background-color:${event.color};"></span>${event.behavior}</td>
             <td>${event.event_kind}</td>
-            <td>${event.modifiers.map((modifier) => modifier.name).join(', ') || '—'}</td>
-            <td>${event.comment || '—'}</td>
-            <td>
-                <div class="mini-actions">
-                    <button type="button" class="outline edit-event-btn" data-event-id="${event.id}">Modifier</button>
-                    <button type="button" class="contrast delete-event-btn" data-event-id="${event.id}">Supprimer</button>
-                </div>
+            <td>${event.modifiers.map((modifier) => modifier.name).join(', ')}</td>
+            <td>${event.comment || ''}</td>
+            <td class="mini-actions">
+                <button type="button" class="linkish edit-event-btn" data-event='${JSON.stringify(event).replace(/'/g, '&apos;')}'>Éditer</button>
+                <button type="button" class="linkish delete-event-btn" data-event-id="${event.id}">Supprimer</button>
             </td>
-        </tr>
-    `).join('');
-
-    eventsTableBody.querySelectorAll('.seek-btn').forEach((button) => {
-        button.addEventListener('click', () => {
-            mainVideo.currentTime = Number(button.dataset.seconds || 0);
-        });
-    });
-    eventsTableBody.querySelectorAll('.edit-event-btn').forEach((button) => button.addEventListener('click', handleEditEvent));
-    eventsTableBody.querySelectorAll('.delete-event-btn').forEach((button) => button.addEventListener('click', handleDeleteEvent));
+        </tr>`).join('');
 }
 
-function syncSecondaryVideos(sourceVideo, action = 'time') {
-    if (syncing) return;
-    syncing = true;
-    for (const video of syncVideos) {
-        try {
-            if (action === 'play') {
-                video.playbackRate = sourceVideo.playbackRate;
-                video.play().catch(() => {});
-            } else if (action === 'pause') {
-                video.pause();
-            } else if (action === 'rate') {
-                video.playbackRate = sourceVideo.playbackRate;
-            }
-            if (Math.abs(video.currentTime - sourceVideo.currentTime) > 0.35 || action === 'time') {
-                video.currentTime = sourceVideo.currentTime;
-            }
-        } catch (error) {
-            console.debug(error);
-        }
-    }
-    syncing = false;
+function renderAnnotations(annotations) {
+    annotationsTableBody.innerHTML = annotations.map((annotation) => `
+        <tr>
+            <td><button type="button" class="linkish jump-button" data-seconds="${annotation.timestamp_seconds}">${formatSeconds(annotation.timestamp_seconds)}</button></td>
+            <td><span class="behavior-badge" style="background-color:${annotation.color};"></span>${annotation.title}</td>
+            <td>${annotation.note || ''}</td>
+            <td class="mini-actions">
+                <button type="button" class="linkish edit-annotation-btn" data-annotation='${JSON.stringify(annotation).replace(/'/g, '&apos;')}'>Éditer</button>
+                <button type="button" class="linkish delete-annotation-btn" data-annotation-id="${annotation.id}">Supprimer</button>
+            </td>
+        </tr>`).join('');
 }
 
-async function refreshSessionData() {
+async function fetchSessionState() {
     const duration = mainVideo.duration || mainVideo.currentTime || 0;
     const response = await fetch(`{% url 'tracker:session_events_json' session.pk %}?duration=${duration}`);
     const data = await response.json();
     stateStatus = data.state_status;
-    timelineBuckets = data.timeline_buckets || [];
-    renderEvents(data.events || []);
-    renderStats(data.stats);
-    renderActiveStates();
+    timelineBuckets = data.timeline_buckets;
+    trackRows = data.track_rows;
+    integrityReport = data.integrity_report;
+    intervalRows = data.interval_rows;
+    renderStats(data.stats.rows, data.stats);
     renderTimeline();
+    renderTracks();
+    renderIntegrity();
+    renderIntervals();
+    renderActiveStates();
+    renderEvents(data.events);
+    renderAnnotations(data.annotations);
 }
 
-async function postJson(url, payload) {
+async function sendJSON(url, payload) {
     const response = await fetch(url, {
         method: 'POST',
         headers: {
@@ -351,79 +416,43 @@ async function postJson(url, payload) {
         },
         body: JSON.stringify(payload),
     });
-    const data = await response.json();
-    if (!response.ok) {
-        throw new Error(data.error || 'Erreur inattendue.');
-    }
-    return data;
+    return response.json();
 }
 
-async function createEvent(behaviorId, explicitKind = null) {
+async function createEventForButton(button, explicitKind = null) {
     const payload = {
-        behavior_id: behaviorId,
-        timestamp_seconds: Number(mainVideo.currentTime || 0).toFixed(3),
-        event_kind: explicitKind,
+        behavior_id: Number(button.dataset.behaviorId),
+        timestamp_seconds: mainVideo.currentTime.toFixed(3),
         modifier_ids: [...activeModifierIds],
+        event_kind: explicitKind,
     };
-    try {
-        const data = await postJson(`{% url 'tracker:event_create_api' session.pk %}`, payload);
-        stateStatus = data.state_status;
-        renderModifierStates();
-        renderActiveStates();
-        await refreshSessionData();
-    } catch (error) {
-        alert(error.message);
-    }
+    await sendJSON(`{% url 'tracker:event_create_api' session.pk %}`, payload);
+    await fetchSessionState();
 }
 
-async function handleEditEvent(event) {
-    const eventId = Number(event.currentTarget.dataset.eventId);
-    const response = await fetch(`{% url 'tracker:session_events_json' session.pk %}?duration=${mainVideo.duration || 0}`);
-    const data = await response.json();
-    const row = (data.events || []).find((item) => item.id === eventId);
-    if (!row) {
-        alert('Événement introuvable.');
+function syncPlaybackState(source) {
+    if (syncing) {
         return;
     }
-    const timestamp = prompt('Nouveau temps (secondes)', row.timestamp_seconds);
-    if (timestamp === null) return;
-    const comment = prompt('Commentaire', row.comment || '');
-    if (comment === null) return;
-    let eventKind = row.event_kind;
-    if (row.behavior_mode === 'state') {
-        const selected = prompt('Type d’événement (start ou stop)', row.event_kind);
-        if (selected === null) return;
-        eventKind = selected.toLowerCase();
-    }
-    try {
-        await postJson(`/events/${eventId}/update/`, {
-            behavior_id: row.behavior_id,
-            timestamp_seconds: timestamp,
-            comment: comment,
-            event_kind: eventKind,
-            modifier_ids: row.modifiers.map((item) => item.id),
-        });
-        await refreshSessionData();
-    } catch (error) {
-        alert(error.message);
-    }
-}
-
-async function handleDeleteEvent(event) {
-    const eventId = Number(event.currentTarget.dataset.eventId);
-    if (!confirm('Supprimer cet événement ?')) {
-        return;
-    }
-    try {
-        await postJson(`/events/${eventId}/delete/`, {});
-        await refreshSessionData();
-    } catch (error) {
-        alert(error.message);
-    }
+    syncing = true;
+    syncVideos.forEach((video) => {
+        video.playbackRate = source.playbackRate;
+        if (Math.abs(video.currentTime - source.currentTime) > 0.15) {
+            video.currentTime = source.currentTime;
+        }
+        if (source.paused) {
+            video.pause();
+        } else {
+            video.play().catch(() => undefined);
+        }
+    });
+    setTimeout(() => { syncing = false; }, 50);
 }
 
 behaviorButtons.forEach((button) => {
-    button.addEventListener('click', () => createEvent(Number(button.dataset.behaviorId)));
+    button.addEventListener('click', async () => {
+        await createEventForButton(button);
+    });
 });
 
 modifierButtons.forEach((button) => {
@@ -438,11 +467,15 @@ modifierButtons.forEach((button) => {
     });
 });
 
-refreshEventsBtn.addEventListener('click', refreshSessionData);
-clearModifiersBtn.addEventListener('click', () => {
-    activeModifierIds = new Set();
-    renderModifierStates();
+mainVideo.addEventListener('timeupdate', () => {
+    videoTime.textContent = formatSeconds(mainVideo.currentTime);
+    syncPlaybackState(mainVideo);
 });
+mainVideo.addEventListener('play', () => syncPlaybackState(mainVideo));
+mainVideo.addEventListener('pause', () => syncPlaybackState(mainVideo));
+mainVideo.addEventListener('seeked', () => syncPlaybackState(mainVideo));
+mainVideo.addEventListener('ratechange', () => syncPlaybackState(mainVideo));
+
 playPauseBtn.addEventListener('click', () => {
     if (mainVideo.paused) {
         mainVideo.play();
@@ -450,65 +483,121 @@ playPauseBtn.addEventListener('click', () => {
         mainVideo.pause();
     }
 });
-back2Btn.addEventListener('click', () => { mainVideo.currentTime = Math.max(0, (mainVideo.currentTime || 0) - 2); });
-forward2Btn.addEventListener('click', () => { mainVideo.currentTime = (mainVideo.currentTime || 0) + 2; });
+back2Btn.addEventListener('click', () => seekAll(mainVideo.currentTime - 2));
+forward2Btn.addEventListener('click', () => seekAll(mainVideo.currentTime + 2));
+prevFrameBtn.addEventListener('click', () => seekAll(mainVideo.currentTime - frameStep));
+nextFrameBtn.addEventListener('click', () => seekAll(mainVideo.currentTime + frameStep));
+clearModifiersBtn.addEventListener('click', () => { activeModifierIds = new Set(); renderModifierStates(); });
+refreshEventsBtn.addEventListener('click', fetchSessionState);
 
-mainVideo.addEventListener('timeupdate', () => {
-    videoTime.textContent = formatSeconds(mainVideo.currentTime || 0);
-    syncSecondaryVideos(mainVideo, 'time');
-});
-mainVideo.addEventListener('play', () => syncSecondaryVideos(mainVideo, 'play'));
-mainVideo.addEventListener('pause', () => syncSecondaryVideos(mainVideo, 'pause'));
-mainVideo.addEventListener('ratechange', () => syncSecondaryVideos(mainVideo, 'rate'));
-mainVideo.addEventListener('loadedmetadata', () => {
-    const rate = Number(mainVideo.dataset.baseRate || '1');
-    mainVideo.playbackRate = rate;
-    syncVideos.forEach((video) => { video.playbackRate = rate; });
-    refreshSessionData();
+addAnnotationBtn.addEventListener('click', async () => {
+    const title = prompt('Titre de la note', 'Note');
+    if (title === null) return;
+    const note = prompt('Contenu de la note', '');
+    await sendJSON(`{% url 'tracker:annotation_create_api' session.pk %}`, {
+        timestamp_seconds: mainVideo.currentTime.toFixed(3),
+        title,
+        note: note || '',
+        color: '#f59e0b',
+    });
+    await fetchSessionState();
 });
 
-window.addEventListener('keydown', (event) => {
-    const tag = (document.activeElement?.tagName || '').toLowerCase();
-    if (tag === 'input' || tag === 'textarea' || tag === 'select') {
+document.addEventListener('click', async (event) => {
+    const jumpButton = event.target.closest('.jump-button');
+    if (jumpButton) {
+        seekAll(Number(jumpButton.dataset.seconds));
+    }
+    const deleteEventBtn = event.target.closest('.delete-event-btn');
+    if (deleteEventBtn && confirm('Supprimer cet événement ?')) {
+        await sendJSON(`/events/${deleteEventBtn.dataset.eventId}/delete/`, {});
+        await fetchSessionState();
+    }
+    const editEventBtn = event.target.closest('.edit-event-btn');
+    if (editEventBtn) {
+        const raw = editEventBtn.dataset.event.replace(/&apos;/g, "'");
+        const eventData = JSON.parse(raw);
+        const newComment = prompt('Commentaire', eventData.comment || '');
+        if (newComment === null) return;
+        const newTime = prompt('Temps (secondes)', eventData.timestamp_seconds);
+        if (newTime === null) return;
+        await sendJSON(`/events/${eventData.id}/update/`, {
+            behavior_id: eventData.behavior_id,
+            timestamp_seconds: newTime,
+            event_kind: eventData.event_kind,
+            comment: newComment,
+            modifier_ids: eventData.modifiers.map((item) => item.id),
+        });
+        await fetchSessionState();
+    }
+    const deleteAnnotationBtn = event.target.closest('.delete-annotation-btn');
+    if (deleteAnnotationBtn && confirm('Supprimer cette annotation ?')) {
+        await sendJSON(`/annotations/${deleteAnnotationBtn.dataset.annotationId}/delete/`, {});
+        await fetchSessionState();
+    }
+    const editAnnotationBtn = event.target.closest('.edit-annotation-btn');
+    if (editAnnotationBtn) {
+        const raw = editAnnotationBtn.dataset.annotation.replace(/&apos;/g, "'");
+        const annotation = JSON.parse(raw);
+        const title = prompt('Titre', annotation.title);
+        if (title === null) return;
+        const note = prompt('Note', annotation.note || '');
+        if (note === null) return;
+        const newTime = prompt('Temps (secondes)', annotation.timestamp_seconds);
+        if (newTime === null) return;
+        await sendJSON(`/annotations/${annotation.id}/update/`, {
+            timestamp_seconds: newTime,
+            title,
+            note,
+            color: annotation.color,
+        });
+        await fetchSessionState();
+    }
+});
+
+document.addEventListener('keydown', async (event) => {
+    if (['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) {
         return;
     }
-    const key = event.key.toLowerCase();
-    if (key === ' ') {
+    if (event.code === 'Space') {
         event.preventDefault();
-        if (mainVideo.paused) {
-            mainVideo.play();
-        } else {
-            mainVideo.pause();
-        }
+        playPauseBtn.click();
         return;
     }
-    if (key === 'backspace') {
+    if (event.key === 'Backspace') {
         event.preventDefault();
         activeModifierIds = new Set();
         renderModifierStates();
         return;
     }
-
-    const modifierButton = modifierButtons.find((button) => button.dataset.key === key);
-    if (modifierButton) {
+    if (event.key.toLowerCase() === 'e') {
         event.preventDefault();
+        addAnnotationBtn.click();
+        return;
+    }
+    const modifierButton = modifierButtons.find((button) => button.dataset.key === event.key.toLowerCase());
+    if (modifierButton) {
         modifierButton.click();
         return;
     }
-
-    const behaviorButton = behaviorButtons.find((button) => button.dataset.key === key);
+    const behaviorButton = behaviorButtons.find((button) => button.dataset.key === event.key.toLowerCase());
     if (behaviorButton) {
         event.preventDefault();
-        const explicitKind = behaviorButton.dataset.mode === 'state'
-            ? (event.altKey ? 'start' : (event.shiftKey ? 'stop' : null))
-            : null;
-        createEvent(Number(behaviorButton.dataset.behaviorId), explicitKind);
+        let explicitKind = null;
+        if (behaviorButton.dataset.mode === 'state') {
+            if (event.altKey) explicitKind = 'start';
+            if (event.shiftKey) explicitKind = 'stop';
+        }
+        await createEventForButton(behaviorButton, explicitKind);
     }
 });
 
 renderModifierStates();
-renderActiveStates();
 renderTimeline();
-refreshSessionData();
+renderTracks();
+renderIntegrity();
+renderIntervals();
+renderActiveStates();
+fetchSessionState();
 </script>
 {% endblock %}

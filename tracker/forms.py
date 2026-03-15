@@ -55,13 +55,21 @@ class ProjectSettingsForm(forms.ModelForm):
 
 
 class EthogramImportForm(forms.Form):
-    file = forms.FileField(help_text='Fichier JSON exporté depuis CowLog Django V4.')
+    file = forms.FileField(help_text='Fichier JSON exporté depuis CowLog Django V4/V5.')
     replace_existing = forms.BooleanField(
         required=False,
         label='Remplacer complètement les catégories, modificateurs et comportements existants',
         help_text=(
             'Refusé si le projet contient déjà des sessions ou des événements pour éviter une perte de données.'
         ),
+    )
+
+
+class SessionImportForm(forms.Form):
+    file = forms.FileField(help_text='JSON V5 ou export BORIS-like simplifié.')
+    clear_existing = forms.BooleanField(
+        required=False,
+        label='Supprimer les événements et annotations existants avant import',
     )
 
 
@@ -125,13 +133,13 @@ class ObservationSessionForm(forms.ModelForm):
     additional_videos = forms.ModelMultipleChoiceField(
         queryset=VideoAsset.objects.none(),
         required=False,
-        help_text='Vidéos secondaires synchronisées avec la vidéo principale dans le lecteur V4.',
+        help_text='Vidéos secondaires synchronisées avec la vidéo principale dans le lecteur V5.',
         widget=forms.CheckboxSelectMultiple,
     )
 
     class Meta:
         model = ObservationSession
-        fields = ['video', 'additional_videos', 'title', 'playback_rate', 'notes']
+        fields = ['video', 'additional_videos', 'title', 'playback_rate', 'frame_step_seconds', 'notes']
         widgets = {
             'notes': forms.Textarea(attrs={'rows': 4}),
         }

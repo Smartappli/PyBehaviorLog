@@ -7,6 +7,7 @@ from .models import (
     ObservationEvent,
     ObservationSession,
     Project,
+    SessionAnnotation,
     SessionVideoLink,
     VideoAsset,
 )
@@ -54,7 +55,7 @@ class SessionVideoInline(admin.TabularInline):
 
 @admin.register(ObservationSession)
 class ObservationSessionAdmin(admin.ModelAdmin):
-    list_display = ('title', 'project', 'video', 'observer', 'playback_rate', 'created_at')
+    list_display = ('title', 'project', 'video', 'observer', 'playback_rate', 'frame_step_seconds', 'created_at')
     list_filter = ('project', 'observer')
     search_fields = ('title', 'notes')
     inlines = [SessionVideoInline]
@@ -66,6 +67,13 @@ class ObservationEventAdmin(admin.ModelAdmin):
     list_filter = ('session__project', 'event_kind', 'behavior__mode')
     search_fields = ('session__title', 'behavior__name', 'comment')
     filter_horizontal = ('modifiers',)
+
+
+@admin.register(SessionAnnotation)
+class SessionAnnotationAdmin(admin.ModelAdmin):
+    list_display = ('session', 'title', 'timestamp_seconds', 'created_by', 'created_at')
+    list_filter = ('session__project',)
+    search_fields = ('session__title', 'title', 'note')
 
 
 @admin.register(SessionVideoLink)

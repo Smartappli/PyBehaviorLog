@@ -27,6 +27,7 @@ from .forms import (
     ObservationSessionForm,
     ProjectForm,
     ProjectSettingsForm,
+    SessionImportForm,
     SignUpForm,
     VideoAssetForm,
 )
@@ -37,6 +38,7 @@ from .models import (
     ObservationEvent,
     ObservationSession,
     Project,
+    SessionAnnotation,
     SessionVideoLink,
     VideoAsset,
 )
@@ -93,6 +95,7 @@ def get_accessible_session(user, pk: int) -> ObservationSession:
             'events',
             queryset=ObservationEvent.objects.select_related('behavior', 'behavior__category').prefetch_related('modifiers').order_by('timestamp_seconds', 'pk'),
         ),
+        'annotations',
     )
     return get_object_or_404(session_qs, pk=pk)
 
@@ -132,6 +135,20 @@ def _decimal(value, default: str = '0') -> Decimal:
         return Decimal(default)
 
 
+def _session_duration(session: ObservationSession, duration_hint: str | float | Decimal | None = None) -> Decimal:
+    duration = _decimal(duration_hint, default='0')
+    if duration > 0:
+        return duration
+    last_event = ObservationEvent.objects.filter(session=session).order_by('-timestamp_seconds').first()
+    last_annotation = SessionAnnotation.objects.filter(session=session).order_by('-timestamp_seconds').first()
+    candidates = [Decimal('0')]
+    if last_event is not None:
+        candidates.append(last_event.timestamp_seconds)
+    if last_annotation is not None:
+        candidates.append(last_annotation.timestamp_seconds)
+    return max(candidates)
+
+
 def serialize_event(event: ObservationEvent) -> dict:
     modifiers = list(event.modifiers.order_by('sort_order', 'name').values('id', 'name', 'key_binding'))
     return {
@@ -146,6 +163,18 @@ def serialize_event(event: ObservationEvent) -> dict:
         'comment': event.comment,
         'modifiers': modifiers,
         'created_at': event.created_at.isoformat(),
+    }
+
+
+def serialize_annotation(annotation: SessionAnnotation) -> dict:
+    return {
+        'id': annotation.pk,
+        'timestamp_seconds': float(annotation.timestamp_seconds),
+        'title': annotation.title,
+        'note': annotation.note,
+        'color': annotation.color,
+        'created_by': annotation.created_by.username if annotation.created_by else '',
+        'created_at': annotation.created_at.isoformat(),
     }
 
 
@@ -167,12 +196,7 @@ def compute_state_status(session: ObservationSession) -> dict[int, bool]:
 
 
 def build_statistics(session: ObservationSession, duration_hint: str | float | Decimal | None = None) -> dict:
-    end_time = _decimal(duration_hint, default='0')
-    if end_time <= 0:
-        last_event = ObservationEvent.objects.filter(session=session).order_by('-timestamp_seconds').first()
-        if last_event is not None:
-            end_time = last_event.timestamp_seconds
-
+    end_time = _session_duration(session, duration_hint)
     behaviors = list(session.project.behaviors.select_related('category').order_by('sort_order', 'name'))
     events = list(session.events.all())
     stats: dict[int, dict] = {}
@@ -233,13 +257,11 @@ def build_statistics(session: ObservationSession, duration_hint: str | float | D
             open_count += 1
         if end_time > 0 and behavior.mode == Behavior.MODE_STATE:
             item['occupancy_percent'] = round(float((item['total_duration_seconds'] / end_time) * 100), 2)
-        rows.append({
-            **item,
-            'total_duration_seconds': float(item['total_duration_seconds']),
-        })
+        rows.append({**item, 'total_duration_seconds': float(item['total_duration_seconds'])})
 
     return {
         'session_event_count': len(events),
+        'annotation_count': session.annotations.count(),
         'point_event_count': total_points,
         'open_state_count': open_count,
         'observed_span_seconds': float(end_time),
@@ -249,11 +271,7 @@ def build_statistics(session: ObservationSession, duration_hint: str | float | D
 
 
 def build_timeline_buckets(session: ObservationSession, duration_hint: str | float | Decimal | None = None, bucket_seconds: int = 60) -> list[dict]:
-    duration = _decimal(duration_hint, default='0')
-    if duration <= 0:
-        last_event = ObservationEvent.objects.filter(session=session).order_by('-timestamp_seconds').first()
-        if last_event is not None:
-            duration = last_event.timestamp_seconds
+    duration = _session_duration(session, duration_hint)
     if duration <= 0:
         return []
 
@@ -271,6 +289,7 @@ def build_timeline_buckets(session: ObservationSession, duration_hint: str | flo
                 'event_count': 0,
                 'point_count': 0,
                 'state_change_count': 0,
+                'annotation_count': 0,
                 'labels': defaultdict(int),
             },
         )
@@ -280,6 +299,24 @@ def build_timeline_buckets(session: ObservationSession, duration_hint: str | flo
         else:
             bucket['state_change_count'] += 1
         bucket['labels'][behavior_names[event.behavior_id]] += 1
+
+    for annotation in session.annotations.all():
+        bucket_index = int(float(annotation.timestamp_seconds) // bucket_seconds)
+        bucket = bucket_map.setdefault(
+            bucket_index,
+            {
+                'index': bucket_index,
+                'start_seconds': bucket_index * bucket_seconds,
+                'end_seconds': (bucket_index + 1) * bucket_seconds,
+                'event_count': 0,
+                'point_count': 0,
+                'state_change_count': 0,
+                'annotation_count': 0,
+                'labels': defaultdict(int),
+            },
+        )
+        bucket['annotation_count'] += 1
+        bucket['labels'][f'Note: {annotation.title}'] += 1
 
     results = []
     total_buckets = int((float(duration) // bucket_seconds) + 1)
@@ -293,6 +330,7 @@ def build_timeline_buckets(session: ObservationSession, duration_hint: str | flo
                 'event_count': 0,
                 'point_count': 0,
                 'state_change_count': 0,
+                'annotation_count': 0,
                 'labels': {},
             }
         else:
@@ -301,18 +339,134 @@ def build_timeline_buckets(session: ObservationSession, duration_hint: str | flo
     return results
 
 
+def build_track_rows(session: ObservationSession, duration_hint: str | float | Decimal | None = None) -> list[dict]:
+    duration = _session_duration(session, duration_hint)
+    behaviors = list(session.project.behaviors.select_related('category').order_by('sort_order', 'name'))
+    tracks: dict[int, dict] = {
+        behavior.id: {
+            'behavior_id': behavior.id,
+            'name': behavior.name,
+            'category': behavior.category.name if behavior.category else '',
+            'mode': behavior.mode,
+            'color': behavior.color,
+            'segments': [],
+            'points': [],
+            'total_duration_seconds': 0.0,
+        }
+        for behavior in behaviors
+    }
+    open_states: dict[int, Decimal | None] = {behavior.id: None for behavior in behaviors}
+    for event in session.events.all():
+        track = tracks[event.behavior_id]
+        if event.event_kind == ObservationEvent.KIND_POINT:
+            track['points'].append(float(event.timestamp_seconds))
+            continue
+        if event.event_kind == ObservationEvent.KIND_START:
+            open_states[event.behavior_id] = event.timestamp_seconds
+            continue
+        start_time = open_states.get(event.behavior_id)
+        if start_time is not None and event.timestamp_seconds >= start_time:
+            segment = {
+                'start_seconds': float(start_time),
+                'end_seconds': float(event.timestamp_seconds),
+                'open': False,
+            }
+            track['segments'].append(segment)
+            track['total_duration_seconds'] += segment['end_seconds'] - segment['start_seconds']
+        open_states[event.behavior_id] = None
+
+    for behavior in behaviors:
+        start_time = open_states.get(behavior.id)
+        if behavior.mode == Behavior.MODE_STATE and start_time is not None and duration >= start_time:
+            segment = {
+                'start_seconds': float(start_time),
+                'end_seconds': float(duration),
+                'open': True,
+            }
+            tracks[behavior.id]['segments'].append(segment)
+            tracks[behavior.id]['total_duration_seconds'] += segment['end_seconds'] - segment['start_seconds']
+
+    return list(tracks.values())
+
+
+def build_interval_rows(session: ObservationSession) -> list[dict]:
+    rows = []
+    for behavior in session.project.behaviors.order_by('sort_order', 'name'):
+        timestamps = [float(item.timestamp_seconds) for item in session.events.filter(behavior=behavior).order_by('timestamp_seconds', 'pk')]
+        if len(timestamps) < 2:
+            rows.append({
+                'name': behavior.name,
+                'category': behavior.category.name if behavior.category else '',
+                'mode': behavior.mode,
+                'interval_count': 0,
+                'mean_interval_seconds': None,
+                'min_interval_seconds': None,
+                'max_interval_seconds': None,
+            })
+            continue
+        intervals = [round(timestamps[i + 1] - timestamps[i], 3) for i in range(len(timestamps) - 1)]
+        rows.append({
+            'name': behavior.name,
+            'category': behavior.category.name if behavior.category else '',
+            'mode': behavior.mode,
+            'interval_count': len(intervals),
+            'mean_interval_seconds': round(sum(intervals) / len(intervals), 3),
+            'min_interval_seconds': min(intervals),
+            'max_interval_seconds': max(intervals),
+        })
+    return rows
+
+
+def build_integrity_report(session: ObservationSession) -> dict:
+    issues = []
+    open_states: dict[int, Decimal | None] = {}
+    for behavior in session.project.behaviors.filter(mode=Behavior.MODE_STATE):
+        open_states[behavior.id] = None
+
+    for event in session.events.select_related('behavior').order_by('timestamp_seconds', 'pk'):
+        if event.behavior.mode != Behavior.MODE_STATE:
+            continue
+        start_time = open_states[event.behavior_id]
+        if event.event_kind == ObservationEvent.KIND_START:
+            if start_time is not None:
+                issues.append({
+                    'severity': 'warning',
+                    'message': f"START doublé pour {event.behavior.name} à {event.timestamp_seconds}s.",
+                })
+            open_states[event.behavior_id] = event.timestamp_seconds
+        elif event.event_kind == ObservationEvent.KIND_STOP:
+            if start_time is None:
+                issues.append({
+                    'severity': 'warning',
+                    'message': f"STOP sans START pour {event.behavior.name} à {event.timestamp_seconds}s.",
+                })
+            else:
+                open_states[event.behavior_id] = None
+
+    for behavior in session.project.behaviors.filter(mode=Behavior.MODE_STATE):
+        if open_states[behavior.id] is not None:
+            issues.append({
+                'severity': 'warning',
+                'message': f"État ouvert non refermé pour {behavior.name}.",
+            })
+
+    return {'issue_count': len(issues), 'issues': issues}
+
+
 def build_project_statistics(project: Project) -> dict:
     sessions = list(
         project.sessions.select_related('observer', 'video').prefetch_related(
             Prefetch(
                 'events',
                 queryset=ObservationEvent.objects.select_related('behavior', 'behavior__category').prefetch_related('modifiers').order_by('timestamp_seconds', 'pk'),
-            )
+            ),
+            'annotations',
         )
     )
     aggregate: dict[int, dict] = {}
     session_rows = []
     total_events = 0
+    total_annotations = 0
     total_span = 0.0
 
     for behavior in project.behaviors.select_related('category').order_by('sort_order', 'name'):
@@ -332,6 +486,7 @@ def build_project_statistics(project: Project) -> dict:
     for session in sessions:
         stats = build_statistics(session)
         total_events += stats['session_event_count']
+        total_annotations += stats['annotation_count']
         total_span += stats['observed_span_seconds']
         session_rows.append({
             'session_id': session.id,
@@ -340,6 +495,7 @@ def build_project_statistics(project: Project) -> dict:
             'video': session.video.title,
             'synced_video_count': session.video_links.count(),
             'event_count': stats['session_event_count'],
+            'annotation_count': stats['annotation_count'],
             'point_event_count': stats['point_event_count'],
             'open_state_count': stats['open_state_count'],
             'observed_span_seconds': stats['observed_span_seconds'],
@@ -356,8 +512,7 @@ def build_project_statistics(project: Project) -> dict:
             item['duration_seconds'] += row['total_duration_seconds']
 
     behavior_rows = []
-    for behavior_id, item in aggregate.items():
-        del behavior_id
+    for _, item in aggregate.items():
         item['duration_seconds'] = round(item['duration_seconds'], 3)
         behavior_rows.append(item)
 
@@ -369,6 +524,7 @@ def build_project_statistics(project: Project) -> dict:
         'session_count': len(sessions),
         'video_count': project.videos.count(),
         'behavior_count': project.behaviors.count(),
+        'annotation_count': total_annotations,
         'event_count': total_events,
         'observed_span_seconds': round(total_span, 3),
         'session_rows': session_rows,
@@ -378,7 +534,7 @@ def build_project_statistics(project: Project) -> dict:
 
 def build_ethogram_payload(project: Project) -> dict:
     return {
-        'schema': 'cowlog-django-v4-ethogram',
+        'schema': 'cowlog-django-v5-ethogram',
         'project': {
             'name': project.name,
             'description': project.description,
@@ -418,13 +574,11 @@ def build_ethogram_payload(project: Project) -> dict:
 
 @transaction.atomic
 def import_ethogram_payload(project: Project, payload: dict, replace_existing: bool = False) -> tuple[int, int, int]:
-    if payload.get('schema') not in {'cowlog-django-v3-ethogram', 'cowlog-django-v4-ethogram'}:
+    if payload.get('schema') not in {'cowlog-django-v3-ethogram', 'cowlog-django-v4-ethogram', 'cowlog-django-v5-ethogram'}:
         raise ValueError('Schéma JSON non reconnu.')
 
     if replace_existing and (project.sessions.exists() or ObservationEvent.objects.filter(session__project=project).exists()):
-        raise ValueError(
-            'Le remplacement complet est bloqué car le projet contient déjà des sessions ou des événements.'
-        )
+        raise ValueError('Le remplacement complet est bloqué car le projet contient déjà des sessions ou des événements.')
 
     if replace_existing:
         project.behaviors.all().delete()
@@ -440,10 +594,7 @@ def import_ethogram_payload(project: Project, payload: dict, replace_existing: b
         category, created = BehaviorCategory.objects.update_or_create(
             project=project,
             name=item['name'],
-            defaults={
-                'color': item.get('color', '#0f766e'),
-                'sort_order': int(item.get('sort_order', 0)),
-            },
+            defaults={'color': item.get('color', '#0f766e'), 'sort_order': int(item.get('sort_order', 0))},
         )
         category_map[category.name] = category
         if created:
@@ -463,10 +614,7 @@ def import_ethogram_payload(project: Project, payload: dict, replace_existing: b
             modifier_count += 1
 
     for item in payload.get('behaviors', []):
-        category = None
-        category_name = item.get('category')
-        if category_name:
-            category = category_map.get(category_name)
+        category = category_map.get(item.get('category')) if item.get('category') else None
         _, created = Behavior.objects.update_or_create(
             project=project,
             name=item['name'],
@@ -488,10 +636,8 @@ def import_ethogram_payload(project: Project, payload: dict, replace_existing: b
 def resolve_event_kind(session: ObservationSession, behavior: Behavior, explicit_kind: str | None) -> str:
     if behavior.mode == Behavior.MODE_POINT:
         return ObservationEvent.KIND_POINT
-
     if explicit_kind in {ObservationEvent.KIND_START, ObservationEvent.KIND_STOP}:
         return explicit_kind
-
     is_open = False
     for event in session.events.filter(behavior=behavior).order_by('timestamp_seconds', 'pk'):
         if event.event_kind == ObservationEvent.KIND_START:
@@ -535,6 +681,20 @@ def _event_rows(session: ObservationSession):
         ]
 
 
+def _annotation_rows(session: ObservationSession):
+    for annotation in session.annotations.all():
+        yield [
+            session.project.name,
+            session.title,
+            str(annotation.timestamp_seconds),
+            annotation.title,
+            annotation.note,
+            annotation.color,
+            annotation.created_by.username if annotation.created_by else '',
+            annotation.created_at.isoformat(),
+        ]
+
+
 def _append_autosized_sheet(workbook: Workbook, title: str, headers: list[str], rows: list[list]):
     sheet = workbook.create_sheet(title)
     sheet.append(headers)
@@ -554,15 +714,94 @@ def _autosize_workbook(workbook: Workbook):
             sheet.column_dimensions[column_letter].width = min(max_len + 2, 48)
 
 
+def build_boris_like_payload(session: ObservationSession) -> dict:
+    return {
+        'schema': 'boris-observation-v1',
+        'project_name': session.project.name,
+        'ethogram': build_ethogram_payload(session.project),
+        'observations': [
+            {
+                'title': session.title,
+                'primary_video': session.video.title,
+                'synced_videos': [video.title for video in session.all_videos_ordered],
+                'observer': session.observer.username if session.observer else None,
+                'events': [
+                    {
+                        'time': float(event.timestamp_seconds),
+                        'behavior': event.behavior.name,
+                        'event_kind': event.event_kind,
+                        'modifiers': list(event.modifiers.order_by('sort_order', 'name').values_list('name', flat=True)),
+                        'comment': event.comment,
+                    }
+                    for event in session.events.all()
+                ],
+                'annotations': [serialize_annotation(item) for item in session.annotations.all()],
+            }
+        ],
+    }
+
+
+@transaction.atomic
+def import_session_payload(session: ObservationSession, payload: dict, clear_existing: bool = False) -> tuple[int, int]:
+    if clear_existing:
+        session.events.all().delete()
+        session.annotations.all().delete()
+
+    modifier_map = {item.name: item for item in session.project.modifiers.all()}
+    behavior_map = {item.name: item for item in session.project.behaviors.all()}
+
+    event_items = []
+    annotation_items = []
+
+    if payload.get('schema') == 'cowlog-django-v5-session':
+        event_items = payload.get('events', [])
+        annotation_items = payload.get('annotations', [])
+    elif payload.get('schema') == 'boris-observation-v1' or payload.get('observations'):
+        observations = payload.get('observations', [])
+        if observations:
+            event_items = observations[0].get('events', [])
+            annotation_items = observations[0].get('annotations', [])
+    else:
+        raise ValueError('Format de session non reconnu.')
+
+    event_count = 0
+    annotation_count = 0
+    for item in event_items:
+        behavior_name = item.get('behavior')
+        behavior = behavior_map.get(behavior_name)
+        if behavior is None:
+            continue
+        event = ObservationEvent.objects.create(
+            session=session,
+            behavior=behavior,
+            event_kind=resolve_event_kind(session, behavior, item.get('event_kind')),
+            timestamp_seconds=_decimal(item.get('timestamp_seconds', item.get('time')), default='0'),
+            comment=(item.get('comment') or '').strip(),
+        )
+        modifier_names = item.get('modifiers', [])
+        if isinstance(modifier_names, list):
+            modifiers = [modifier_map[name] for name in modifier_names if name in modifier_map]
+            if modifiers:
+                event.modifiers.set(modifiers)
+        event_count += 1
+
+    for item in annotation_items:
+        SessionAnnotation.objects.create(
+            session=session,
+            timestamp_seconds=_decimal(item.get('timestamp_seconds', item.get('time')), default='0'),
+            title=(item.get('title') or 'Note').strip()[:120] or 'Note',
+            note=(item.get('note') or '').strip(),
+            color=item.get('color', '#f59e0b'),
+            created_by=session.observer,
+        )
+        annotation_count += 1
+    return event_count, annotation_count
+
+
 @login_required
 def home(request):
     projects = accessible_projects_qs(request.user).prefetch_related(
-        'categories',
-        'modifiers',
-        'behaviors',
-        'videos',
-        'sessions__video',
-        'sessions__video_links',
+        'categories', 'modifiers', 'behaviors', 'videos', 'sessions__video', 'sessions__video_links'
     )
     return render(request, 'tracker/home.html', {'projects': projects})
 
@@ -599,15 +838,7 @@ def project_detail(request, pk: int):
         .get(pk=project.pk)
     )
     analytics = build_project_statistics(project)
-    return render(
-        request,
-        'tracker/project_detail.html',
-        {
-            'project': project,
-            'is_owner': project.owner_id == request.user.id,
-            'analytics': analytics,
-        },
-    )
+    return render(request, 'tracker/project_detail.html', {'project': project, 'is_owner': project.owner_id == request.user.id, 'analytics': analytics})
 
 
 @login_required
@@ -628,46 +859,21 @@ def project_export_xlsx(request, pk: int):
     overview.append(['Sessions', analytics['session_count']])
     overview.append(['Videos', analytics['video_count']])
     overview.append(['Behaviors', analytics['behavior_count']])
+    overview.append(['Annotations', analytics['annotation_count']])
     overview.append(['Events', analytics['event_count']])
     overview.append(['Observed span seconds', analytics['observed_span_seconds']])
 
     _append_autosized_sheet(
         workbook,
         'Sessions',
-        ['Session', 'Observer', 'Primary video', 'Synced videos', 'Event count', 'Point count', 'Open states', 'Observed span seconds', 'State duration seconds'],
-        [
-            [
-                row['title'],
-                row['observer'],
-                row['video'],
-                row['synced_video_count'],
-                row['event_count'],
-                row['point_event_count'],
-                row['open_state_count'],
-                row['observed_span_seconds'],
-                row['state_duration_seconds'],
-            ]
-            for row in analytics['session_rows']
-        ],
+        ['Session', 'Observer', 'Primary video', 'Synced videos', 'Event count', 'Annotations', 'Point count', 'Open states', 'Observed span seconds', 'State duration seconds'],
+        [[row['title'], row['observer'], row['video'], row['synced_video_count'], row['event_count'], row['annotation_count'], row['point_event_count'], row['open_state_count'], row['observed_span_seconds'], row['state_duration_seconds']] for row in analytics['session_rows']],
     )
     _append_autosized_sheet(
         workbook,
         'Behaviors',
         ['Category', 'Behavior', 'Mode', 'Sessions used', 'Point count', 'Start count', 'Stop count', 'Segments', 'Duration seconds'],
-        [
-            [
-                row['category'],
-                row['name'],
-                row['mode'],
-                row['session_count'],
-                row['point_count'],
-                row['start_count'],
-                row['stop_count'],
-                row['segment_count'],
-                row['duration_seconds'],
-            ]
-            for row in analytics['behavior_rows']
-        ],
+        [[row['category'], row['name'], row['mode'], row['session_count'], row['point_count'], row['start_count'], row['stop_count'], row['segment_count'], row['duration_seconds']] for row in analytics['behavior_rows']],
     )
 
     _autosize_workbook(workbook)
@@ -682,10 +888,7 @@ def project_export_ethogram(request, pk: int):
     project = get_accessible_project(request.user, pk)
     payload = build_ethogram_payload(project)
     filename = f"{slugify(project.name) or 'project'}_ethogram.json"
-    response = HttpResponse(
-        json.dumps(payload, indent=2, ensure_ascii=False),
-        content_type='application/json; charset=utf-8',
-    )
+    response = HttpResponse(json.dumps(payload, indent=2, ensure_ascii=False), content_type='application/json; charset=utf-8')
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
     return response
 
@@ -699,23 +902,13 @@ def project_import_ethogram(request, pk: int):
         replace_existing = form.cleaned_data['replace_existing']
         try:
             payload = json.loads(uploaded.read().decode('utf-8'))
-            category_count, modifier_count, behavior_count = import_ethogram_payload(
-                project,
-                payload,
-                replace_existing=replace_existing,
-            )
+            category_count, modifier_count, behavior_count = import_ethogram_payload(project, payload, replace_existing=replace_existing)
         except (UnicodeDecodeError, json.JSONDecodeError):
             messages.error(request, "Le fichier fourni n'est pas un JSON valide.")
         except ValueError as exc:
             messages.error(request, str(exc))
         else:
-            messages.success(
-                request,
-                (
-                    f'Import terminé. Nouvelles catégories : {category_count}, '
-                    f'modificateurs : {modifier_count}, comportements : {behavior_count}.'
-                ),
-            )
+            messages.success(request, f'Import terminé. Nouvelles catégories : {category_count}, modificateurs : {modifier_count}, comportements : {behavior_count}.')
             return redirect(project)
     return render(request, 'tracker/ethogram_import.html', {'form': form, 'project': project})
 
@@ -876,7 +1069,6 @@ def session_create(request, pk: int):
     if not project.videos.exists():
         messages.warning(request, "Ajoute d'abord une vidéo au projet.")
         return redirect(project)
-
     if request.method == 'POST' and form.is_valid():
         session = form.save(commit=False)
         session.project = project
@@ -915,6 +1107,24 @@ def session_delete(request, pk: int):
 
 
 @login_required
+def session_import_json(request, pk: int):
+    session = get_accessible_session(request.user, pk)
+    form = SessionImportForm(request.POST or None, request.FILES or None)
+    if request.method == 'POST' and form.is_valid():
+        try:
+            payload = json.loads(form.cleaned_data['file'].read().decode('utf-8'))
+            event_count, annotation_count = import_session_payload(session, payload, clear_existing=form.cleaned_data['clear_existing'])
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            messages.error(request, "Le fichier fourni n'est pas un JSON valide.")
+        except ValueError as exc:
+            messages.error(request, str(exc))
+        else:
+            messages.success(request, f'Import terminé. Événements importés : {event_count}. Annotations importées : {annotation_count}.')
+            return redirect(session)
+    return render(request, 'tracker/session_import.html', {'form': form, 'session': session, 'project': session.project})
+
+
+@login_required
 @ensure_csrf_cookie
 @require_GET
 def session_player(request, pk: int):
@@ -933,6 +1143,10 @@ def session_player(request, pk: int):
             'state_status': compute_state_status(session),
             'stats': build_statistics(session),
             'timeline_buckets': build_timeline_buckets(session),
+            'track_rows': build_track_rows(session),
+            'interval_rows': build_interval_rows(session),
+            'integrity_report': build_integrity_report(session),
+            'annotations': session.annotations.all(),
             'synced_videos': synced_videos,
         },
     )
@@ -946,18 +1160,14 @@ def session_events_json(request, pk: int):
     events = [serialize_event(event) for event in session.events.all()]
     return JsonResponse({
         'events': events,
+        'annotations': [serialize_annotation(item) for item in session.annotations.all()],
         'state_status': compute_state_status(session),
         'stats': build_statistics(session, duration_hint=duration_hint),
         'timeline_buckets': build_timeline_buckets(session, duration_hint=duration_hint),
-        'synced_videos': [
-            {
-                'id': link.video_id,
-                'title': link.video.title,
-                'url': link.video.file.url,
-                'sort_order': link.sort_order,
-            }
-            for link in session.video_links.select_related('video').order_by('sort_order', 'pk')
-        ],
+        'track_rows': build_track_rows(session, duration_hint=duration_hint),
+        'interval_rows': build_interval_rows(session),
+        'integrity_report': build_integrity_report(session),
+        'synced_videos': [{'id': link.video_id, 'title': link.video.title, 'url': link.video.file.url, 'sort_order': link.sort_order} for link in session.video_links.select_related('video').order_by('sort_order', 'pk')],
     })
 
 
@@ -970,27 +1180,15 @@ def event_create_api(request, pk: int):
     except json.JSONDecodeError as exc:
         return JsonResponse({'error': f'JSON invalide: {exc}'}, status=400)
 
-    behavior_id = payload.get('behavior_id')
-    timestamp_raw = payload.get('timestamp_seconds')
-    comment = (payload.get('comment') or '').strip()
-    explicit_kind = payload.get('event_kind')
+    behavior = get_object_or_404(Behavior, pk=payload.get('behavior_id'), project=session.project)
+    timestamp_seconds = _decimal(payload.get('timestamp_seconds'), default='0')
     modifier_ids = payload.get('modifier_ids') or []
-
-    behavior = get_object_or_404(Behavior, pk=behavior_id, project=session.project)
-
-    try:
-        timestamp_seconds = Decimal(str(timestamp_raw))
-    except (InvalidOperation, TypeError):
-        return JsonResponse({'error': 'timestamp_seconds invalide.'}, status=400)
-
     if not isinstance(modifier_ids, list):
         return JsonResponse({'error': 'modifier_ids doit être une liste.'}, status=400)
-
     try:
         normalized_modifier_ids = [int(value) for value in modifier_ids]
     except (TypeError, ValueError):
         return JsonResponse({'error': 'modifier_ids invalide.'}, status=400)
-
     modifiers = list(Modifier.objects.filter(project=session.project, pk__in=normalized_modifier_ids))
     if {modifier.pk for modifier in modifiers} != set(normalized_modifier_ids):
         return JsonResponse({'error': 'Un ou plusieurs modificateurs sont invalides.'}, status=400)
@@ -998,13 +1196,12 @@ def event_create_api(request, pk: int):
     event = ObservationEvent.objects.create(
         session=session,
         behavior=behavior,
-        event_kind=resolve_event_kind(session, behavior, explicit_kind),
+        event_kind=resolve_event_kind(session, behavior, payload.get('event_kind')),
         timestamp_seconds=timestamp_seconds,
-        comment=comment,
+        comment=(payload.get('comment') or '').strip(),
     )
     if modifiers:
         event.modifiers.set(modifiers)
-
     return JsonResponse({'event': serialize_event(event), 'state_status': compute_state_status(session)}, status=201)
 
 
@@ -1018,23 +1215,15 @@ def event_update_api(request, pk: int):
     except json.JSONDecodeError as exc:
         return JsonResponse({'error': f'JSON invalide: {exc}'}, status=400)
 
-    behavior_id = payload.get('behavior_id', event.behavior_id)
-    behavior = get_object_or_404(Behavior, pk=behavior_id, project=session.project)
-
-    try:
-        timestamp_seconds = Decimal(str(payload.get('timestamp_seconds', event.timestamp_seconds)))
-    except (InvalidOperation, TypeError):
-        return JsonResponse({'error': 'timestamp_seconds invalide.'}, status=400)
-
+    behavior = get_object_or_404(Behavior, pk=payload.get('behavior_id', event.behavior_id), project=session.project)
+    timestamp_seconds = _decimal(payload.get('timestamp_seconds', event.timestamp_seconds), default='0')
     modifier_ids = payload.get('modifier_ids', list(event.modifiers.values_list('id', flat=True)))
     if not isinstance(modifier_ids, list):
         return JsonResponse({'error': 'modifier_ids doit être une liste.'}, status=400)
-
     try:
         normalized_modifier_ids = [int(value) for value in modifier_ids]
     except (TypeError, ValueError):
         return JsonResponse({'error': 'modifier_ids invalide.'}, status=400)
-
     modifiers = list(Modifier.objects.filter(project=session.project, pk__in=normalized_modifier_ids))
     if {modifier.pk for modifier in modifiers} != set(normalized_modifier_ids):
         return JsonResponse({'error': 'Un ou plusieurs modificateurs sont invalides.'}, status=400)
@@ -1051,7 +1240,6 @@ def event_update_api(request, pk: int):
     event.comment = (payload.get('comment') or '').strip()
     event.save(update_fields=['behavior', 'event_kind', 'timestamp_seconds', 'comment'])
     event.modifiers.set(modifiers)
-
     return JsonResponse({'event': serialize_event(event), 'state_status': compute_state_status(session)})
 
 
@@ -1059,12 +1247,57 @@ def event_update_api(request, pk: int):
 @require_POST
 def event_delete_api(request, pk: int):
     event = get_object_or_404(ObservationEvent.objects.select_related('session__project'), pk=pk)
-    project_ids = set(accessible_projects_qs(request.user).values_list('id', flat=True))
-    if event.session.project_id not in project_ids:
+    if event.session.project_id not in set(accessible_projects_qs(request.user).values_list('id', flat=True)):
         raise Http404('Événement introuvable.')
     session = get_accessible_session(request.user, event.session_id)
     event.delete()
     return JsonResponse({'ok': True, 'state_status': compute_state_status(session)})
+
+
+@login_required
+@require_POST
+def annotation_create_api(request, pk: int):
+    session = get_accessible_session(request.user, pk)
+    try:
+        payload = json.loads(request.body.decode('utf-8'))
+    except json.JSONDecodeError as exc:
+        return JsonResponse({'error': f'JSON invalide: {exc}'}, status=400)
+    annotation = SessionAnnotation.objects.create(
+        session=session,
+        timestamp_seconds=_decimal(payload.get('timestamp_seconds'), default='0'),
+        title=(payload.get('title') or 'Note').strip()[:120] or 'Note',
+        note=(payload.get('note') or '').strip(),
+        color=(payload.get('color') or '#f59e0b')[:7],
+        created_by=request.user,
+    )
+    return JsonResponse({'annotation': serialize_annotation(annotation)}, status=201)
+
+
+@login_required
+@require_POST
+def annotation_update_api(request, pk: int):
+    annotation = get_object_or_404(SessionAnnotation.objects.select_related('session__project'), pk=pk)
+    session = get_accessible_session(request.user, annotation.session_id)
+    try:
+        payload = json.loads(request.body.decode('utf-8'))
+    except json.JSONDecodeError as exc:
+        return JsonResponse({'error': f'JSON invalide: {exc}'}, status=400)
+    annotation.timestamp_seconds = _decimal(payload.get('timestamp_seconds', annotation.timestamp_seconds), default='0')
+    annotation.title = (payload.get('title') or annotation.title).strip()[:120] or 'Note'
+    annotation.note = (payload.get('note') or '').strip()
+    annotation.color = (payload.get('color') or annotation.color)[:7]
+    annotation.save(update_fields=['timestamp_seconds', 'title', 'note', 'color'])
+    return JsonResponse({'annotation': serialize_annotation(annotation), 'session_id': session.id})
+
+
+@login_required
+@require_POST
+def annotation_delete_api(request, pk: int):
+    annotation = get_object_or_404(SessionAnnotation.objects.select_related('session__project'), pk=pk)
+    if annotation.session.project_id not in set(accessible_projects_qs(request.user).values_list('id', flat=True)):
+        raise Http404('Annotation introuvable.')
+    annotation.delete()
+    return JsonResponse({'ok': True})
 
 
 @login_required
@@ -1073,25 +1306,22 @@ def session_export_csv(request, pk: int):
     response = HttpResponse(content_type='text/csv; charset=utf-8')
     response['Content-Disposition'] = f'attachment; filename="session_{session.pk}_events.csv"'
     response.write('﻿')
-
     writer = csv.writer(response, delimiter=';')
-    writer.writerow([
-        'project',
-        'session',
-        'primary_video',
-        'synced_videos',
-        'observer',
-        'category',
-        'behavior',
-        'behavior_mode',
-        'event_kind',
-        'timestamp_seconds',
-        'modifiers',
-        'comment',
-        'created_at',
-    ])
+    writer.writerow(['project', 'session', 'primary_video', 'synced_videos', 'observer', 'category', 'behavior', 'behavior_mode', 'event_kind', 'timestamp_seconds', 'modifiers', 'comment', 'created_at'])
     for row in _event_rows(session):
         writer.writerow(row)
+    return response
+
+
+@login_required
+def session_export_tsv(request, pk: int):
+    session = get_accessible_session(request.user, pk)
+    response = HttpResponse(content_type='text/tab-separated-values; charset=utf-8')
+    response['Content-Disposition'] = f'attachment; filename="session_{session.pk}_events.tsv"'
+    writer = csv.writer(response, delimiter='\t')
+    writer.writerow(['time', 'behavior', 'event_kind', 'modifiers', 'comment'])
+    for event in session.events.all():
+        writer.writerow([str(event.timestamp_seconds), event.behavior.name, event.event_kind, event.modifiers_display, event.comment])
     return response
 
 
@@ -1099,14 +1329,19 @@ def session_export_csv(request, pk: int):
 def session_export_json(request, pk: int):
     session = get_accessible_session(request.user, pk)
     payload = {
+        'schema': 'cowlog-django-v5-session',
         'project': session.project.name,
         'session': session.title,
         'video': session.video.title,
         'synced_videos': [video.title for video in session.all_videos_ordered],
         'observer': session.observer.username if session.observer else None,
         'statistics': build_statistics(session),
+        'integrity_report': build_integrity_report(session),
+        'interval_rows': build_interval_rows(session),
         'timeline_buckets': build_timeline_buckets(session),
+        'track_rows': build_track_rows(session),
         'events': [serialize_event(event) for event in session.events.all()],
+        'annotations': [serialize_annotation(item) for item in session.annotations.all()],
     }
     response = HttpResponse(json.dumps(payload, indent=2, ensure_ascii=False), content_type='application/json; charset=utf-8')
     response['Content-Disposition'] = f'attachment; filename="session_{session.pk}_events.json"'
@@ -1114,79 +1349,61 @@ def session_export_json(request, pk: int):
 
 
 @login_required
+def session_export_boris_json(request, pk: int):
+    session = get_accessible_session(request.user, pk)
+    payload = build_boris_like_payload(session)
+    response = HttpResponse(json.dumps(payload, indent=2, ensure_ascii=False), content_type='application/json; charset=utf-8')
+    response['Content-Disposition'] = f'attachment; filename="session_{session.pk}_boris_like.json"'
+    return response
+
+
+@login_required
 def session_export_xlsx(request, pk: int):
     session = get_accessible_session(request.user, pk)
     workbook = Workbook()
-
     events_sheet = workbook.active
     events_sheet.title = 'Events'
-    event_headers = [
-        'Project',
-        'Session',
-        'Primary video',
-        'Synced videos',
-        'Observer',
-        'Category',
-        'Behavior',
-        'Behavior mode',
-        'Event kind',
-        'Timestamp seconds',
-        'Modifiers',
-        'Comment',
-        'Created at',
-    ]
-    events_sheet.append(event_headers)
+    events_sheet.append(['Project', 'Session', 'Primary video', 'Synced videos', 'Observer', 'Category', 'Behavior', 'Behavior mode', 'Event kind', 'Timestamp seconds', 'Modifiers', 'Comment', 'Created at'])
     for row in _event_rows(session):
         events_sheet.append(row)
+
+    annotations_sheet = workbook.create_sheet('Annotations')
+    annotations_sheet.append(['Project', 'Session', 'Timestamp seconds', 'Title', 'Note', 'Color', 'Created by', 'Created at'])
+    for row in _annotation_rows(session):
+        annotations_sheet.append(row)
 
     stats = build_statistics(session)
     stats_sheet = workbook.create_sheet('Summary')
     stats_sheet.append(['Session', session.title])
     stats_sheet.append(['Observed span seconds', stats['observed_span_seconds']])
     stats_sheet.append(['Event count', stats['session_event_count']])
+    stats_sheet.append(['Annotation count', stats['annotation_count']])
     stats_sheet.append(['Point count', stats['point_event_count']])
     stats_sheet.append(['Open state count', stats['open_state_count']])
     stats_sheet.append(['State duration seconds', stats['state_duration_seconds']])
     stats_sheet.append(['Synced videos', ', '.join(video.title for video in session.all_videos_ordered)])
     stats_sheet.append([])
-    stats_sheet.append([
-        'Category',
-        'Behavior',
-        'Mode',
-        'Point count',
-        'Start count',
-        'Stop count',
-        'Segments',
-        'Total duration seconds',
-        'Occupancy %',
-        'Open',
-    ])
+    stats_sheet.append(['Category', 'Behavior', 'Mode', 'Point count', 'Start count', 'Stop count', 'Segments', 'Total duration seconds', 'Occupancy %', 'Open'])
     for row in stats['rows']:
-        stats_sheet.append([
-            row['category'],
-            row['name'],
-            row['mode'],
-            row['point_count'],
-            row['start_count'],
-            row['stop_count'],
-            row['segment_count'],
-            row['total_duration_seconds'],
-            row['occupancy_percent'],
-            'yes' if row['is_open'] else 'no',
-        ])
+        stats_sheet.append([row['category'], row['name'], row['mode'], row['point_count'], row['start_count'], row['stop_count'], row['segment_count'], row['total_duration_seconds'], row['occupancy_percent'], 'yes' if row['is_open'] else 'no'])
+
+    intervals_sheet = workbook.create_sheet('Intervals')
+    intervals_sheet.append(['Category', 'Behavior', 'Mode', 'Interval count', 'Mean interval seconds', 'Min interval seconds', 'Max interval seconds'])
+    for row in build_interval_rows(session):
+        intervals_sheet.append([row['category'], row['name'], row['mode'], row['interval_count'], row['mean_interval_seconds'], row['min_interval_seconds'], row['max_interval_seconds']])
+
+    integrity_sheet = workbook.create_sheet('Integrity')
+    integrity = build_integrity_report(session)
+    integrity_sheet.append(['Issue count', integrity['issue_count']])
+    integrity_sheet.append([])
+    integrity_sheet.append(['Severity', 'Message'])
+    for item in integrity['issues']:
+        integrity_sheet.append([item['severity'], item['message']])
 
     buckets_sheet = workbook.create_sheet('Timeline')
-    buckets_sheet.append(['Start seconds', 'End seconds', 'Events', 'Point events', 'State changes', 'Top labels'])
+    buckets_sheet.append(['Start seconds', 'End seconds', 'Events', 'Point events', 'State changes', 'Annotations', 'Top labels'])
     for bucket in build_timeline_buckets(session):
-        top_labels = ', '.join(f'{name} ({count})' for name, count in bucket['labels'].items())
-        buckets_sheet.append([
-            bucket['start_seconds'],
-            bucket['end_seconds'],
-            bucket['event_count'],
-            bucket['point_count'],
-            bucket['state_change_count'],
-            top_labels,
-        ])
+        buckets_sheet.append([bucket['start_seconds'], bucket['end_seconds'], bucket['event_count'], bucket['point_count'], bucket['state_change_count'], bucket['annotation_count'], ', '.join(f'{name} ({count})' for name, count in bucket['labels'].items())])
 
     _autosize_workbook(workbook)
     response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
