@@ -110,24 +110,3 @@ Additional English documentation is available in:
 ## License
 
 This repository is marked as **AGPL-3.0-only**.
-
-
-## New in 0.9.1
-
-- Import a BORIS project or PyBehaviorLog bundle directly as a **new project**.
-- Clone an existing project, with optional sessions and video asset metadata.
-- Operational endpoints: `/health/` and `/release.json`.
-- Management commands: `export_project_bundle` and `release_report`.
-
-
-## New in 0.9.1
-
-- Added segment-level review queues and assignee/reviewer workflow.
-- Added session review segments with CRUD screens and queue dashboard.
-- Included review segments in JSON and BORIS-like session exports/imports.
-
-## New in 0.9.2
-
-- Batch assignment of review segments from the session player.
-- Finer review queue filtering by project, status, assignee/reviewer, and search text.
-- CSV export for review-segment analytics from the review queue.
