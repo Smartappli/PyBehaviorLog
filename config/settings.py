@@ -12,6 +12,7 @@ import sys
 from pathlib import Path
 from urllib.parse import urlparse
 
+from django.core.exceptions import ImproperlyConfigured
 from django.utils.csp import CSP
 from django.utils.translation import gettext_lazy as _
 
@@ -103,10 +104,21 @@ def build_database_config() -> dict[str, object]:
     }
 
 
-SECRET_KEY = env('DJANGO_SECRET_KEY', 'django-insecure-pybehaviorlog-0-8-change-me')
+DEFAULT_SECRET_KEY = 'django-insecure-pybehaviorlog-0-8-change-me'
+SECRET_KEY = env('DJANGO_SECRET_KEY', DEFAULT_SECRET_KEY)
 DEBUG = env_bool('DJANGO_DEBUG', True)
 ALLOWED_HOSTS = env_list('DJANGO_ALLOWED_HOSTS', '127.0.0.1,localhost')
 CSRF_TRUSTED_ORIGINS = env_list('DJANGO_CSRF_TRUSTED_ORIGINS')
+
+if not DEBUG and SECRET_KEY == DEFAULT_SECRET_KEY:
+    raise ImproperlyConfigured(
+        'DJANGO_SECRET_KEY must be set to a unique non-default value when DJANGO_DEBUG=0.'
+    )
+
+if not DEBUG and not ALLOWED_HOSTS:
+    raise ImproperlyConfigured(
+        'DJANGO_ALLOWED_HOSTS must define at least one host when DJANGO_DEBUG=0.'
+    )
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -233,6 +245,10 @@ X_FRAME_OPTIONS = 'DENY'
 SECURE_REFERRER_POLICY = 'same-origin'
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_CROSS_ORIGIN_OPENER_POLICY = 'same-origin'
+SECURE_SSL_REDIRECT = env_bool('SECURE_SSL_REDIRECT', not DEBUG)
+SECURE_HSTS_SECONDS = env_int('SECURE_HSTS_SECONDS', 0 if DEBUG else 60 * 60 * 24 * 30)
+SECURE_HSTS_INCLUDE_SUBDOMAINS = env_bool('SECURE_HSTS_INCLUDE_SUBDOMAINS', not DEBUG)
+SECURE_HSTS_PRELOAD = env_bool('SECURE_HSTS_PRELOAD', False)
 
 SECURE_CSP = {
     'default-src': [CSP.SELF],
