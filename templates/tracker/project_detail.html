@@ -17,13 +17,14 @@
         <a href="{% url 'tracker:project_export_xlsx' project.pk %}" role="button" class="secondary">{% trans 'Project XLSX' %}</a>
         <a href="{% url 'tracker:project_export_ethogram' project.pk %}" role="button" class="secondary">{% trans 'Export ethogram' %}</a>
         <a href="{% url 'tracker:project_export_boris_json' project.pk %}" role="button" class="secondary">{% trans 'Export BORIS project' %}</a>
+        <a href="{% url 'tracker:project_export_compatibility_report' project.pk %}" role="button" class="secondary">{% trans 'Compatibility report' %}</a>
         <a href="{% url 'tracker:project_export_bundle' project.pk %}" role="button" class="secondary">{% trans 'Reproducibility bundle' %}</a>
         {% if can_edit_project %}
             <a href="{% url 'tracker:session_create' project.pk %}" role="button" class="contrast">{% trans 'New session' %}</a>
         {% endif %}
         {% if can_manage_members %}
             <a href="{% url 'tracker:project_import_ethogram' project.pk %}" role="button" class="secondary">{% trans 'Import ethogram' %}</a>
-            <a href="{% url 'tracker:project_import_boris_json' project.pk %}" role="button" class="secondary">{% trans 'Import BORIS project' %}</a>
+            <a href="{% url 'tracker:project_import_boris_json' project.pk %}" role="button" class="secondary">{% trans 'Import compatibility project' %}</a>
             <a href="{% url 'tracker:project_update' project.pk %}" role="button" class="contrast">{% trans 'Settings' %}</a>
         {% endif %}
     </div>

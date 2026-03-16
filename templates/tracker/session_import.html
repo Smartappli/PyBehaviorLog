@@ -1,4 +1,4 @@
 {% extends 'base.html' %}
 {% load i18n %}
-{% block title %}{% trans 'Import session JSON' %}{% endblock %}
-{% block content %}<article class="auth-card wide-card"><h1>{% trans 'Import session JSON' %}</h1><p>{% trans 'Session' %}: <a href="{{ session.get_absolute_url }}">{{ session.title }}</a></p><form method="post" enctype="multipart/form-data">{% csrf_token %}{{ form.as_p }}<div class="action-stack"><button type="submit">{% trans 'Import' %}</button><a href="{{ session.get_absolute_url }}" role="button" class="secondary">{% trans 'Back' %}</a></div></form></article>{% endblock %}
+{% block title %}{% trans 'Import session data' %}{% endblock %}
+{% block content %}<article class="auth-card wide-card"><h1>{% trans 'Import session data' %}</h1><p>{% trans 'Session' %}: <a href="{{ session.get_absolute_url }}">{{ session.title }}</a></p><p class="muted">{% trans 'Supported inputs: PyBehaviorLog JSON, BORIS observation JSON, or documented CowLog plain-text coding results.' %}</p><form method="post" enctype="multipart/form-data">{% csrf_token %}{{ form.as_p }}<div class="action-stack"><button type="submit">{% trans 'Import' %}</button><a href="{{ session.get_absolute_url }}" role="button" class="secondary">{% trans 'Back' %}</a></div></form></article>{% endblock %}

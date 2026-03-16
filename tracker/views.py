@@ -904,7 +904,7 @@ def build_project_boris_payload(project: Project) -> dict:
     payload = build_ethogram_payload(project)
     payload.update(
         {
-            'schema': 'boris-project-v1',
+            'schema': 'boris-project-v3',
             'subjects': [
                 {
                     'name': subject.name,
@@ -958,21 +958,28 @@ def build_reproducibility_bundle(project: Project) -> dict[str, bytes]:
     analytics = build_project_statistics(project)
     boris_payload = build_project_boris_payload(project)
     ethogram_payload = build_ethogram_payload(project)
+    compatibility_payload = build_project_compatibility_report(project)
     files: dict[str, bytes] = {
         'ethogram.json': json.dumps(ethogram_payload, indent=2, ensure_ascii=False).encode('utf-8'),
         'analytics.json': json.dumps(analytics, indent=2, ensure_ascii=False).encode('utf-8'),
         'boris_project.json': json.dumps(boris_payload, indent=2, ensure_ascii=False).encode('utf-8'),
+        'compatibility_report.json': json.dumps(compatibility_payload, indent=2, ensure_ascii=False).encode('utf-8'),
     }
     session_meta = []
     for session in project.sessions.order_by('title'):
         filename = f'sessions/{slugify(session.title) or session.pk}.json'
-        payload = build_boris_like_payload(get_accessible_session(project.owner, session.pk))
+        accessible_session = get_accessible_session(project.owner, session.pk)
+        payload = build_boris_like_payload(accessible_session)
         files[filename] = json.dumps(payload, indent=2, ensure_ascii=False).encode('utf-8')
-        session_meta.append({'id': session.pk, 'title': session.title, 'filename': filename})
+        compatibility_name = f'sessions/{slugify(session.title) or session.pk}_compatibility.json'
+        files[compatibility_name] = json.dumps(
+            build_session_compatibility_report(accessible_session), indent=2, ensure_ascii=False
+        ).encode('utf-8')
+        session_meta.append({'id': session.pk, 'title': session.title, 'filename': filename, 'compatibility_filename': compatibility_name})
 
     manifest = {
-        'schema': 'pybehaviorlog-0.8.5-bundle',
-        'version': '0.8.5',
+        'schema': 'pybehaviorlog-0.8.6-bundle',
+        'version': '0.8.6',
         'project': {
             'name': project.name,
             'description': project.description,
@@ -989,6 +996,433 @@ def build_reproducibility_bundle(project: Project) -> dict[str, bytes]:
 
 
 
+
+
+
+
+
+def _format_seconds_token(value: str | float | Decimal) -> str:
+    """Return a stable second token for interoperability exports."""
+    decimal_value = _decimal(value, default='0').quantize(Decimal('0.001'))
+    token = format(decimal_value, 'f')
+    return token.rstrip('0').rstrip('.') or '0'
+
+
+
+def _build_event_interval_rows(session: ObservationSession) -> list[dict]:
+    """Return normalized interval/point rows used by interoperability exports."""
+    rows: list[dict] = []
+    open_states: dict[tuple[int, str], dict] = {}
+    end_time = _session_duration(session)
+    ordered_events = list(
+        session.events.select_related('behavior', 'behavior__category').prefetch_related(
+            'subjects', 'subjects__groups', 'modifiers'
+        ).order_by('timestamp_seconds', 'pk')
+    )
+    for event in ordered_events:
+        subjects = [subject.name for subject in event.all_subjects_ordered] or ['All subjects']
+        modifiers = [modifier.name for modifier in event.modifiers.order_by('sort_order', 'name')]
+        base = {
+            'event_id': event.id,
+            'behavior': event.behavior.name,
+            'category': event.behavior.category.name if event.behavior.category else '',
+            'mode': event.behavior.mode,
+            'subjects': subjects,
+            'modifiers': modifiers,
+            'comment': event.comment,
+        }
+        if event.event_kind == ObservationEvent.KIND_POINT or event.behavior.mode == Behavior.MODE_POINT:
+            rows.append(
+                {
+                    **base,
+                    'event_kind': ObservationEvent.KIND_POINT,
+                    'start_seconds': float(event.timestamp_seconds),
+                    'end_seconds': float(event.timestamp_seconds),
+                    'duration_seconds': 0.0,
+                    'open': False,
+                }
+            )
+            continue
+        subject_key = '|'.join(subjects)
+        state_key = (event.behavior_id, subject_key)
+        if event.event_kind == ObservationEvent.KIND_START:
+            open_states[state_key] = {
+                **base,
+                'start_seconds': float(event.timestamp_seconds),
+                'start_event_id': event.id,
+            }
+            continue
+        active = open_states.pop(state_key, None)
+        if active is None:
+            rows.append(
+                {
+                    **base,
+                    'event_kind': ObservationEvent.KIND_STOP,
+                    'start_seconds': float(event.timestamp_seconds),
+                    'end_seconds': float(event.timestamp_seconds),
+                    'duration_seconds': 0.0,
+                    'open': False,
+                }
+            )
+            continue
+        rows.append(
+            {
+                **base,
+                'event_kind': ObservationEvent.KIND_START,
+                'start_seconds': active['start_seconds'],
+                'end_seconds': float(event.timestamp_seconds),
+                'duration_seconds': round(
+                    float(event.timestamp_seconds) - active['start_seconds'], 3
+                ),
+                'open': False,
+                'start_event_id': active['start_event_id'],
+                'stop_event_id': event.id,
+            }
+        )
+    for active in open_states.values():
+        rows.append(
+            {
+                **active,
+                'event_kind': ObservationEvent.KIND_START,
+                'end_seconds': float(end_time),
+                'duration_seconds': round(float(end_time) - active['start_seconds'], 3),
+                'open': True,
+                'stop_event_id': None,
+            }
+        )
+    rows.sort(key=lambda item: (item['start_seconds'], item['behavior'], ','.join(item['subjects'])))
+    return rows
+
+
+
+def build_behavioral_sequences_text(session: ObservationSession, separator: str = '|') -> str:
+    """Export a BORIS-style behavioral sequence text grouped by subject."""
+    subject_map: dict[str, list[str]] = defaultdict(list)
+    for row in _build_event_interval_rows(session):
+        for subject in row['subjects'] or ['All subjects']:
+            subject_map[subject].append(row['behavior'])
+    lines = [f'# observation id: {session.title}', f'# project: {session.project.name}', '']
+    if not subject_map:
+        lines.append('No coded events')
+    else:
+        for subject in sorted(subject_map):
+            lines.append(f'{subject}:')
+            lines.append(separator.join(subject_map[subject]))
+            lines.append('')
+    return '\\n'.join(lines).rstrip() + '\\n'
+
+
+
+def build_textgrid_text(session: ObservationSession) -> str:
+    """Export a simple Praat TextGrid from observation rows."""
+    rows = _build_event_interval_rows(session)
+    end_time = max(
+        float(_session_duration(session)),
+        max((row['end_seconds'] for row in rows), default=0.0),
+    )
+    tiers: list[tuple[str, list[dict]]] = []
+    grouped: dict[str, list[dict]] = defaultdict(list)
+    for row in rows:
+        for subject in row['subjects'] or ['All subjects']:
+            grouped[subject].append(row)
+    for subject, subject_rows in sorted(grouped.items()):
+        intervals = []
+        for row in sorted(subject_rows, key=lambda item: (item['start_seconds'], item['behavior'])):
+            start = row['start_seconds']
+            stop = row['end_seconds']
+            if stop < start:
+                stop = start
+            if stop == start:
+                stop = round(start + 0.001, 3)
+            label = row['behavior']
+            if row['modifiers']:
+                label = f"{label} [{', '.join(row['modifiers'])}]"
+            intervals.append({'xmin': start, 'xmax': stop, 'text': label.replace('"', "'")})
+        tiers.append((subject.replace('"', "'"), intervals))
+    lines = [
+        'File type = "ooTextFile"',
+        'Object class = "TextGrid"',
+        '',
+        'xmin = 0',
+        f'xmax = {_format_seconds_token(end_time)}',
+        'tiers? <exists>',
+        f'size = {len(tiers)}',
+        'item []:',
+    ]
+    for index, (subject, intervals) in enumerate(tiers, start=1):
+        lines.extend(
+            [
+                f'    item [{index}]:',
+                '        class = "IntervalTier"',
+                f'        name = "{subject}"',
+                '        xmin = 0',
+                f'        xmax = {_format_seconds_token(end_time)}',
+                f'        intervals: size = {len(intervals)}',
+            ]
+        )
+        for interval_index, interval in enumerate(intervals, start=1):
+            lines.extend(
+                [
+                    f'        intervals [{interval_index}]:',
+                    f'            xmin = {_format_seconds_token(interval["xmin"])}',
+                    f'            xmax = {_format_seconds_token(interval["xmax"])}',
+                    f'            text = "{interval["text"]}"',
+                ]
+            )
+    return '\\n'.join(lines) + '\\n'
+
+
+
+def build_binary_table_rows(
+    session: ObservationSession, step_seconds: float = 1.0
+) -> list[list[str | int]]:
+    """Export a BORIS-style binary table with one column per behavior."""
+    step = max(float(step_seconds), 0.1)
+    duration = float(_session_duration(session))
+    behaviors = list(session.project.behaviors.order_by('sort_order', 'name'))
+    intervals = _build_event_interval_rows(session)
+    state_rows = [row for row in intervals if row['mode'] == Behavior.MODE_STATE]
+    point_rows = [row for row in intervals if row['mode'] == Behavior.MODE_POINT]
+    rows: list[list[str | int]] = []
+    time_value = 0.0
+    while time_value <= duration + 1e-9:
+        line: list[str | int] = [_format_seconds_token(time_value)]
+        for behavior in behaviors:
+            active = 0
+            for row in state_rows:
+                if (
+                    row['behavior'] == behavior.name
+                    and row['start_seconds'] <= time_value < row['end_seconds'] + 1e-9
+                ):
+                    active = 1
+                    break
+            if not active:
+                for row in point_rows:
+                    if (
+                        row['behavior'] == behavior.name
+                        and time_value <= row['start_seconds'] < time_value + step
+                    ):
+                        active = 1
+                        break
+            line.append(active)
+        rows.append(line)
+        time_value = round(time_value + step, 6)
+    return rows
+
+
+
+def _token_lookup_map(queryset, *, include_keys: bool = True) -> dict[str, object]:
+    lookup: dict[str, object] = {}
+    for item in queryset:
+        lookup[item.name.casefold()] = item
+        if include_keys and getattr(item, 'key_binding', ''):
+            lookup[str(item.key_binding).casefold()] = item
+    return lookup
+
+
+
+def parse_cowlog_results_text(
+    session: ObservationSession, raw_text: str
+) -> tuple[dict, dict]:
+    """Parse CowLog-style plain text results into a session import payload."""
+    behavior_lookup = _token_lookup_map(session.project.behaviors.all())
+    modifier_lookup = _token_lookup_map(session.project.modifiers.all())
+    category_lookup = {item.name.casefold() for item in session.project.categories.all()}
+    lines_processed = 0
+    warnings: list[str] = []
+    events: list[dict] = []
+    state_marker_used = False
+    for line_number, raw_line in enumerate(raw_text.splitlines(), start=1):
+        line = raw_line.strip()
+        if not line or line.startswith('#'):
+            continue
+        parts = [
+            part.strip()
+            for part in (line.split('	') if '	' in line else line.split())
+            if part.strip()
+        ]
+        if len(parts) < 2:
+            continue
+        try:
+            timestamp = float(parts[0].replace(',', '.'))
+        except ValueError:
+            continue
+        lines_processed += 1
+        tokens = parts[1:]
+        behavior = behavior_lookup.get(tokens[0].casefold())
+        if behavior is None:
+            warnings.append(
+                _('Line %(line)s: unknown behavior token “%(token)s”.')
+                % {'line': line_number, 'token': tokens[0]}
+            )
+            continue
+        event_kind = ObservationEvent.KIND_POINT
+        modifier_names: list[str] = []
+        subject_names: list[str] = []
+        for token in tokens[1:]:
+            lowered = token.casefold()
+            if lowered in {'point', 'start', 'stop'}:
+                event_kind = lowered
+                state_marker_used = True
+                continue
+            modifier = modifier_lookup.get(lowered)
+            if modifier is not None:
+                modifier_names.append(modifier.name)
+                continue
+            if lowered in category_lookup:
+                continue
+            subject_names.append(token)
+        if behavior.mode == Behavior.MODE_STATE and event_kind == ObservationEvent.KIND_POINT:
+            warnings.append(
+                _('Line %(line)s: state behavior %(behavior)s imported as POINT because CowLog text results do not preserve paired state markers by default.')
+                % {'line': line_number, 'behavior': behavior.name}
+            )
+        events.append(
+            {
+                'time': timestamp,
+                'behavior': behavior.name,
+                'event_kind': event_kind,
+                'modifiers': modifier_names,
+                'subjects': subject_names,
+                'comment': '',
+            }
+        )
+    payload = {
+        'schema': 'cowlog-results-v1',
+        'events': events,
+        'annotations': [],
+    }
+    report = {
+        'detected_format': 'cowlog-results-v1',
+        'line_count': lines_processed,
+        'event_count': len(events),
+        'warnings': warnings,
+        'state_marker_used': state_marker_used,
+    }
+    return payload, report
+
+
+
+def load_session_import_payload(
+    uploaded_file, session: ObservationSession
+) -> tuple[dict, dict]:
+    """Load session payloads from PyBehaviorLog/BORIS JSON or CowLog text exports."""
+    raw_bytes = uploaded_file.read()
+    report = {'warnings': []}
+    buffer = io.BytesIO(raw_bytes)
+    if zipfile.is_zipfile(buffer):
+        with zipfile.ZipFile(buffer) as archive:
+            names = archive.namelist()
+            candidate = next((name for name in names if name.endswith('.json')), None)
+            if candidate is None:
+                raise ValueError(_('The uploaded archive does not contain a session JSON file.'))
+            payload = json.loads(archive.read(candidate).decode('utf-8'))
+            report['detected_format'] = payload.get('schema', 'json')
+            report['source_name'] = candidate
+            return payload, report
+    try:
+        text_payload = raw_bytes.decode('utf-8-sig')
+    except UnicodeDecodeError as exc:
+        raise ValueError(_('The uploaded file is not valid UTF-8 text or JSON.')) from exc
+    stripped = text_payload.lstrip()
+    if stripped.startswith('{') or stripped.startswith('['):
+        payload = json.loads(text_payload)
+        report['detected_format'] = payload.get('schema', 'json')
+        return payload, report
+    payload, parsed_report = parse_cowlog_results_text(session, text_payload)
+    report.update(parsed_report)
+    return payload, report
+
+
+
+def build_session_compatibility_report(session: ObservationSession) -> dict:
+    """Summarize what can be exchanged with BORIS and CowLog for one session."""
+    stats = build_statistics(session)
+    ordered_events = list(session.events.prefetch_related('modifiers', 'subjects'))
+    state_event_count = sum(
+        1 for event in ordered_events if event.event_kind != ObservationEvent.KIND_POINT
+    )
+    modifier_event_count = sum(1 for event in ordered_events if event.modifiers.exists())
+    multi_subject_event_count = sum(1 for event in ordered_events if event.subjects.count() > 1)
+    report = {
+        'schema': 'pybehaviorlog-0.8.6-session-compatibility-report',
+        'version': '0.8.6',
+        'session': session.title,
+        'boris': {
+            'documented_exports': [
+                'json',
+                'behavioral_sequences',
+                'textgrid',
+                'binary_table',
+                'csv',
+                'tsv',
+                'xlsx',
+            ],
+            'documented_imports': ['json_project', 'json_observation'],
+            'ready': True,
+            'warnings': [],
+        },
+        'cowlog': {
+            'documented_exports': ['plain_text_results'],
+            'documented_imports': ['plain_text_results'],
+            'ready': state_event_count == 0,
+            'warnings': [],
+        },
+        'session_metrics': {
+            'event_count': stats['session_event_count'],
+            'annotation_count': stats['annotation_count'],
+            'open_state_count': stats['open_state_count'],
+            'state_event_count': state_event_count,
+            'modifier_event_count': modifier_event_count,
+            'multi_subject_event_count': multi_subject_event_count,
+        },
+    }
+    if state_event_count:
+        report['cowlog']['warnings'].append(
+            _('CowLog plain-text exports do not preserve paired state semantics with the same fidelity as BORIS JSON.')
+        )
+    if stats['annotation_count']:
+        report['cowlog']['warnings'].append(
+            _('CowLog plain-text exports do not carry annotations.')
+        )
+    return report
+
+
+
+def build_project_compatibility_report(project: Project) -> dict:
+    """Summarize project-level exchange coverage for BORIS and CowLog."""
+    return {
+        'schema': 'pybehaviorlog-0.8.6-project-compatibility-report',
+        'version': '0.8.6',
+        'project': project.name,
+        'counts': {
+            'sessions': project.sessions.count(),
+            'behaviors': project.behaviors.count(),
+            'subjects': project.subjects.count(),
+            'modifiers': project.modifiers.count(),
+            'variables': project.variable_definitions.count(),
+            'templates': project.observation_templates.count(),
+        },
+        'supported_boris_exports': [
+            'project_json',
+            'session_json',
+            'behavioral_sequences',
+            'textgrid',
+            'binary_table',
+            'csv',
+            'tsv',
+            'xlsx',
+        ],
+        'supported_cowlog_exports': ['plain_text_results'],
+        'notes': [
+            _('BORIS interoperability is strongest when using the documented JSON project/observation workflows and tabular exports.'),
+            _('CowLog interoperability currently targets the documented plain-text coding results and keyboard/behavior conventions.'),
+        ],
+        'sample_session_reports': [
+            build_session_compatibility_report(session)
+            for session in project.sessions.all().order_by('-created_at')[:10]
+        ],
+    }
 
 
 def _normalize_named_item(item, default_name: str | None = None, label_mode: bool = False) -> dict:
@@ -1157,8 +1591,9 @@ def import_project_payload(
     if schema not in {
         'boris-project-v1',
         'boris-project-v2',
+        'boris-project-v3',
         'pybehaviorlog-0.8.3-bundle',
-        'pybehaviorlog-0.8.5-bundle',
+        'pybehaviorlog-0.8.6-bundle',
     }:
         raise ValueError(_('Unsupported project payload format.'))
 
@@ -1167,7 +1602,7 @@ def import_project_payload(
         project,
         {
             **ethogram_payload,
-            'schema': ethogram_payload.get('schema', 'pybehaviorlog-0.8.5-ethogram'),
+            'schema': ethogram_payload.get('schema', 'pybehaviorlog-0.8.6-ethogram'),
         },
         replace_existing=False,
     )
@@ -1369,7 +1804,7 @@ def import_project_payload(
 
 def build_ethogram_payload(project: Project) -> dict:  # pragma: no cover
     return {
-        'schema': 'pybehaviorlog-0.8.5-ethogram',
+        'schema': 'pybehaviorlog-0.8.6-ethogram',
         'project': {
             'name': project.name,
             'description': project.description,
@@ -1450,7 +1885,7 @@ def import_ethogram_payload(
         'cowlog-django-v5-ethogram',
         'pybehaviorlog-0.8-ethogram',
         'pybehaviorlog-0.8.3-ethogram',
-        'pybehaviorlog-0.8.5-ethogram',
+        'pybehaviorlog-0.8.6-ethogram',
     }:
         raise ValueError('Unsupported JSON schema.')
 
@@ -1718,7 +2153,8 @@ def import_session_payload(
         'pybehaviorlog-v6-session',
         'pybehaviorlog-0.8-session',
         'pybehaviorlog-0.8.3-session',
-        'pybehaviorlog-0.8.5-session',
+        'pybehaviorlog-0.8.6-session',
+        'cowlog-results-v1',
     }:
         event_items = payload.get('events', [])
         annotation_items = payload.get('annotations', [])
@@ -2094,6 +2530,20 @@ def project_export_boris_json(request, pk: int):  # pragma: no cover
         content_type='application/json; charset=utf-8',
     )
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
+
+
+@login_required
+def project_export_compatibility_report(request, pk: int):  # pragma: no cover
+    project = get_accessible_project(request.user, pk)
+    report = build_project_compatibility_report(project)
+    response = HttpResponse(
+        json.dumps(report, indent=2, ensure_ascii=False),
+        content_type='application/json; charset=utf-8',
+    )
+    response['Content-Disposition'] = (
+        f'attachment; filename="project_{project.pk}_compatibility_report.json"'
+    )
     return response
 
 
@@ -2798,12 +3248,12 @@ def session_import_json(request, pk: int):  # pragma: no cover
     form = SessionImportForm(request.POST or None, request.FILES or None)
     if request.method == 'POST' and form.is_valid():
         try:
-            payload = json.loads(form.cleaned_data['file'].read().decode('utf-8'))
+            payload, import_report = load_session_import_payload(form.cleaned_data['file'], session)
             event_count, annotation_count = import_session_payload(
                 session, payload, clear_existing=form.cleaned_data['clear_existing']
             )
-        except (UnicodeDecodeError, json.JSONDecodeError):
-            messages.error(request, _('The uploaded file is not valid JSON.'))
+        except json.JSONDecodeError:
+            messages.error(request, _('The uploaded JSON file is invalid.'))
         except ValueError as exc:
             messages.error(request, str(exc))
         else:
@@ -2813,12 +3263,23 @@ def session_import_json(request, pk: int):  # pragma: no cover
                 action=ObservationAuditLog.ACTION_IMPORT,
                 target_type=ObservationAuditLog.TARGET_IMPORT,
                 target_id=session.id,
-                summary=f'Imported {event_count} events and {annotation_count} annotations.',
-                payload={'event_count': event_count, 'annotation_count': annotation_count},
+                summary=f'Imported {event_count} events and {annotation_count} annotations from {import_report.get("detected_format", "unknown")}.',
+                payload={
+                    'event_count': event_count,
+                    'annotation_count': annotation_count,
+                    'import_report': import_report,
+                },
             )
+            for warning in import_report.get('warnings', []):
+                messages.warning(request, warning)
             messages.success(
                 request,
-                _('Import complete. Imported events: %(events)s. Imported annotations: %(annotations)s.') % {'events': event_count, 'annotations': annotation_count},
+                _('Import complete from %(format)s. Imported events: %(events)s. Imported annotations: %(annotations)s.')
+                % {
+                    'format': import_report.get('detected_format', _('unknown format')),
+                    'events': event_count,
+                    'annotations': annotation_count,
+                },
             )
             return redirect(session)
     return render(
@@ -3305,6 +3766,94 @@ def annotation_delete_api(request, pk: int):
 
 
 @login_required
+def session_export_compatibility_report(request, pk: int):  # pragma: no cover
+    session = get_accessible_session(request.user, pk)
+    report = build_session_compatibility_report(session)
+    response = HttpResponse(
+        json.dumps(report, indent=2, ensure_ascii=False),
+        content_type='application/json; charset=utf-8',
+    )
+    response['Content-Disposition'] = (
+        f'attachment; filename="session_{session.pk}_compatibility_report.json"'
+    )
+    return response
+
+
+@login_required
+def session_export_cowlog_txt(request, pk: int):  # pragma: no cover
+    session = get_accessible_session(request.user, pk)
+    response = HttpResponse(content_type='text/plain; charset=utf-8')
+    response['Content-Disposition'] = (
+        f'attachment; filename="session_{session.pk}_cowlog_compatible.txt"'
+    )
+    response.write('# PyBehaviorLog 0.8.6 CowLog-compatible export\n')
+    response.write(f'# session\t{session.title}\n')
+    response.write(f'# project\t{session.project.name}\n')
+    response.write(f'# primary_video\t{session.primary_label}\n')
+    report = build_session_compatibility_report(session)
+    for warning in report['cowlog']['warnings']:
+        response.write(f'# warning\t{warning}\n')
+    for event in session.events.all().order_by('timestamp_seconds', 'pk'):
+        row = [
+            _format_seconds_token(event.timestamp_seconds),
+            event.behavior.name,
+        ]
+        modifiers = [modifier.name for modifier in event.modifiers.order_by('sort_order', 'name')]
+        subjects = [subject.name for subject in event.all_subjects_ordered]
+        if modifiers:
+            row.extend(modifiers)
+        if event.behavior.category_id:
+            row.append(event.behavior.category.name)
+        if event.event_kind != ObservationEvent.KIND_POINT:
+            row.append(event.event_kind)
+        if subjects:
+            row.extend(subjects)
+        response.write('\t'.join(row) + '\n')
+    return response
+
+
+@login_required
+def session_export_behavioral_sequences(request, pk: int):  # pragma: no cover
+    session = get_accessible_session(request.user, pk)
+    response = HttpResponse(content_type='text/plain; charset=utf-8')
+    response['Content-Disposition'] = (
+        f'attachment; filename="session_{session.pk}_behavioral_sequences.txt"'
+    )
+    response.write(build_behavioral_sequences_text(session))
+    return response
+
+
+@login_required
+def session_export_textgrid(request, pk: int):  # pragma: no cover
+    session = get_accessible_session(request.user, pk)
+    response = HttpResponse(content_type='text/plain; charset=utf-8')
+    response['Content-Disposition'] = (
+        f'attachment; filename="session_{session.pk}.TextGrid"'
+    )
+    response.write(build_textgrid_text(session))
+    return response
+
+
+@login_required
+def session_export_binary_table_tsv(request, pk: int):  # pragma: no cover
+    session = get_accessible_session(request.user, pk)
+    try:
+        step_seconds = float(request.GET.get('step', '1'))
+    except ValueError:
+        step_seconds = 1.0
+    rows = build_binary_table_rows(session, step_seconds=step_seconds)
+    response = HttpResponse(content_type='text/tab-separated-values; charset=utf-8')
+    response['Content-Disposition'] = (
+        f'attachment; filename="session_{session.pk}_binary_table.tsv"'
+    )
+    writer = csv.writer(response, delimiter='	')
+    writer.writerow(['time', *session.project.behaviors.order_by('sort_order', 'name').values_list('name', flat=True)])
+    for row in rows:
+        writer.writerow(row)
+    return response
+
+
+@login_required
 def session_export_csv(request, pk: int):  # pragma: no cover
     session = get_accessible_session(request.user, pk)
     response = HttpResponse(content_type='text/csv; charset=utf-8')
@@ -3359,7 +3908,7 @@ def session_export_tsv(request, pk: int):  # pragma: no cover
 def session_export_json(request, pk: int):
     session = get_accessible_session(request.user, pk)
     payload = {
-        'schema': 'pybehaviorlog-0.8.5-session',
+        'schema': 'pybehaviorlog-0.8.6-session',
         'project': session.project.name,
         'session': session.title,
         'video': session.primary_label,

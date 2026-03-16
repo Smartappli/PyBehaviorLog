@@ -20,6 +20,11 @@ urlpatterns = [
         'projects/<int:pk>/export/boris-json/', views.project_export_boris_json, name='project_export_boris_json'
     ),
     path(
+        'projects/<int:pk>/export/compatibility-report/',
+        views.project_export_compatibility_report,
+        name='project_export_compatibility_report',
+    ),
+    path(
         'projects/<int:pk>/import/boris-project/',
         views.project_import_boris_json,
         name='project_import_boris_json',
@@ -114,6 +119,11 @@ urlpatterns = [
     ),
     path('annotations/<int:pk>/update/', views.annotation_update_api, name='annotation_update_api'),
     path('annotations/<int:pk>/delete/', views.annotation_delete_api, name='annotation_delete_api'),
+    path('sessions/<int:pk>/export/compatibility-report/', views.session_export_compatibility_report, name='session_export_compatibility_report'),
+    path('sessions/<int:pk>/export/cowlog-txt/', views.session_export_cowlog_txt, name='session_export_cowlog_txt'),
+    path('sessions/<int:pk>/export/behavioral-sequences/', views.session_export_behavioral_sequences, name='session_export_behavioral_sequences'),
+    path('sessions/<int:pk>/export/textgrid/', views.session_export_textgrid, name='session_export_textgrid'),
+    path('sessions/<int:pk>/export/binary-table/', views.session_export_binary_table_tsv, name='session_export_binary_table_tsv'),
     path('sessions/<int:pk>/export/csv/', views.session_export_csv, name='session_export_csv'),
     path('sessions/<int:pk>/export/tsv/', views.session_export_tsv, name='session_export_tsv'),
     path('sessions/<int:pk>/export/json/', views.session_export_json, name='session_export_json'),

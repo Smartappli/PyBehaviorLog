@@ -18,7 +18,12 @@
         <a href="{% url 'tracker:session_export_csv' session.pk %}" role="button" class="secondary">CSV</a>
         <a href="{% url 'tracker:session_export_tsv' session.pk %}" role="button" class="secondary">TSV</a>
         <a href="{% url 'tracker:session_export_json' session.pk %}" role="button" class="secondary">JSON</a>
-        <a href="{% url 'tracker:session_export_boris_json' session.pk %}" role="button" class="secondary">{% trans 'BORIS-like' %}</a>
+        <a href="{% url 'tracker:session_export_boris_json' session.pk %}" role="button" class="secondary">{% trans 'BORIS JSON' %}</a>
+        <a href="{% url 'tracker:session_export_behavioral_sequences' session.pk %}" role="button" class="secondary">{% trans 'Sequences' %}</a>
+        <a href="{% url 'tracker:session_export_textgrid' session.pk %}" role="button" class="secondary">TextGrid</a>
+        <a href="{% url 'tracker:session_export_binary_table_tsv' session.pk %}" role="button" class="secondary">{% trans 'Binary table' %}</a>
+        <a href="{% url 'tracker:session_export_cowlog_txt' session.pk %}" role="button" class="secondary">{% trans 'CowLog TXT' %}</a>
+        <a href="{% url 'tracker:session_export_compatibility_report' session.pk %}" role="button" class="secondary">{% trans 'Compatibility report' %}</a>
         <a href="{% url 'tracker:session_export_xlsx' session.pk %}" role="button">XLSX</a>
     </div>
 </header>

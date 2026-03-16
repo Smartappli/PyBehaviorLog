@@ -105,7 +105,7 @@ class HelperTests(TestCase):
 
     def test_build_project_statistics_and_payloads(self):
         payload = build_ethogram_payload(self.project)
-        self.assertEqual(payload['schema'], 'pybehaviorlog-0.8.5-ethogram')
+        self.assertEqual(payload['schema'], 'pybehaviorlog-0.8.6-ethogram')
         imported_categories, _, imported_behaviors = import_ethogram_payload(
             self.project, payload, replace_existing=False
         )
@@ -123,11 +123,11 @@ class HelperTests(TestCase):
         self.assertEqual(analytics['session_count'], 1)
         self.assertEqual(analytics['event_count'], 1)
         self.assertEqual(boris_payload['schema'], 'boris-observation-v3')
-        self.assertEqual(project_payload['schema'], 'boris-project-v1')
+        self.assertEqual(project_payload['schema'], 'boris-project-v3')
 
     def test_import_session_payload_v83(self):
         payload = {
-            'schema': 'pybehaviorlog-0.8.5-session',
+            'schema': 'pybehaviorlog-0.8.6-session',
             'workflow_status': 'validated',
             'review_notes': 'Checked',
             'events': [
@@ -171,6 +171,7 @@ class HelperTests(TestCase):
         bundle = build_reproducibility_bundle(self.project)
         self.assertIn('ethogram.json', bundle)
         self.assertIn('manifest.json', bundle)
+        self.assertIn('compatibility_report.json', bundle)
         self.assertIn(str(self.point_behavior.pk), payload['behavior_bindings'])
         self.assertTrue(profile.is_default)
 
@@ -198,7 +199,7 @@ class HelperTests(TestCase):
         self.assertGreaterEqual(agreement['bucket_count'], 1)
     def test_import_project_payload_with_templates_and_sessions(self):
         payload = {
-            'schema': 'boris-project-v1',
+            'schema': 'boris-project-v3',
             'ethogram': build_ethogram_payload(self.project),
             'subject_groups': [
                 {'name': 'Adults', 'description': 'Adult cattle', 'color': '#123456', 'sort_order': 1}

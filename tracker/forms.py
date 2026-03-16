@@ -81,7 +81,7 @@ class EthogramImportForm(forms.Form):
     file = forms.FileField(
         label=_('File'),
         help_text=_(
-            'JSON export from PyBehaviorLog 0.8 and earlier supported versions or BORIS-like JSON.'
+            'JSON export from PyBehaviorLog 0.8.x or BORIS-compatible JSON.'
         ),
     )
     replace_existing = forms.BooleanField(
@@ -95,7 +95,7 @@ class ProjectBORISImportForm(forms.Form):
     file = forms.FileField(
         label=_('File'),
         help_text=_(
-            'BORIS project JSON or PyBehaviorLog project bundle JSON. Sessions and project entities can be merged into the current project.'
+            'BORIS project JSON or PyBehaviorLog reproducibility bundle JSON. Sessions and project entities can be merged into the current project.'
         ),
     )
     import_sessions = forms.BooleanField(
@@ -114,7 +114,7 @@ class ProjectBORISImportForm(forms.Form):
 
 
 class SessionImportForm(forms.Form):
-    file = forms.FileField(label=_('File'), help_text=_('PyBehaviorLog 0.8 and earlier supported versions JSON or simplified BORIS-like JSON.'))
+    file = forms.FileField(label=_('File'), help_text=_('PyBehaviorLog 0.8.x JSON, BORIS observation JSON, or CowLog plain-text coding results.'))
     clear_existing = forms.BooleanField(
         required=False,
         label=_('Delete existing events and annotations before import'),

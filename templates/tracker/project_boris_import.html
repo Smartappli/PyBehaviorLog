@@ -1,11 +1,11 @@
 {% extends 'base.html' %}
 {% load i18n %}
-{% block title %}{% trans 'Import BORIS project' %}{% endblock %}
+{% block title %}{% trans 'Import compatibility project' %}{% endblock %}
 {% block content %}
 <article class="auth-card wide-card">
-    <h1>{% trans 'Import BORIS project' %}</h1>
+    <h1>{% trans 'Import compatibility project' %}</h1>
     <p>{% trans 'Project' %}: <a href="{{ project.get_absolute_url }}">{{ project.name }}</a></p>
-    <p class="muted">{% trans 'This importer merges ethogram entities, subjects, variables, templates, and optionally the observation sessions contained in a BORIS-style project JSON or in a PyBehaviorLog reproducibility ZIP bundle.' %}</p>
+    <p class="muted">{% trans 'This importer merges ethogram entities, subjects, variables, templates, and optionally the observation sessions contained in a BORIS-compatible project JSON or in a PyBehaviorLog reproducibility ZIP bundle.' %}</p>
     <form method="post" enctype="multipart/form-data">
         {% csrf_token %}
         {{ form.as_p }}
