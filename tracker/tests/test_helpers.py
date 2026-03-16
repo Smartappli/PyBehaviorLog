@@ -1,6 +1,7 @@
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 
 from tracker.models import (
@@ -11,8 +12,10 @@ from tracker.models import (
     ObservationSession,
     ObservationTemplate,
     Project,
+    SessionVideoLink,
     Subject,
     SubjectGroup,
+    VideoAsset,
 )
 from tracker.views import (
     build_agreement_analysis,
@@ -20,6 +23,7 @@ from tracker.views import (
     build_ethogram_payload,
     build_integrity_report,
     build_keyboard_profile_payload,
+    build_media_analysis,
     build_project_boris_payload,
     build_project_statistics,
     build_reproducibility_bundle,
@@ -29,6 +33,7 @@ from tracker.views import (
     import_ethogram_payload,
     import_project_payload,
     import_session_payload,
+    parse_tabular_session_rows,
     resolve_event_kind,
 )
 
@@ -105,7 +110,7 @@ class HelperTests(TestCase):
 
     def test_build_project_statistics_and_payloads(self):
         payload = build_ethogram_payload(self.project)
-        self.assertEqual(payload['schema'], 'pybehaviorlog-0.8.7-ethogram')
+        self.assertEqual(payload['schema'], 'pybehaviorlog-0.8.8-ethogram')
         imported_categories, _, imported_behaviors = import_ethogram_payload(
             self.project, payload, replace_existing=False
         )
@@ -127,7 +132,7 @@ class HelperTests(TestCase):
 
     def test_import_session_payload_v83(self):
         payload = {
-            'schema': 'pybehaviorlog-0.8.7-session',
+            'schema': 'pybehaviorlog-0.8.8-session',
             'workflow_status': 'validated',
             'review_notes': 'Checked',
             'events': [
@@ -197,6 +202,41 @@ class HelperTests(TestCase):
         agreement = build_agreement_analysis(self.session, other_session)
         self.assertEqual(agreement['percent_agreement'], 100.0)
         self.assertGreaterEqual(agreement['bucket_count'], 1)
+
+    def test_media_analysis_and_relative_paths(self):
+        video = VideoAsset.objects.create(
+            project=self.project,
+            title='clip.wav',
+            file=SimpleUploadedFile('clip.wav', b'RIFF\x24\x00\x00\x00WAVEfmt '),
+        )
+        self.session.video = video
+        self.session.save(update_fields=['video'])
+        SessionVideoLink.objects.create(session=self.session, video=video, sort_order=0)
+        boris_payload = build_boris_like_payload(self.session)
+        media = build_media_analysis(self.session)
+        self.assertEqual(boris_payload['observations'][0]['media_paths'][0], 'videos/clip.wav')
+        self.assertEqual(media[0]['relative_path'], 'videos/clip.wav')
+
+    def test_parse_tabular_session_rows(self):
+        rows = [
+            {
+                'time': '1.250',
+                'behavior': 'Eat',
+                'event_kind': 'point',
+                'subjects': 'Cow 1',
+                'modifiers': 'Near',
+                'comment': 'Imported from CSV',
+            }
+        ]
+        payload, report = parse_tabular_session_rows(
+            self.session,
+            rows,
+            source_format='boris-tabular-csv-v1',
+        )
+        self.assertEqual(report['event_count'], 1)
+        self.assertEqual(payload['schema'], 'boris-tabular-csv-v1')
+        self.assertEqual(payload['events'][0]['behavior'], 'Eat')
+
     def test_import_project_payload_with_templates_and_sessions(self):
         payload = {
             'schema': 'boris-project-v3',

@@ -39,9 +39,12 @@ def _resolve_event_items(payload: dict[str, Any]) -> list[dict[str, Any]]:
     schema = payload.get('schema', '')
     if schema in {
         'cowlog-results-v1',
-        'pybehaviorlog-0.8.7-session',
+        'pybehaviorlog-0.8.8-session',
         'pybehaviorlog-0.8.3-session',
         'pybehaviorlog-0.8-session',
+        'boris-tabular-csv-v1',
+        'boris-tabular-tsv-v1',
+        'boris-tabular-xlsx-v1',
     }:
         return [item for item in payload.get('events', []) if isinstance(item, dict)]
     observations = payload.get('observations')

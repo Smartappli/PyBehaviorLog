@@ -23,6 +23,8 @@
         <a href="{% url 'tracker:session_export_textgrid' session.pk %}" role="button" class="secondary">TextGrid</a>
         <a href="{% url 'tracker:session_export_binary_table_tsv' session.pk %}" role="button" class="secondary">{% trans 'Binary table' %}</a>
         <a href="{% url 'tracker:session_export_cowlog_txt' session.pk %}" role="button" class="secondary">{% trans 'CowLog TXT' %}</a>
+        <a href="{% url 'tracker:session_export_html' session.pk %}" role="button" class="secondary">HTML</a>
+        <a href="{% url 'tracker:session_export_sql' session.pk %}" role="button" class="secondary">SQL</a>
         <a href="{% url 'tracker:session_export_compatibility_report' session.pk %}" role="button" class="secondary">{% trans 'Compatibility report' %}</a>
         <a href="{% url 'tracker:session_export_xlsx' session.pk %}" role="button">XLSX</a>
     </div>
@@ -79,6 +81,16 @@
             </div>
         </article>
         {% endif %}
+
+        <article>
+            <div class="section-headline">
+                <h3>{% trans 'Media diagnostics' %}</h3>
+                <button type="button" id="refresh-media-analysis-btn" class="secondary">{% trans 'Refresh diagnostics' %}</button>
+            </div>
+            <p class="muted">{% trans 'Relative media paths, lightweight waveform previews, and coarse spectrogram data for compatible audio files.' %}</p>
+            {{ media_analysis|json_script:"media-analysis-data" }}
+            <div id="media-analysis-output" class="stack-list"></div>
+        </article>
 
         <article>
             <div class="section-headline">
@@ -227,6 +239,7 @@
             <div class="stacked-form review-panel">
                 <label for="review-notes-input">{% trans 'Review notes' %}</label>
                 <textarea id="review-notes-input" rows="4" {% if not can_review_session %}disabled{% endif %}>{{ session.review_notes }}</textarea>
+                <p id="review-notes-autosave-status" class="muted">{% trans 'Autosave idle.' %}</p>
                 <div class="mini-actions wrap-controls">
                     {% if can_code_session %}<button type="button" id="workflow-submit-btn" class="secondary">{% trans 'Submit for review' %}</button>{% endif %}
                     {% if can_review_session %}
@@ -298,6 +311,8 @@
                     <button type="button" id="event-editor-minus-frame" class="secondary">{% trans '-1 frame' %}</button>
                     <button type="button" id="event-editor-plus-frame" class="secondary">{% trans '+1 frame' %}</button>
                     <button type="button" id="event-editor-plus-second" class="secondary">+1 s</button>
+                    <button type="button" id="event-editor-undo" class="secondary">{% trans 'Undo edit' %}</button>
+                    <button type="button" id="event-editor-redo" class="secondary">{% trans 'Redo edit' %}</button>
                     <button type="button" id="event-editor-apply" class="secondary">{% trans 'Save event' %}</button>
                     <button type="button" id="event-editor-duplicate" class="secondary">{% trans 'Duplicate event' %}</button>
                     <button type="button" id="event-editor-clear" class="secondary">{% trans 'Clear selection' %}</button>
@@ -384,6 +399,11 @@ const eventEditorMinusSecondBtn = document.getElementById('event-editor-minus-se
 const eventEditorMinusFrameBtn = document.getElementById('event-editor-minus-frame');
 const eventEditorPlusFrameBtn = document.getElementById('event-editor-plus-frame');
 const eventEditorPlusSecondBtn = document.getElementById('event-editor-plus-second');
+const eventEditorUndoBtn = document.getElementById('event-editor-undo');
+const eventEditorRedoBtn = document.getElementById('event-editor-redo');
+const reviewNotesAutosaveStatus = document.getElementById('review-notes-autosave-status');
+const refreshMediaAnalysisBtn = document.getElementById('refresh-media-analysis-btn');
+const mediaAnalysisOutput = document.getElementById('media-analysis-output');
 
 function getCookie(name) {
     return document.cookie.split('; ').find((row) => row.startsWith(`${name}=`))?.split('=')[1] || '';
@@ -427,6 +447,19 @@ const jsI18n = {
     saveEvent: "{% trans 'Save event' %}",
     duplicateEvent: "{% trans 'Duplicate event' %}",
     fixUnpairedDone: "{% trans 'Inserted STOP events' %}",
+    relativePath: "{% trans 'Relative path' %}",
+    mediaKind: "{% trans 'Media kind' %}",
+    fileExists: "{% trans 'File exists' %}",
+    waveform: "{% trans 'Waveform' %}",
+    spectrogram: "{% trans 'Spectrogram' %}",
+    noMediaDiagnostics: "{% trans 'No media diagnostics available.' %}",
+    autosaveIdle: "{% trans 'Autosave idle.' %}",
+    autosaveSaved: "{% trans 'Draft saved locally.' %}",
+    autosaveRestored: "{% trans 'Draft restored from local storage.' %}",
+    undoEdit: "{% trans 'Undo edit' %}",
+    redoEdit: "{% trans 'Redo edit' %}",
+    noFurtherUndo: "{% trans 'No earlier editor snapshot.' %}",
+    noFurtherRedo: "{% trans 'No later editor snapshot.' %}",
 };
 
 let stateStatus = JSON.parse(document.getElementById('state-status-data').textContent);
@@ -434,6 +467,7 @@ let timelineBuckets = JSON.parse(document.getElementById('timeline-data').textCo
 let trackRows = JSON.parse(document.getElementById('track-data').textContent);
 let integrityReport = JSON.parse(document.getElementById('integrity-data').textContent);
 let intervalRows = JSON.parse(document.getElementById('interval-data').textContent);
+let mediaAnalysis = JSON.parse(document.getElementById('media-analysis-data').textContent || '[]');
 const keyboardProfile = JSON.parse(document.getElementById('keyboard-profile-data').textContent || '{}');
 let activeModifierIds = new Set();
 let activeSubjectIds = new Set();
@@ -446,6 +480,10 @@ let liveTimerRunning = false;
 let liveTimerHandle = null;
 let liveTimerStartedAt = null;
 let selectedEventSnapshot = null;
+let eventEditorHistory = [];
+let eventEditorHistoryIndex = -1;
+let reviewNotesAutosaveHandle = null;
+const reviewNotesDraftKey = `pybehaviorlog-review-notes-${sessionId}`;
 
 function formatSeconds(value) {
     const numeric = Number(value || 0);
@@ -584,6 +622,121 @@ function syncSelectionsFromEvent(eventData) {
     renderSubjectStates();
 }
 
+
+function captureEventEditorSnapshot() {
+    return {
+        selectedEventSnapshot,
+        time: eventEditorTime?.value || '',
+        behavior: eventEditorBehavior?.value || '',
+        kind: eventEditorKind?.value || 'point',
+        comment: eventEditorComment?.value || '',
+    };
+}
+
+function applyEventEditorSnapshot(snapshot) {
+    selectedEventSnapshot = snapshot.selectedEventSnapshot || null;
+    if (selectedEventLabel) {
+        selectedEventLabel.textContent = selectedEventSnapshot
+            ? `${selectedEventSnapshot.behavior} · ${formatSeconds(selectedEventSnapshot.timestamp_seconds)} · ${selectedEventSnapshot.event_kind}`
+            : jsI18n.noEventSelected;
+    }
+    if (eventEditorTime) eventEditorTime.value = snapshot.time || '';
+    if (eventEditorBehavior && snapshot.behavior) eventEditorBehavior.value = snapshot.behavior;
+    if (eventEditorKind) eventEditorKind.value = snapshot.kind || 'point';
+    if (eventEditorComment) eventEditorComment.value = snapshot.comment || '';
+}
+
+function pushEventEditorHistory() {
+    const snapshot = captureEventEditorSnapshot();
+    const serialized = JSON.stringify(snapshot);
+    const currentSerialized = eventEditorHistoryIndex >= 0 ? JSON.stringify(eventEditorHistory[eventEditorHistoryIndex]) : null;
+    if (serialized === currentSerialized) return;
+    eventEditorHistory = eventEditorHistory.slice(0, eventEditorHistoryIndex + 1);
+    eventEditorHistory.push(snapshot);
+    eventEditorHistoryIndex = eventEditorHistory.length - 1;
+}
+
+function undoEventEditor() {
+    if (eventEditorHistoryIndex <= 0) {
+        alert(jsI18n.noFurtherUndo);
+        return;
+    }
+    eventEditorHistoryIndex -= 1;
+    applyEventEditorSnapshot(eventEditorHistory[eventEditorHistoryIndex]);
+}
+
+function redoEventEditor() {
+    if (eventEditorHistoryIndex >= eventEditorHistory.length - 1) {
+        alert(jsI18n.noFurtherRedo);
+        return;
+    }
+    eventEditorHistoryIndex += 1;
+    applyEventEditorSnapshot(eventEditorHistory[eventEditorHistoryIndex]);
+}
+
+function renderMiniBars(values, className) {
+    if (!values?.length) return `<div class="muted">${jsI18n.noMediaDiagnostics}</div>`;
+    return `<div class="mini-bars ${className}">${values.map((value) => `<span style="height:${Math.max(8, Math.round(Number(value || 0) * 42))}px"></span>`).join('')}</div>`;
+}
+
+function renderSpectrogramGrid(columns) {
+    if (!columns?.length) return `<div class="muted">${jsI18n.noMediaDiagnostics}</div>`;
+    return `<div class="spectrogram-grid">${columns.map((column) => {
+        const cells = (column || []).map((value) => `<span style="opacity:${Math.max(0.12, Number(value || 0))}"></span>`).join('');
+        return `<div class="spectrogram-column">${cells}</div>`;
+    }).join('')}</div>`;
+}
+
+function renderMediaAnalysis() {
+    if (!mediaAnalysisOutput) return;
+    if (!mediaAnalysis?.length) {
+        mediaAnalysisOutput.innerHTML = `<p class="muted">${jsI18n.noMediaDiagnostics}</p>`;
+        return;
+    }
+    mediaAnalysisOutput.innerHTML = mediaAnalysis.map((item) => `
+        <article class="integrity-box media-card">
+            <div class="selection-summary">
+                <strong>${item.title}</strong>
+                <span>${jsI18n.mediaKind}: ${item.media_kind}</span>
+                <span>${jsI18n.fileExists}: ${item.file_exists ? jsI18n.yes : jsI18n.no}</span>
+            </div>
+            <p class="muted">${jsI18n.relativePath}: ${item.relative_path || '—'}</p>
+            ${item.waveform?.length ? `<div><strong>${jsI18n.waveform}</strong>${renderMiniBars(item.waveform, 'waveform-bars')}</div>` : ''}
+            ${item.spectrogram?.length ? `<div><strong>${jsI18n.spectrogram}</strong>${renderSpectrogramGrid(item.spectrogram)}</div>` : ''}
+        </article>
+    `).join('');
+}
+
+async function refreshMediaAnalysis() {
+    try {
+        const response = await fetch(`{% url 'tracker:session_media_analysis_json' session.pk %}`);
+        const payload = await response.json();
+        mediaAnalysis = payload.media_analysis || [];
+        renderMediaAnalysis();
+    } catch (error) {
+        console.error(error);
+    }
+}
+
+function scheduleReviewNotesAutosave() {
+    if (!reviewNotesInput || reviewNotesInput.disabled) return;
+    window.clearTimeout(reviewNotesAutosaveHandle);
+    reviewNotesAutosaveStatus.textContent = jsI18n.autosaveIdle;
+    reviewNotesAutosaveHandle = window.setTimeout(() => {
+        localStorage.setItem(reviewNotesDraftKey, reviewNotesInput.value || '');
+        if (reviewNotesAutosaveStatus) reviewNotesAutosaveStatus.textContent = jsI18n.autosaveSaved;
+    }, 450);
+}
+
+function restoreReviewNotesDraft() {
+    if (!reviewNotesInput || reviewNotesInput.disabled) return;
+    const savedDraft = localStorage.getItem(reviewNotesDraftKey);
+    if (savedDraft && savedDraft !== reviewNotesInput.value) {
+        reviewNotesInput.value = savedDraft;
+        if (reviewNotesAutosaveStatus) reviewNotesAutosaveStatus.textContent = jsI18n.autosaveRestored;
+    }
+}
+
 function clearEventEditor() {
     selectedEventSnapshot = null;
     if (selectedEventLabel) selectedEventLabel.textContent = jsI18n.noEventSelected;
@@ -591,6 +744,7 @@ function clearEventEditor() {
     if (eventEditorComment) eventEditorComment.value = '';
     if (eventEditorBehavior) eventEditorBehavior.selectedIndex = 0;
     if (eventEditorKind) eventEditorKind.value = 'point';
+    pushEventEditorHistory();
 }
 
 function populateEventEditor(eventData, {syncSelections = true} = {}) {
@@ -603,6 +757,7 @@ function populateEventEditor(eventData, {syncSelections = true} = {}) {
     if (eventEditorKind) eventEditorKind.value = eventData.event_kind;
     if (eventEditorComment) eventEditorComment.value = eventData.comment || '';
     if (syncSelections) syncSelectionsFromEvent(eventData);
+    pushEventEditorHistory();
 }
 
 function eventEditorPayload() {
@@ -641,6 +796,7 @@ function nudgeSelectedEvent(deltaSeconds) {
     if (!selectedEventSnapshot || !eventEditorTime) return;
     const nextValue = Math.max(0, Number(eventEditorTime.value || selectedEventSnapshot.timestamp_seconds || 0) + deltaSeconds);
     eventEditorTime.value = nextValue.toFixed(3);
+    pushEventEditorHistory();
 }
 
 function updateTimelineSelection(bucket, extendSelection = false) {
@@ -835,7 +991,8 @@ async function fetchSessionState() {
     integrityReport = data.integrity_report;
     intervalRows = data.interval_rows;
     auditRows = data.audit_rows || [];
-    if (reviewNotesInput && typeof data.review_notes !== 'undefined') {
+    mediaAnalysis = data.media_analysis || mediaAnalysis || [];
+    if (reviewNotesInput && typeof data.review_notes !== 'undefined' && !localStorage.getItem(reviewNotesDraftKey)) {
         reviewNotesInput.value = data.review_notes || '';
     }
     renderStats(data.stats.rows, data.stats);
@@ -845,6 +1002,7 @@ async function fetchSessionState() {
     renderIntegrity();
     renderIntervals();
     renderActiveStates();
+    renderMediaAnalysis();
     const matchedSelectedEvent = selectedEventSnapshot ? data.events.find((item) => item.id === selectedEventSnapshot.id) : null;
     renderEvents(data.events);
     if (matchedSelectedEvent) {
@@ -982,6 +1140,8 @@ fixUnpairedBtn?.addEventListener('click', async () => {
 eventEditorApplyBtn?.addEventListener('click', async () => { try { await persistSelectedEvent(); } catch (error) { alert(error.message); } });
 eventEditorDuplicateBtn?.addEventListener('click', async () => { try { await duplicateSelectedEvent(frameStep); } catch (error) { alert(error.message); } });
 eventEditorClearBtn?.addEventListener('click', clearEventEditor);
+eventEditorUndoBtn?.addEventListener('click', undoEventEditor);
+eventEditorRedoBtn?.addEventListener('click', redoEventEditor);
 eventEditorMinusSecondBtn?.addEventListener('click', () => nudgeSelectedEvent(-1));
 eventEditorMinusFrameBtn?.addEventListener('click', () => nudgeSelectedEvent(-frameStep));
 eventEditorPlusFrameBtn?.addEventListener('click', () => nudgeSelectedEvent(frameStep));
@@ -1077,6 +1237,14 @@ document.addEventListener('keydown', async (event) => {
     }
 });
 
+reviewNotesInput?.addEventListener('input', scheduleReviewNotesAutosave);
+eventEditorTime?.addEventListener('input', pushEventEditorHistory);
+eventEditorBehavior?.addEventListener('change', pushEventEditorHistory);
+eventEditorKind?.addEventListener('change', pushEventEditorHistory);
+eventEditorComment?.addEventListener('input', pushEventEditorHistory);
+refreshMediaAnalysisBtn?.addEventListener('click', refreshMediaAnalysis);
+
+restoreReviewNotesDraft();
 renderSubjectStates();
 renderModifierStates();
 renderTimelineSelection();
@@ -1085,7 +1253,9 @@ renderTracks();
 renderIntegrity();
 renderIntervals();
 renderActiveStates();
+renderMediaAnalysis();
 updateTimeDisplay();
+pushEventEditorHistory();
 fetchSessionState();
 </script>
 {% endblock %}

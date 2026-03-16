@@ -1,10 +1,10 @@
-# Compatibility profile for PyBehaviorLog 0.8.7
+# Compatibility profile for PyBehaviorLog 0.8.8
 
-PyBehaviorLog 0.8.7 strengthens interoperability with BORIS and CowLog around the formats and workflows that are publicly documented.
+PyBehaviorLog 0.8.8 strengthens interoperability with BORIS and CowLog around the formats and workflows that are publicly documented.
 
 ## BORIS coverage
 
-### Implemented in 0.8.7
+### Implemented in 0.8.8
 
 - BORIS-compatible observation JSON export
 - BORIS-compatible project JSON export
@@ -28,7 +28,7 @@ The safest paths are:
 
 ## CowLog coverage
 
-### Implemented in 0.8.7
+### Implemented in 0.8.8
 
 - Import of documented CowLog-like plain-text coding result files
 - Export of CowLog-compatible plain-text result files
@@ -37,7 +37,7 @@ The safest paths are:
 
 ### Current positioning
 
-CowLog compatibility in 0.8.7 focuses on the **documented plain-text coding result workflow**.
+CowLog compatibility in 0.8.8 focuses on the **documented plain-text coding result workflow**.
 
 CowLog plain-text exports do not preserve all PyBehaviorLog/BORIS semantics with the same fidelity, especially for:
 
@@ -51,7 +51,7 @@ For those cases, BORIS JSON and PyBehaviorLog JSON remain the preferred intercha
 
 ## Built-in certification baseline
 
-Version 0.8.7 adds a compact fixture corpus and automated round-trip tests for:
+Version 0.8.8 adds a compact fixture corpus and automated round-trip tests for:
 
 - BORIS observation JSON
 - BORIS project JSON
@@ -61,7 +61,7 @@ Those fixtures are executed in the Django test suite and compared through normal
 
 ## Compatibility reports
 
-PyBehaviorLog 0.8.7 adds machine-readable compatibility reports at both project and session level.
+PyBehaviorLog 0.8.8 adds machine-readable compatibility reports at both project and session level.
 
 They summarize:
 
@@ -82,3 +82,11 @@ If you want to move toward a stronger "certified compatibility" claim, use this 
 6. Store the round-trip reports in CI.
 
 That approach is the right path toward a future compatibility certification release.
+
+
+### Added in 0.8.8
+
+- BORIS-style tabular session imports from CSV, TSV, and XLSX files
+- relative media paths included in project/session JSON payloads and reproducibility bundles
+- lightweight media diagnostics for compatible local audio files, including waveform previews and a coarse spectrogram
+- additional HTML and SQL exports for review and downstream analysis pipelines

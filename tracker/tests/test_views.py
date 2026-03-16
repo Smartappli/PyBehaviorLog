@@ -91,7 +91,7 @@ class ViewTests(TestCase):
 
         export_response = self.client.get(reverse('tracker:session_export_json', args=[session.pk]))
         self.assertEqual(export_response.status_code, 200)
-        self.assertIn('pybehaviorlog-0.8.7-session', export_response.content.decode('utf-8'))
+        self.assertIn('pybehaviorlog-0.8.8-session', export_response.content.decode('utf-8'))
 
     def test_event_update_and_delete_api(self):
         session = self.project.sessions.create(
@@ -207,10 +207,41 @@ class ViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context['agreement']['cohen_kappa'], 1.0)
         self.assertContains(response, '100', status_code=200)
+
+    def test_session_media_analysis_endpoint_and_extra_exports(self):
+        session = self.project.sessions.create(
+            title='Media session',
+            observer=self.user,
+            session_kind='live',
+        )
+        response = self.client.get(reverse('tracker:session_media_analysis_json', args=[session.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('media_analysis', response.json())
+        html_response = self.client.get(reverse('tracker:session_export_html', args=[session.pk]))
+        self.assertEqual(html_response.status_code, 200)
+        sql_response = self.client.get(reverse('tracker:session_export_sql', args=[session.pk]))
+        self.assertEqual(sql_response.status_code, 200)
+        self.assertIn('CREATE TABLE IF NOT EXISTS pybehaviorlog_event_export', sql_response.content.decode('utf-8'))
+
+    def test_session_import_accepts_csv(self):
+        session = self.project.sessions.create(
+            title='CSV import session',
+            observer=self.user,
+            session_kind='live',
+        )
+        content = 'time,behavior,event_kind,subjects,comment\n1.500,Eat,point,Cow 1,CSV import\n'
+        upload = SimpleUploadedFile('events.csv', content.encode('utf-8'), content_type='text/csv')
+        response = self.client.post(
+            reverse('tracker:session_import_json', args=[session.pk]),
+            data={'file': upload, 'clear_existing': True},
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(session.events.count(), 1)
+
     def test_project_import_boris_json_view(self):
         payload = {
             'schema': 'boris-project-v3',
-            'ethogram': {'schema': 'pybehaviorlog-0.8.7-ethogram', 'categories': [], 'modifiers': [], 'subject_groups': [], 'subjects': [], 'variables': [], 'behaviors': [{'name': 'Imported behavior', 'description': '', 'key_binding': 'i', 'color': '#0f766e', 'mode': 'point', 'sort_order': 1, 'category': None}]},
+            'ethogram': {'schema': 'pybehaviorlog-0.8.8-ethogram', 'categories': [], 'modifiers': [], 'subject_groups': [], 'subjects': [], 'variables': [], 'behaviors': [{'name': 'Imported behavior', 'description': '', 'key_binding': 'i', 'color': '#0f766e', 'mode': 'point', 'sort_order': 1, 'category': None}]},
             'subject_groups': [{'name': 'Imported group', 'description': '', 'color': '#123456', 'sort_order': 1}],
             'subjects': [{'name': 'Imported subject', 'description': '', 'key_binding': 's', 'color': '#654321', 'sort_order': 1, 'groups': ['Imported group']}],
             'variables': [{'label': 'Weight', 'description': '', 'value_type': 'numeric', 'set_values': [], 'default_value': '0', 'sort_order': 1}],
@@ -286,7 +317,7 @@ class ViewTests(TestCase):
         payload = {
             'schema': 'boris-project-v2',
             'ethogram': {
-                'schema': 'pybehaviorlog-0.8.7-ethogram',
+                'schema': 'pybehaviorlog-0.8.8-ethogram',
                 'categories': {'General': {'color': '#111111', 'sort_order': 1}},
                 'modifiers': {'Near': {'description': 'proximity', 'key': 'n', 'sort_order': 1}},
                 'behaviors': {'Imported code': {'description': '', 'key': 'i', 'color': '#0f766e', 'mode': 'point', 'sort_order': 1, 'category': {'name': 'General'}}},

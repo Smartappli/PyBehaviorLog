@@ -4,8 +4,11 @@ import csv
 import hashlib
 import io
 import json
+import math
 import re
+import wave
 import zipfile
+from pathlib import Path
 from collections import defaultdict
 from decimal import Decimal, InvalidOperation
 
@@ -22,7 +25,7 @@ from django.utils.text import slugify
 from django.utils.translation import gettext as _
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_POST
-from openpyxl import Workbook
+from openpyxl import Workbook, load_workbook
 
 from .forms import (
     BehaviorCategoryForm,
@@ -235,6 +238,148 @@ def _session_duration(
         candidates.append(last_annotation.timestamp_seconds)
     return max(candidates)
 
+
+
+
+def _relative_media_path(video: VideoAsset | None) -> str | None:
+    """Return a storage-relative media path for interoperability exports."""
+    if video is None or not getattr(video, 'file', None):
+        return None
+    name = str(video.file.name or '').replace('\\', '/')
+    return name or None
+
+
+def _resolve_storage_path(video: VideoAsset | None) -> Path | None:
+    """Resolve a local filesystem path when the file is available on local storage."""
+    if video is None or not getattr(video, 'file', None):
+        return None
+    candidate = getattr(video.file, 'path', None)
+    if not candidate:
+        return None
+    try:
+        return Path(candidate)
+    except (TypeError, ValueError):
+        return None
+
+
+def _media_kind_from_name(name: str | None) -> str:
+    suffix = Path(name or '').suffix.lower()
+    if suffix in {'.wav', '.mp3', '.flac', '.ogg', '.m4a'}:
+        return 'audio'
+    if suffix in {'.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp', '.tif', '.tiff'}:
+        return 'image'
+    if suffix in {'.mp4', '.webm', '.mov', '.avi', '.mkv', '.m4v'}:
+        return 'video'
+    return 'file'
+
+
+def _downsample(values: list[float], target_points: int) -> list[float]:
+    if len(values) <= target_points:
+        return values
+    bucket_size = max(len(values) // target_points, 1)
+    results: list[float] = []
+    for start in range(0, len(values), bucket_size):
+        chunk = values[start : start + bucket_size]
+        if not chunk:
+            continue
+        results.append(round(sum(chunk) / len(chunk), 6))
+    return results[:target_points]
+
+
+def _wav_visual_summary(file_path: Path, *, points: int = 96, spectrogram_columns: int = 24, spectrogram_rows: int = 8) -> dict:
+    """Build a lightweight waveform and coarse spectrogram for WAV files using stdlib only."""
+    try:
+        with wave.open(str(file_path), 'rb') as wav_file:
+            channels = max(wav_file.getnchannels(), 1)
+            sample_width = wav_file.getsampwidth()
+            frame_rate = wav_file.getframerate() or 1
+            frame_count = wav_file.getnframes()
+            raw_frames = wav_file.readframes(frame_count)
+    except (wave.Error, OSError):
+        return {'available': False, 'reason': 'unreadable'}
+
+    if sample_width not in {1, 2, 4} or not raw_frames:
+        return {'available': False, 'reason': 'unsupported'}
+
+    step = sample_width * channels
+    samples: list[float] = []
+    for index in range(0, len(raw_frames), step):
+        chunk = raw_frames[index : index + sample_width]
+        if len(chunk) < sample_width:
+            break
+        signed = sample_width != 1
+        value = int.from_bytes(chunk, byteorder='little', signed=signed)
+        if sample_width == 1:
+            value -= 128
+            scale = 128.0
+        else:
+            scale = float(2 ** (sample_width * 8 - 1))
+        samples.append(max(min(value / scale, 1.0), -1.0))
+
+    if not samples:
+        return {'available': False, 'reason': 'empty'}
+
+    waveform = _downsample([abs(sample) for sample in samples], points)
+
+    # Coarse spectrogram using a tiny DFT over evenly spaced windows.
+    window_size = min(256, max(64, len(samples) // max(spectrogram_columns, 1) or 64))
+    spectrogram: list[list[float]] = []
+    if window_size < 8:
+        window_size = min(len(samples), 8)
+    max_start = max(len(samples) - window_size, 0)
+    column_starts = [int(round(max_start * index / max(spectrogram_columns - 1, 1))) for index in range(spectrogram_columns)]
+    frequency_bins = [1 + index * max(window_size // (2 * spectrogram_rows), 1) for index in range(spectrogram_rows)]
+    for start in column_starts:
+        window = samples[start : start + window_size]
+        if len(window) < window_size:
+            window = window + [0.0] * (window_size - len(window))
+        column: list[float] = []
+        for bin_index in frequency_bins:
+            real = 0.0
+            imag = 0.0
+            for sample_index, sample in enumerate(window):
+                angle = 2 * math.pi * bin_index * sample_index / max(window_size, 1)
+                real += sample * math.cos(angle)
+                imag -= sample * math.sin(angle)
+            magnitude = (real * real + imag * imag) ** 0.5 / max(window_size, 1)
+            column.append(round(magnitude, 6))
+        peak = max(column, default=1.0) or 1.0
+        spectrogram.append([round(value / peak, 6) for value in column])
+
+    return {
+        'available': True,
+        'duration_seconds': round(frame_count / frame_rate, 3),
+        'frame_rate': frame_rate,
+        'channels': channels,
+        'waveform': waveform,
+        'spectrogram': spectrogram,
+    }
+
+
+def build_media_analysis(session: ObservationSession) -> list[dict]:
+    """Return media diagnostics for synced sources, including relative paths and audio summaries."""
+    rows: list[dict] = []
+    for video in session.all_videos_ordered:
+        relative_path = _relative_media_path(video)
+        storage_path = _resolve_storage_path(video)
+        item = {
+            'id': video.id,
+            'title': video.title,
+            'relative_path': relative_path,
+            'media_kind': _media_kind_from_name(relative_path),
+            'file_exists': bool(storage_path and storage_path.exists()),
+            'size_bytes': storage_path.stat().st_size if storage_path and storage_path.exists() else None,
+            'waveform': [],
+            'spectrogram': [],
+            'audio_summary': {'available': False, 'reason': 'not-audio'},
+        }
+        if item['media_kind'] == 'audio' and storage_path and storage_path.exists() and storage_path.suffix.lower() == '.wav':
+            audio_summary = _wav_visual_summary(storage_path)
+            item['audio_summary'] = audio_summary
+            item['waveform'] = audio_summary.get('waveform', [])
+            item['spectrogram'] = audio_summary.get('spectrogram', [])
+        rows.append(item)
+    return rows
 
 def serialize_event(event: ObservationEvent) -> dict:
     modifiers = list(
@@ -899,6 +1044,7 @@ def build_project_boris_payload(project: Project) -> dict:
             'events__subjects',
             'events__modifiers',
             'annotations',
+            'video_links__video',
         )
     ]
     payload = build_ethogram_payload(project)
@@ -948,6 +1094,14 @@ def build_project_boris_payload(project: Project) -> dict:
                 ).order_by('name')
             ],
             'sessions': sessions,
+            'media_files': [
+                {
+                    'title': video.title,
+                    'relative_path': _relative_media_path(video),
+                    'media_kind': _media_kind_from_name(_relative_media_path(video)),
+                }
+                for video in project.videos.order_by('title')
+            ],
         }
     )
     return payload
@@ -975,11 +1129,21 @@ def build_reproducibility_bundle(project: Project) -> dict[str, bytes]:
         files[compatibility_name] = json.dumps(
             build_session_compatibility_report(accessible_session), indent=2, ensure_ascii=False
         ).encode('utf-8')
-        session_meta.append({'id': session.pk, 'title': session.title, 'filename': filename, 'compatibility_filename': compatibility_name})
+        session_meta.append({
+            'id': session.pk,
+            'title': session.title,
+            'filename': filename,
+            'compatibility_filename': compatibility_name,
+            'media_paths': [
+                _relative_media_path(video)
+                for video in accessible_session.all_videos_ordered
+                if _relative_media_path(video)
+            ],
+        })
 
     manifest = {
-        'schema': 'pybehaviorlog-0.8.7-bundle',
-        'version': '0.8.7',
+        'schema': 'pybehaviorlog-0.8.8-bundle',
+        'version': '0.8.8',
         'project': {
             'name': project.name,
             'description': project.description,
@@ -1303,12 +1467,130 @@ def parse_cowlog_results_text(
 
 
 
+
+
+def _normalize_import_header(value: str) -> str:
+    return re.sub(r'[^a-z0-9]+', '_', str(value or '').strip().casefold()).strip('_')
+
+
+def parse_tabular_session_rows(
+    session: ObservationSession, rows: list[dict[str, object]], *, source_format: str
+) -> tuple[dict, dict]:
+    """Parse CSV/TSV/XLSX rows with BORIS-like columns into a session payload."""
+    behavior_lookup = _token_lookup_map(session.project.behaviors.all())
+    modifier_lookup = _token_lookup_map(session.project.modifiers.all())
+    warnings: list[str] = []
+    events: list[dict] = []
+    line_count = 0
+    for index, raw_row in enumerate(rows, start=2):
+        row = {_normalize_import_header(key): value for key, value in raw_row.items()}
+        time_token = (
+            row.get('time')
+            or row.get('timestamp_seconds')
+            or row.get('timestamp')
+            or row.get('start')
+        )
+        behavior_token = (
+            row.get('behavior')
+            or row.get('code')
+            or row.get('behavior_code')
+            or row.get('event')
+        )
+        if time_token in {None, ''} or behavior_token in {None, ''}:
+            continue
+        try:
+            timestamp = float(str(time_token).replace(',', '.'))
+        except ValueError:
+            warnings.append(
+                _('Row %(row)s: invalid time value “%(value)s”.')
+                % {'row': index, 'value': time_token}
+            )
+            continue
+        behavior = behavior_lookup.get(str(behavior_token).casefold())
+        if behavior is None:
+            warnings.append(
+                _('Row %(row)s: unknown behavior token “%(token)s”.')
+                % {'row': index, 'token': behavior_token}
+            )
+            continue
+        line_count += 1
+        event_kind = _resolve_event_kind_token(
+            str(row.get('event_kind') or row.get('type') or row.get('kind') or '')
+        ) or (ObservationEvent.KIND_POINT if behavior.mode == Behavior.MODE_POINT else ObservationEvent.KIND_START)
+        modifiers = _coerce_name_list(row.get('modifiers') or row.get('modifier'))
+        normalized_modifiers = []
+        for token in modifiers:
+            modifier = modifier_lookup.get(str(token).casefold())
+            normalized_modifiers.append(modifier.name if modifier is not None else str(token))
+        subjects = _coerce_name_list(row.get('subjects') or row.get('subject'))
+        frame_index = row.get('frame_index') or row.get('frame') or None
+        try:
+            frame_index = int(frame_index) if frame_index not in {None, ''} else None
+        except (TypeError, ValueError):
+            frame_index = None
+        events.append(
+            {
+                'time': timestamp,
+                'behavior': behavior.name,
+                'event_kind': event_kind,
+                'modifiers': normalized_modifiers,
+                'subjects': subjects,
+                'comment': str(row.get('comment') or ''),
+                'frame_index': frame_index,
+            }
+        )
+    payload = {
+        'schema': source_format,
+        'events': events,
+        'annotations': [],
+    }
+    report = {
+        'detected_format': source_format,
+        'line_count': line_count,
+        'event_count': len(events),
+        'warnings': warnings,
+    }
+    return payload, report
+
+
+def parse_tabular_session_file(
+    session: ObservationSession, uploaded_file, raw_bytes: bytes
+) -> tuple[dict, dict]:
+    """Parse CSV/TSV/XLSX tabular imports modeled on BORIS tabular exports."""
+    filename = str(getattr(uploaded_file, 'name', '') or '').lower()
+    if filename.endswith('.xlsx'):
+        workbook = load_workbook(io.BytesIO(raw_bytes), data_only=True)
+        sheet = workbook.active
+        rows = list(sheet.iter_rows(values_only=True))
+        if not rows:
+            raise ValueError(_('The uploaded workbook is empty.'))
+        headers = [_normalize_import_header(value) for value in rows[0]]
+        row_dicts = []
+        for row in rows[1:]:
+            row_dicts.append({headers[index]: row[index] for index in range(min(len(headers), len(row)))})
+        return parse_tabular_session_rows(session, row_dicts, source_format='boris-tabular-xlsx-v1')
+
+    try:
+        text_payload = raw_bytes.decode('utf-8-sig')
+    except UnicodeDecodeError as exc:
+        raise ValueError(_('The uploaded tabular file is not valid UTF-8 text.')) from exc
+    delimiter = '	' if ('	' in text_payload.splitlines()[0] if text_payload.splitlines() else False) or filename.endswith('.tsv') else ','
+    reader = csv.DictReader(io.StringIO(text_payload), delimiter=delimiter)
+    if not reader.fieldnames:
+        raise ValueError(_('The uploaded tabular file does not contain a header row.'))
+    rows = []
+    for row in reader:
+        rows.append({str(key): value for key, value in row.items() if key is not None})
+    source_format = 'boris-tabular-tsv-v1' if delimiter == '	' else 'boris-tabular-csv-v1'
+    return parse_tabular_session_rows(session, rows, source_format=source_format)
+
 def load_session_import_payload(
     uploaded_file, session: ObservationSession
 ) -> tuple[dict, dict]:
-    """Load session payloads from PyBehaviorLog/BORIS JSON or CowLog text exports."""
+    """Load session payloads from PyBehaviorLog/BORIS JSON, tabular imports, or CowLog text exports."""
     raw_bytes = uploaded_file.read()
     report = {'warnings': []}
+    filename = str(getattr(uploaded_file, 'name', '') or '').lower()
     buffer = io.BytesIO(raw_bytes)
     if zipfile.is_zipfile(buffer):
         with zipfile.ZipFile(buffer) as archive:
@@ -1320,14 +1602,23 @@ def load_session_import_payload(
             report['detected_format'] = payload.get('schema', 'json')
             report['source_name'] = candidate
             return payload, report
+    if filename.endswith(('.csv', '.tsv', '.xlsx')):
+        payload, parsed_report = parse_tabular_session_file(session, uploaded_file, raw_bytes)
+        report.update(parsed_report)
+        return payload, report
     try:
         text_payload = raw_bytes.decode('utf-8-sig')
     except UnicodeDecodeError as exc:
-        raise ValueError(_('The uploaded file is not valid UTF-8 text or JSON.')) from exc
+        raise ValueError(_('The uploaded file is not valid UTF-8 text, spreadsheet, or JSON.')) from exc
     stripped = text_payload.lstrip()
     if stripped.startswith('{') or stripped.startswith('['):
         payload = json.loads(text_payload)
         report['detected_format'] = payload.get('schema', 'json')
+        return payload, report
+    first_line = text_payload.splitlines()[0] if text_payload.splitlines() else ''
+    if ',' in first_line or '	' in first_line:
+        payload, parsed_report = parse_tabular_session_file(session, uploaded_file, raw_bytes)
+        report.update(parsed_report)
         return payload, report
     payload, parsed_report = parse_cowlog_results_text(session, text_payload)
     report.update(parsed_report)
@@ -1345,8 +1636,8 @@ def build_session_compatibility_report(session: ObservationSession) -> dict:
     modifier_event_count = sum(1 for event in ordered_events if event.modifiers.exists())
     multi_subject_event_count = sum(1 for event in ordered_events if event.subjects.count() > 1)
     report = {
-        'schema': 'pybehaviorlog-0.8.7-session-compatibility-report',
-        'version': '0.8.7',
+        'schema': 'pybehaviorlog-0.8.8-session-compatibility-report',
+        'version': '0.8.8',
         'session': session.title,
         'boris': {
             'documented_exports': [
@@ -1357,8 +1648,10 @@ def build_session_compatibility_report(session: ObservationSession) -> dict:
                 'csv',
                 'tsv',
                 'xlsx',
+                'html',
+                'sql',
             ],
-            'documented_imports': ['json_project', 'json_observation'],
+            'documented_imports': ['json_project', 'json_observation', 'csv', 'tsv', 'xlsx'],
             'ready': True,
             'warnings': [],
         },
@@ -1379,7 +1672,7 @@ def build_session_compatibility_report(session: ObservationSession) -> dict:
         'certification': {
             'roundtrip_tested_families': ['boris_observation_json', 'cowlog_plain_text_results'],
             'certified_against_built_in_corpus': True,
-            'fixture_version': '0.8.7',
+            'fixture_version': '0.8.8',
         },
     }
     if state_event_count:
@@ -1397,8 +1690,8 @@ def build_session_compatibility_report(session: ObservationSession) -> dict:
 def build_project_compatibility_report(project: Project) -> dict:
     """Summarize project-level exchange coverage for BORIS and CowLog."""
     return {
-        'schema': 'pybehaviorlog-0.8.7-project-compatibility-report',
-        'version': '0.8.7',
+        'schema': 'pybehaviorlog-0.8.8-project-compatibility-report',
+        'version': '0.8.8',
         'project': project.name,
         'counts': {
             'sessions': project.sessions.count(),
@@ -1417,8 +1710,11 @@ def build_project_compatibility_report(project: Project) -> dict:
             'csv',
             'tsv',
             'xlsx',
+            'html',
+            'sql',
         ],
         'supported_cowlog_exports': ['plain_text_results'],
+        'supported_boris_imports': ['json_project', 'json_observation', 'csv', 'tsv', 'xlsx'],
         'notes': [
             _('BORIS interoperability is strongest when using the documented JSON project/observation workflows and tabular exports.'),
             _('CowLog interoperability currently targets the documented plain-text coding results and keyboard/behavior conventions.'),
@@ -1426,7 +1722,7 @@ def build_project_compatibility_report(project: Project) -> dict:
         'certification': {
             'roundtrip_tested_families': ['boris_project_json', 'boris_observation_json', 'cowlog_plain_text_results'],
             'certified_against_built_in_corpus': True,
-            'fixture_version': '0.8.7',
+            'fixture_version': '0.8.8',
         },
         'sample_session_reports': [
             build_session_compatibility_report(session)
@@ -1603,7 +1899,7 @@ def import_project_payload(
         'boris-project-v2',
         'boris-project-v3',
         'pybehaviorlog-0.8.3-bundle',
-        'pybehaviorlog-0.8.7-bundle',
+        'pybehaviorlog-0.8.8-bundle',
     }:
         raise ValueError(_('Unsupported project payload format.'))
 
@@ -1612,7 +1908,7 @@ def import_project_payload(
         project,
         {
             **ethogram_payload,
-            'schema': ethogram_payload.get('schema', 'pybehaviorlog-0.8.7-ethogram'),
+            'schema': ethogram_payload.get('schema', 'pybehaviorlog-0.8.8-ethogram'),
         },
         replace_existing=False,
     )
@@ -1814,7 +2110,7 @@ def import_project_payload(
 
 def build_ethogram_payload(project: Project) -> dict:  # pragma: no cover
     return {
-        'schema': 'pybehaviorlog-0.8.7-ethogram',
+        'schema': 'pybehaviorlog-0.8.8-ethogram',
         'project': {
             'name': project.name,
             'description': project.description,
@@ -1895,7 +2191,7 @@ def import_ethogram_payload(
         'cowlog-django-v5-ethogram',
         'pybehaviorlog-0.8-ethogram',
         'pybehaviorlog-0.8.3-ethogram',
-        'pybehaviorlog-0.8.7-ethogram',
+        'pybehaviorlog-0.8.8-ethogram',
         'boris-project-v1',
         'boris-project-v2',
         'boris-project-v3',
@@ -2113,6 +2409,7 @@ def _autosize_workbook(workbook: Workbook):  # pragma: no cover
 
 
 def build_boris_like_payload(session: ObservationSession) -> dict:  # pragma: no cover
+    primary_video = session.all_videos_ordered[0] if session.all_videos_ordered else None
     return {
         'schema': 'boris-observation-v3',
         'project_name': session.project.name,
@@ -2124,7 +2421,9 @@ def build_boris_like_payload(session: ObservationSession) -> dict:  # pragma: no
             {
                 'title': session.title,
                 'primary_video': session.primary_label,
+                'primary_media_path': _relative_media_path(primary_video),
                 'synced_videos': [video.title for video in session.all_videos_ordered],
+                'media_paths': [_relative_media_path(video) for video in session.all_videos_ordered if _relative_media_path(video)],
                 'observer': session.observer.username if session.observer else None,
                 'events': [
                     {
@@ -2137,6 +2436,7 @@ def build_boris_like_payload(session: ObservationSession) -> dict:  # pragma: no
                             )
                         ),
                         'comment': event.comment,
+                        'frame_index': event.frame_index,
                         'subjects': [subject.name for subject in event.all_subjects_ordered],
                     }
                     for event in session.events.all()
@@ -2169,8 +2469,11 @@ def import_session_payload(
         'pybehaviorlog-v6-session',
         'pybehaviorlog-0.8-session',
         'pybehaviorlog-0.8.3-session',
-        'pybehaviorlog-0.8.7-session',
+        'pybehaviorlog-0.8.8-session',
         'cowlog-results-v1',
+        'boris-tabular-csv-v1',
+        'boris-tabular-tsv-v1',
+        'boris-tabular-xlsx-v1',
     }:
         event_items = payload.get('events', [])
         annotation_items = payload.get('annotations', [])
@@ -3485,6 +3788,7 @@ def session_player(request, pk: int):  # pragma: no cover
                 'modifiers': active_profile.modifier_bindings if active_profile else {},
                 'subjects': active_profile.subject_bindings if active_profile else {},
             },
+            'media_analysis': build_media_analysis(session),
         },
     )
 
@@ -3516,9 +3820,11 @@ def session_events_json(request, pk: int):
                     'title': link.video.title,
                     'url': link.video.file.url,
                     'sort_order': link.sort_order,
+                    'relative_path': _relative_media_path(link.video),
                 }
                 for link in session.video_links.select_related('video').order_by('sort_order', 'pk')
             ],
+            'media_analysis': build_media_analysis(session),
         }
     )
 
@@ -3781,6 +4087,60 @@ def annotation_delete_api(request, pk: int):
     return JsonResponse({'ok': True})
 
 
+
+
+@login_required
+@require_GET
+def session_media_analysis_json(request, pk: int):
+    """Return lightweight media diagnostics for the player UI."""
+    session = get_accessible_session(request.user, pk)
+    return JsonResponse({'media_analysis': build_media_analysis(session)})
+
+
+@login_required
+def session_export_html(request, pk: int):  # pragma: no cover
+    """Export the event table as a simple standalone HTML report."""
+    session = get_accessible_session(request.user, pk)
+    rows = _event_rows(session)
+    html = [
+        '<!doctype html>',
+        '<html lang="en">',
+        '<head><meta charset="utf-8"><title>PyBehaviorLog session export</title>',
+        '<style>body{font-family:system-ui,sans-serif;margin:2rem}table{border-collapse:collapse;width:100%}th,td{border:1px solid #cbd5e1;padding:.45rem;text-align:left}thead{background:#f8fafc}caption{text-align:left;font-weight:700;margin-bottom:.75rem}</style>',
+        '</head><body>',
+        f'<h1>{session.title}</h1>',
+        f'<p>Project: {session.project.name}</p>',
+        f'<p>Observer: {session.observer.username if session.observer else "-"}</p>',
+        '<table><caption>Events</caption><thead><tr><th>Project</th><th>Session</th><th>Primary video</th><th>Synced videos</th><th>Observer</th><th>Category</th><th>Behavior</th><th>Mode</th><th>Kind</th><th>Time</th><th>Subjects</th><th>Modifiers</th><th>Comment</th><th>Created at</th></tr></thead><tbody>',
+    ]
+    for row in rows:
+        html.append('<tr>' + ''.join(f'<td>{str(value)}</td>' for value in row) + '</tr>')
+    html.append('</tbody></table></body></html>')
+    response = HttpResponse(''.join(html), content_type='text/html; charset=utf-8')
+    response['Content-Disposition'] = f'attachment; filename="session_{session.pk}_events.html"'
+    return response
+
+
+@login_required
+def session_export_sql(request, pk: int):  # pragma: no cover
+    """Export session events as SQL INSERT statements for downstream analysis."""
+    session = get_accessible_session(request.user, pk)
+    lines = [
+        '-- PyBehaviorLog 0.8.8 SQL export',
+        'BEGIN;',
+        'CREATE TABLE IF NOT EXISTS pybehaviorlog_event_export (project text, session text, primary_video text, synced_videos text, observer text, category text, behavior text, behavior_mode text, event_kind text, timestamp_seconds numeric(10,3), subjects text, modifiers text, comment text, created_at text);',
+    ]
+    for row in _event_rows(session):
+        escaped = [str(value).replace("'", "''") for value in row]
+        lines.append(
+            "INSERT INTO pybehaviorlog_event_export (project, session, primary_video, synced_videos, observer, category, behavior, behavior_mode, event_kind, timestamp_seconds, subjects, modifiers, comment, created_at) VALUES (" +
+            f"'{escaped[0]}', '{escaped[1]}', '{escaped[2]}', '{escaped[3]}', '{escaped[4]}', '{escaped[5]}', '{escaped[6]}', '{escaped[7]}', '{escaped[8]}', {escaped[9]}, '{escaped[10]}', '{escaped[11]}', '{escaped[12]}', '{escaped[13]}');"
+        )
+    lines.append('COMMIT;')
+    response = HttpResponse('\n'.join(lines) + '\n', content_type='application/sql; charset=utf-8')
+    response['Content-Disposition'] = f'attachment; filename="session_{session.pk}_events.sql"'
+    return response
+
 @login_required
 def session_export_compatibility_report(request, pk: int):  # pragma: no cover
     session = get_accessible_session(request.user, pk)
@@ -3802,7 +4162,7 @@ def session_export_cowlog_txt(request, pk: int):  # pragma: no cover
     response['Content-Disposition'] = (
         f'attachment; filename="session_{session.pk}_cowlog_compatible.txt"'
     )
-    response.write('# PyBehaviorLog 0.8.7 CowLog-compatible export\n')
+    response.write('# PyBehaviorLog 0.8.8 CowLog-compatible export\n')
     response.write(f'# session\t{session.title}\n')
     response.write(f'# project\t{session.project.name}\n')
     response.write(f'# primary_video\t{session.primary_label}\n')
@@ -3924,11 +4284,13 @@ def session_export_tsv(request, pk: int):  # pragma: no cover
 def session_export_json(request, pk: int):
     session = get_accessible_session(request.user, pk)
     payload = {
-        'schema': 'pybehaviorlog-0.8.7-session',
+        'schema': 'pybehaviorlog-0.8.8-session',
         'project': session.project.name,
         'session': session.title,
         'video': session.primary_label,
+        'primary_media_path': _relative_media_path(session.all_videos_ordered[0] if session.all_videos_ordered else None),
         'synced_videos': [video.title for video in session.all_videos_ordered],
+        'media_paths': [_relative_media_path(video) for video in session.all_videos_ordered if _relative_media_path(video)],
         'observer': session.observer.username if session.observer else None,
         'statistics': build_statistics(session),
         'integrity_report': build_integrity_report(session),

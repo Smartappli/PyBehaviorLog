@@ -1,6 +1,6 @@
-# Compatibility certification notes for PyBehaviorLog 0.8.7
+# Compatibility certification notes for PyBehaviorLog 0.8.8
 
-PyBehaviorLog 0.8.7 introduces a small built-in compatibility corpus and round-trip comparison helpers.
+PyBehaviorLog 0.8.8 introduces a small built-in compatibility corpus and round-trip comparison helpers.
 
 ## Included fixture families
 
@@ -14,7 +14,7 @@ These fixtures are intentionally compact. They are meant to verify the documente
 
 ## Round-trip strategy
 
-The 0.8.7 test suite validates compatibility with this workflow:
+The 0.8.8 test suite validates compatibility with this workflow:
 
 1. Import a BORIS or CowLog fixture.
 2. Persist the imported content in the Django data model.
@@ -38,7 +38,7 @@ This allows CI to focus on semantic equivalence instead of raw JSON shape differ
 
 ## Current scope
 
-0.8.7 improves confidence, but it is still not a blanket claim of universal compatibility with every historical BORIS or CowLog artifact.
+0.8.8 improves confidence, but it is still not a blanket claim of universal compatibility with every historical BORIS or CowLog artifact.
 
 What it does provide is a **repeatable, testable certification baseline** for the documented exchange families that the project already supports.
 
