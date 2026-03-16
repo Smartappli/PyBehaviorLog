@@ -1,0 +1,953 @@
+msgid ""
+msgstr ""
+"Language: ar\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "+1 frame"
+msgstr "+1 إطار"
+
+msgid "---------"
+msgstr "---------"
+
+msgid "-1 frame"
+msgstr "-1 إطار"
+
+msgid "A primary video is required for a media session."
+msgstr "A primary video is required for a media session."
+
+msgid "Account created successfully."
+msgstr "تم إنشاء الحساب بنجاح."
+
+msgid "Actions"
+msgstr "إجراءات"
+
+msgid "Active modifiers"
+msgstr "المعدلات النشطة"
+
+msgid "Active subjects"
+msgstr "الأفراد النشطون"
+
+msgid "Add at current position"
+msgstr "إضافة عند الموضع الحالي"
+
+msgid "Add behavior"
+msgstr "إضافة سلوك"
+
+msgid "Add category"
+msgstr "إضافة فئة"
+
+msgid "Add modifier"
+msgstr "إضافة معدل"
+
+msgid "Add subject"
+msgstr "إضافة فرد"
+
+msgid "Add subject group"
+msgstr "إضافة مجموعة أفراد"
+
+msgid "Add video"
+msgstr "إضافة فيديو"
+
+msgid "Additional synchronized videos"
+msgstr "فيديوهات متزامنة إضافية"
+
+msgid "Additional videos synchronized with the primary one."
+msgstr "فيديوهات إضافية متزامنة مع الفيديو الرئيسي."
+
+msgid "Administration"
+msgstr "الإدارة"
+
+msgid "Allowed values"
+msgstr "القيم المسموح بها"
+
+msgid "Allowed values: %(values)s"
+msgstr "Allowed values: %(values)s"
+
+msgid "Already registered?"
+msgstr "مسجل بالفعل؟"
+
+msgid "Analytics"
+msgstr "التحليلات"
+
+msgid "Annotation"
+msgstr "Annotation"
+
+msgid "Annotation not found."
+msgstr "Annotation not found."
+
+msgid "Annotation note"
+msgstr "نص الملاحظة"
+
+msgid "Annotation title"
+msgstr "عنوان الملاحظة"
+
+msgid "Annotations"
+msgstr "Annotations"
+
+msgid "Arabic"
+msgstr "العربية"
+
+msgid "BORIS-like"
+msgstr "على نمط BORIS"
+
+msgid "Back"
+msgstr "رجوع"
+
+msgid "Back to project"
+msgstr "Back to project"
+
+msgid "Behavior"
+msgstr "Behavior"
+
+msgid "Behavior created."
+msgstr "تم إنشاء السلوك."
+
+msgid "Behavior deleted."
+msgstr "تم حذف السلوك."
+
+msgid "Behavior hotkey = instant code · Alt = forced START · Shift = forced STOP · E = quick note"
+msgstr "اختصار السلوك = ترميز فوري · Alt = START إجباري · Shift = STOP إجباري · E = ملاحظة سريعة"
+
+msgid "Behavior updated."
+msgstr "تم تحديث السلوك."
+
+msgid "Behavioral coding studio"
+msgstr "استوديو ترميز السلوك"
+
+msgid "Behaviors"
+msgstr "السلوكيات"
+
+msgid "Blocked when the project already contains sessions or events."
+msgstr "يتم حظر ذلك عندما يحتوي المشروع بالفعل على جلسات أو أحداث."
+
+msgid "Boolean"
+msgstr "منطقي"
+
+msgid "By behavior"
+msgstr "حسب السلوك"
+
+msgid "By session"
+msgstr "حسب الجلسة"
+
+msgid "By subject"
+msgstr "حسب الفرد"
+
+msgid "Cancel"
+msgstr "إلغاء"
+
+msgid "Categories"
+msgstr "الفئات"
+
+msgid "Category"
+msgstr "الفئة"
+
+msgid "Category created."
+msgstr "تم إنشاء الفئة."
+
+msgid "Category deleted."
+msgstr "تم حذف الفئة."
+
+msgid "Category updated."
+msgstr "تم تحديث الفئة."
+
+msgid "Chinese (Simplified)"
+msgstr "الصينية المبسطة"
+
+msgid "Clear modifiers"
+msgstr "مسح المعدلات"
+
+msgid "Collaborators"
+msgstr "المتعاونون"
+
+msgid "Color"
+msgstr "اللون"
+
+msgid "Comma-separated values for list fields."
+msgstr "Comma-separated values for list fields."
+
+msgid "Comment"
+msgstr "تعليق"
+
+msgid "Count"
+msgstr "العدد"
+
+msgid "Create"
+msgstr "إنشاء"
+
+msgid "Create a project"
+msgstr "إنشاء مشروع"
+
+msgid "Create a session"
+msgstr "إنشاء جلسة"
+
+msgid "Create account"
+msgstr "إنشاء حساب"
+
+msgid "Create an account"
+msgstr "إنشاء حساب"
+
+msgid "Create independent variable"
+msgstr "إنشاء متغير مستقل"
+
+msgid "Create observation template"
+msgstr "إنشاء قالب ملاحظة"
+
+msgid "Create one"
+msgstr "أنشئ حسابًا"
+
+msgid "Create project"
+msgstr "إنشاء المشروع"
+
+msgid "Create session"
+msgstr "إنشاء الجلسة"
+
+msgid "Create your first project to start coding behavior from video or live observation sessions."
+msgstr "أنشئ مشروعك الأول لبدء ترميز السلوك من الفيديو أو من جلسات الملاحظة المباشرة."
+
+msgid "Dashboard"
+msgstr "لوحة التحكم"
+
+msgid "Default session kind"
+msgstr "نوع الجلسة الافتراضي"
+
+msgid "Default value"
+msgstr "القيمة الافتراضية"
+
+msgid "Delete"
+msgstr "حذف"
+
+msgid "Delete existing events and annotations before import"
+msgstr "احذف الأحداث والملاحظات الحالية قبل الاستيراد"
+
+msgid "Delete item"
+msgstr "حذف العنصر"
+
+msgid "Delete this annotation?"
+msgstr "هل تريد حذف هذه الملاحظة؟"
+
+msgid "Delete this event?"
+msgstr "هل تريد حذف هذا الحدث؟"
+
+msgid "Description"
+msgstr "الوصف"
+
+msgid "Draft"
+msgstr "مسودة"
+
+msgid "Duration"
+msgstr "المدة"
+
+msgid "Duration (s)"
+msgstr "المدة (ث)"
+
+msgid "Edit"
+msgstr "تعديل"
+
+msgid "Edit behavior"
+msgstr "تعديل السلوك"
+
+msgid "Edit category"
+msgstr "تعديل الفئة"
+
+msgid "Edit independent variable"
+msgstr "تعديل المتغير المستقل"
+
+msgid "Edit modifier"
+msgstr "تعديل المعدل"
+
+msgid "Edit observation template"
+msgstr "تعديل قالب الملاحظة"
+
+msgid "Edit session"
+msgstr "تعديل الجلسة"
+
+msgid "Edit subject"
+msgstr "تعديل الفرد"
+
+msgid "Edit subject group"
+msgstr "تعديل مجموعة الأفراد"
+
+msgid "Edit video"
+msgstr "تعديل الفيديو"
+
+msgid "Email"
+msgstr "البريد الإلكتروني"
+
+msgid "English"
+msgstr "الإنجليزية"
+
+msgid "Ethogram JSON"
+msgstr "إيثوغرام JSON"
+
+msgid "Event"
+msgstr "Event"
+
+msgid "Event not found."
+msgstr "Event not found."
+
+msgid "Events"
+msgstr "Events"
+
+msgid "Export"
+msgstr "Export"
+
+msgid "Export XLSX"
+msgstr "تصدير XLSX"
+
+msgid "Export ethogram"
+msgstr "تصدير الإيثوغرام"
+
+msgid "False"
+msgstr "خطأ"
+
+msgid "File"
+msgstr "الملف"
+
+msgid "Frame step"
+msgstr "خطوة الإطار"
+
+msgid "Frame step (seconds)"
+msgstr "خطوة الإطار (ثوانٍ)"
+
+msgid "French"
+msgstr "الفرنسية"
+
+msgid "From"
+msgstr "من"
+
+msgid "Global timeline"
+msgstr "الخط الزمني العام"
+
+msgid "Groups"
+msgstr "المجموعات"
+
+msgid "I confirm the deletion"
+msgstr "أؤكد الحذف"
+
+msgid "Import"
+msgstr "استيراد"
+
+msgid "Import JSON"
+msgstr "استيراد JSON"
+
+msgid "Import ethogram"
+msgstr "استيراد الإيثوغرام"
+
+msgid "Import session JSON"
+msgstr "استيراد JSON للجلسة"
+
+msgid "In review"
+msgstr "قيد المراجعة"
+
+msgid "Independent variable created."
+msgstr "تم إنشاء المتغير المستقل."
+
+msgid "Independent variable deleted."
+msgstr "تم حذف المتغير المستقل."
+
+msgid "Independent variable updated."
+msgstr "تم تحديث المتغير المستقل."
+
+msgid "Independent variables"
+msgstr "المتغيرات المستقلة"
+
+msgid "Integrity and intervals"
+msgstr "السلامة والفواصل"
+
+msgid "Invalid JSON: %(error)s"
+msgstr "Invalid JSON: %(error)s"
+
+msgid "Invalid event_kind for a state behavior."
+msgstr "Invalid event_kind for a state behavior."
+
+msgid "Invalid modifier_ids or subject_ids."
+msgstr "Invalid modifier_ids or subject_ids."
+
+msgid "Invalid workflow action."
+msgstr "Invalid workflow action."
+
+msgid "JSON export from PyBehaviorLog 0.8 and earlier supported versions or BORIS-like JSON."
+msgstr "تصدير JSON من PyBehaviorLog 0.8 والإصدارات الأقدم المدعومة أو JSON على نمط BORIS."
+
+msgid "Key binding"
+msgstr "اختصار لوحة المفاتيح"
+
+msgid "Label"
+msgstr "التسمية"
+
+msgid "Language"
+msgstr "اللغة"
+
+msgid "Live"
+msgstr "مباشر"
+
+msgid "Live session"
+msgstr "جلسة مباشرة"
+
+msgid "Lock"
+msgstr "قفل"
+
+msgid "Locked"
+msgstr "مقفل"
+
+msgid "Log in"
+msgstr "تسجيل الدخول"
+
+msgid "Log out"
+msgstr "تسجيل الخروج"
+
+msgid "Long text"
+msgstr "نص طويل"
+
+msgid "Manage the project name, description, and collaborators."
+msgstr "إدارة اسم المشروع ووصفه والمتعاونين فيه."
+
+msgid "Max"
+msgstr "الحد الأقصى"
+
+msgid "Mean"
+msgstr "المتوسط"
+
+msgid "Media"
+msgstr "وسائط"
+
+msgid "Min"
+msgstr "الحد الأدنى"
+
+msgid "Mode"
+msgstr "الوضع"
+
+msgid "Modifier created."
+msgstr "تم إنشاء المعدل."
+
+msgid "Modifier deleted."
+msgstr "تم حذف المعدل."
+
+msgid "Modifier hotkey = toggle on/off · Backspace = clear selection"
+msgstr "اختصار المعدل = تشغيل/إيقاف · Backspace = مسح التحديد"
+
+msgid "Modifier updated."
+msgstr "تم تحديث المعدل."
+
+msgid "Modifiers"
+msgstr "المعدلات"
+
+msgid "My PyBehaviorLog projects"
+msgstr "مشاريعي في PyBehaviorLog"
+
+msgid "Name"
+msgstr "الاسم"
+
+msgid "New behavior"
+msgstr "سلوك جديد"
+
+msgid "New category"
+msgstr "فئة جديدة"
+
+msgid "New independent variable"
+msgstr "متغير مستقل جديد"
+
+msgid "New modifier"
+msgstr "معدل جديد"
+
+msgid "New observation template"
+msgstr "قالب ملاحظة جديد"
+
+msgid "New project"
+msgstr "مشروع جديد"
+
+msgid "New session"
+msgstr "جلسة جديدة"
+
+msgid "New subject"
+msgstr "فرد جديد"
+
+msgid "New subject group"
+msgstr "مجموعة أفراد جديدة"
+
+msgid "New template"
+msgstr "قالب جديد"
+
+msgid "New variable"
+msgstr "متغير جديد"
+
+msgid "New video"
+msgstr "فيديو جديد"
+
+msgid "No account yet?"
+msgstr "ليس لديك حساب بعد؟"
+
+msgid "No active modifiers."
+msgstr "لا توجد معدلات نشطة."
+
+msgid "No active states."
+msgstr "لا توجد حالات نشطة."
+
+msgid "No active subjects."
+msgstr "لا يوجد أفراد نشطون."
+
+msgid "No audit entries yet."
+msgstr "لا توجد سجلات تدقيق بعد."
+
+msgid "No behaviors available."
+msgstr "لا توجد سلوكيات متاحة."
+
+msgid "No behaviors yet."
+msgstr "لا توجد سلوكيات بعد."
+
+msgid "No categories yet."
+msgstr "لا توجد فئات بعد."
+
+msgid "No independent variables yet."
+msgstr "لا توجد متغيرات مستقلة بعد."
+
+msgid "No integrity issues detected."
+msgstr "لم يتم اكتشاف مشكلات سلامة."
+
+msgid "No media"
+msgstr "لا توجد وسائط"
+
+msgid "No modifiers available."
+msgstr "لا توجد معدلات متاحة."
+
+msgid "No modifiers yet."
+msgstr "لا توجد معدلات بعد."
+
+msgid "No primary media file is attached to this session. The timer and event coding tools remain available."
+msgstr "No primary media file is attached to this session. The timer and event coding tools remain available."
+
+msgid "No projects yet"
+msgstr "لا توجد مشاريع بعد"
+
+msgid "No sessions yet."
+msgstr "لا توجد جلسات بعد."
+
+msgid "No subject groups yet."
+msgstr "لا توجد مجموعات أفراد بعد."
+
+msgid "No subject-level events yet."
+msgstr "لا توجد أحداث على مستوى الفرد بعد."
+
+msgid "No subjects available."
+msgstr "لا يوجد أفراد متاحون."
+
+msgid "No subjects yet."
+msgstr "لا يوجد أفراد بعد."
+
+msgid "No templates yet."
+msgstr "لا توجد قوالب بعد."
+
+msgid "No transitions yet."
+msgstr "لا توجد انتقالات بعد."
+
+msgid "No videos yet."
+msgstr "لا توجد فيديوهات بعد."
+
+msgid "Note"
+msgstr "ملاحظة"
+
+msgid "Notes"
+msgstr "ملاحظات"
+
+msgid "Numeric"
+msgstr "رقمي"
+
+msgid "Observation template"
+msgstr "قالب الملاحظة"
+
+msgid "Observation template created."
+msgstr "تم إنشاء قالب الملاحظة."
+
+msgid "Observation template deleted."
+msgstr "تم حذف قالب الملاحظة."
+
+msgid "Observation template updated."
+msgstr "تم تحديث قالب الملاحظة."
+
+msgid "Observation templates"
+msgstr "قوالب الملاحظة"
+
+msgid "Observed time (s)"
+msgstr "الوقت الملاحظ (ث)"
+
+msgid "Observer"
+msgstr "المراقب"
+
+msgid "One or more modifiers are invalid."
+msgstr "One or more modifiers are invalid."
+
+msgid "One or more subjects are invalid."
+msgstr "One or more subjects are invalid."
+
+msgid "One-minute buckets"
+msgstr "مقاطع دقيقة واحدة"
+
+msgid "Only the project owner can delete independent variables."
+msgstr "Only the project owner can delete independent variables."
+
+msgid "Only the project owner can delete observation templates."
+msgstr "Only the project owner can delete observation templates."
+
+msgid "Only the project owner can delete subject groups."
+msgstr "Only the project owner can delete subject groups."
+
+msgid "Only the project owner can delete subjects."
+msgstr "Only the project owner can delete subjects."
+
+msgid "Only the project owner can edit independent variables."
+msgstr "Only the project owner can edit independent variables."
+
+msgid "Only the project owner can edit observation templates."
+msgstr "Only the project owner can edit observation templates."
+
+msgid "Only the project owner can edit subject groups."
+msgstr "Only the project owner can edit subject groups."
+
+msgid "Only the project owner can edit subjects."
+msgstr "Only the project owner can edit subjects."
+
+msgid "Only the project owner can manage behaviors."
+msgstr "Only the project owner can manage behaviors."
+
+msgid "Only the project owner can manage categories."
+msgstr "Only the project owner can manage categories."
+
+msgid "Only the project owner can manage modifiers."
+msgstr "Only the project owner can manage modifiers."
+
+msgid "Only the project owner can manage videos."
+msgstr "Only the project owner can manage videos."
+
+msgid "Only the project owner can update project settings."
+msgstr "Only the project owner can update project settings."
+
+msgid "Open"
+msgstr "فتح"
+
+msgid "Open states"
+msgstr "Open states"
+
+msgid "Owner"
+msgstr "المالك"
+
+msgid "Play / pause"
+msgstr "تشغيل / إيقاف مؤقت"
+
+msgid "Playback"
+msgstr "Playback"
+
+msgid "Playback rate"
+msgstr "سرعة التشغيل"
+
+msgid "Point"
+msgstr "نقطة"
+
+msgid "Points"
+msgstr "النقاط"
+
+msgid "Primary player"
+msgstr "المشغل الرئيسي"
+
+msgid "Primary source"
+msgstr "المصدر الرئيسي"
+
+msgid "Primary video"
+msgstr "الفيديو الرئيسي"
+
+msgid "Project"
+msgstr "المشروع"
+
+msgid "Project XLSX"
+msgstr "XLSX المشروع"
+
+msgid "Project created successfully."
+msgstr "تم إنشاء المشروع بنجاح."
+
+msgid "Project settings"
+msgstr "إعدادات المشروع"
+
+msgid "Project settings updated."
+msgstr "تم تحديث إعدادات المشروع."
+
+msgid "Project-wide analytics with behavior totals, subject breakdowns, transition counts, and consolidated Excel export."
+msgstr "Project-wide analytics with behavior totals, subject breakdowns, transition counts, and consolidated Excel export."
+
+msgid "PyBehaviorLog 0.8 and earlier supported versions JSON or simplified BORIS-like JSON."
+msgstr "JSON من PyBehaviorLog 0.8 والإصدارات الأقدم المدعومة أو JSON مبسط على نمط BORIS."
+
+msgid "Quick overview"
+msgstr "نظرة سريعة"
+
+msgid "Recorded at"
+msgstr "تاريخ التسجيل"
+
+msgid "Refresh"
+msgstr "تحديث"
+
+msgid "Replace all existing ethogram entities"
+msgstr "استبدال جميع كيانات الإيثوغرام الحالية"
+
+msgid "Review notes"
+msgstr "ملاحظات المراجعة"
+
+msgid "Russian"
+msgstr "الروسية"
+
+msgid "Save"
+msgstr "حفظ"
+
+msgid "Segments"
+msgstr "المقاطع"
+
+msgid "Select one or more subjects. Selected subjects are attached to the next coded event."
+msgstr "اختر فردًا واحدًا أو أكثر. سيتم إرفاق الأفراد المحددين بالحدث المشفّر التالي."
+
+msgid "Session"
+msgstr "الجلسة"
+
+msgid "Session created."
+msgstr "تم إنشاء الجلسة."
+
+msgid "Session deleted."
+msgstr "تم حذف الجلسة."
+
+msgid "Session kind"
+msgstr "نوع الجلسة"
+
+msgid "Session updated."
+msgstr "تم تحديث الجلسة."
+
+msgid "Sessions"
+msgstr "الجلسات"
+
+msgid "Settings"
+msgstr "الإعدادات"
+
+msgid "Sign up"
+msgstr "إنشاء حساب"
+
+msgid "Signed in as"
+msgstr "مسجّل الدخول باسم"
+
+msgid "Simplified BORIS-style view"
+msgstr "عرض مبسط على نمط BORIS"
+
+msgid "Sort order"
+msgstr "ترتيب الفرز"
+
+msgid "Spanish"
+msgstr "الإسبانية"
+
+msgid "Start"
+msgstr "بداية"
+
+msgid "Starts"
+msgstr "البدايات"
+
+msgid "State"
+msgstr "حالة"
+
+msgid "Statistics"
+msgstr "الإحصاءات"
+
+msgid "Status change"
+msgstr "Status change"
+
+msgid "Stop"
+msgstr "نهاية"
+
+msgid "Stops"
+msgstr "النهايات"
+
+msgid "Subject"
+msgstr "Subject"
+
+msgid "Subject created."
+msgstr "تم إنشاء الفرد."
+
+msgid "Subject deleted."
+msgstr "تم حذف الفرد."
+
+msgid "Subject group created."
+msgstr "تم إنشاء مجموعة الأفراد."
+
+msgid "Subject group deleted."
+msgstr "تم حذف مجموعة الأفراد."
+
+msgid "Subject group updated."
+msgstr "تم تحديث مجموعة الأفراد."
+
+msgid "Subject groups"
+msgstr "مجموعات الأفراد"
+
+msgid "Subject updated."
+msgstr "تم تحديث الفرد."
+
+msgid "Subject-level summaries and transition analytics now complement the behavior totals already available in earlier versions."
+msgstr "Subject-level summaries and transition analytics now complement the behavior totals already available in earlier versions."
+
+msgid "Subjects"
+msgstr "الأفراد"
+
+msgid "Submit for review"
+msgstr "إرسال للمراجعة"
+
+msgid "Summary"
+msgstr "الملخص"
+
+msgid "Synced videos"
+msgstr "Synced videos"
+
+msgid "Synchronized videos"
+msgstr "فيديوهات متزامنة"
+
+msgid "Text"
+msgstr "نص"
+
+msgid "The uploaded file is not valid JSON."
+msgstr "The uploaded file is not valid JSON."
+
+msgid "This session is locked and cannot be modified."
+msgstr "This session is locked and cannot be modified."
+
+msgid "This video is still linked to one or more sessions."
+msgstr "This video is still linked to one or more sessions."
+
+msgid "Time (seconds)"
+msgstr "الوقت (ثوانٍ)"
+
+msgid "Timestamp"
+msgstr "طابع زمني"
+
+msgid "Title"
+msgstr "العنوان"
+
+msgid "To"
+msgstr "إلى"
+
+msgid "Track timeline"
+msgstr "الخط الزمني للمسارات"
+
+msgid "Transitions"
+msgstr "الانتقالات"
+
+msgid "True"
+msgstr "صحيح"
+
+msgid "Type"
+msgstr "النوع"
+
+msgid "Unlock"
+msgstr "إلغاء القفل"
+
+msgid "Update"
+msgstr "تحديث"
+
+msgid "Update session"
+msgstr "تحديث الجلسة"
+
+msgid "Validate"
+msgstr "اعتماد"
+
+msgid "Validated"
+msgstr "معتمد"
+
+msgid "Value from a list"
+msgstr "قيمة من قائمة"
+
+msgid "Value type"
+msgstr "نوع القيمة"
+
+msgid "Variables"
+msgstr "المتغيرات"
+
+msgid "Version 0.8 adds subject groups, observation templates, review workflow, audit trail, subject-level analytics, and richer BORIS-inspired interoperability."
+msgstr "تضيف النسخة 0.8 مجموعات الأفراد، وقوالب الملاحظة، ومسار المراجعة، وسجل التدقيق، والتحليلات على مستوى الفرد، وتوافقًا أغنى مستوحى من BORIS."
+
+msgid "Video added."
+msgstr "تمت إضافة الفيديو."
+
+msgid "Video deleted."
+msgstr "تم حذف الفيديو."
+
+msgid "Video updated."
+msgstr "تم تحديث الفيديو."
+
+msgid "Videos"
+msgstr "الفيديوهات"
+
+msgid "What is new in 0.8?"
+msgstr "ما الجديد في 0.8؟"
+
+msgid "Workflow"
+msgstr "سير العمل"
+
+msgid "Workflow and audit"
+msgstr "سير العمل والتدقيق"
+
+msgid "annotations"
+msgstr "تعليقات توضيحية"
+
+msgid "behaviors"
+msgstr "سلوكيات"
+
+msgid "categories"
+msgstr "فئات"
+
+msgid "collaborator"
+msgstr "متعاون"
+
+msgid "events"
+msgstr "أحداث"
+
+msgid "live update"
+msgstr "تحديث مباشر"
+
+msgid "modifier_ids must be a list."
+msgstr "modifier_ids must be a list."
+
+msgid "modifiers"
+msgstr "معدلات"
+
+msgid "no"
+msgstr "لا"
+
+msgid "none"
+msgstr "لا يوجد"
+
+msgid "observed"
+msgstr "تمت ملاحظته"
+
+msgid "observed seconds"
+msgstr "ثوانٍ ملاحظة"
+
+msgid "open states"
+msgstr "حالات مفتوحة"
+
+msgid "owner"
+msgstr "المالك"
+
+msgid "points"
+msgstr "نقاط"
+
+msgid "s observed"
+msgstr "ث ملاحظة"
+
+msgid "sessions"
+msgstr "جلسات"
+
+msgid "subject_ids must be a list."
+msgstr "subject_ids must be a list."
+
+msgid "subjects"
+msgstr "أفراد"
+
+msgid "synced video"
+msgstr "فيديو متزامن"
+
+msgid "videos"
+msgstr "فيديوهات"
+
+msgid "yes"
+msgstr "نعم"

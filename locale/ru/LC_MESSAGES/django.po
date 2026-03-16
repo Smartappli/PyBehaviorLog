@@ -1,0 +1,953 @@
+msgid ""
+msgstr ""
+"Language: ru\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "+1 frame"
+msgstr "+1 кадр"
+
+msgid "---------"
+msgstr "---------"
+
+msgid "-1 frame"
+msgstr "-1 кадр"
+
+msgid "A primary video is required for a media session."
+msgstr "A primary video is required for a media session."
+
+msgid "Account created successfully."
+msgstr "Аккаунт успешно создан."
+
+msgid "Actions"
+msgstr "Действия"
+
+msgid "Active modifiers"
+msgstr "Активные модификаторы"
+
+msgid "Active subjects"
+msgstr "Активные субъекты"
+
+msgid "Add at current position"
+msgstr "Добавить в текущей позиции"
+
+msgid "Add behavior"
+msgstr "Добавить поведение"
+
+msgid "Add category"
+msgstr "Добавить категорию"
+
+msgid "Add modifier"
+msgstr "Добавить модификатор"
+
+msgid "Add subject"
+msgstr "Добавить субъект"
+
+msgid "Add subject group"
+msgstr "Добавить группу субъектов"
+
+msgid "Add video"
+msgstr "Добавить видео"
+
+msgid "Additional synchronized videos"
+msgstr "Дополнительные синхронизированные видео"
+
+msgid "Additional videos synchronized with the primary one."
+msgstr "Дополнительные видео, синхронизированные с основным."
+
+msgid "Administration"
+msgstr "Администрирование"
+
+msgid "Allowed values"
+msgstr "Допустимые значения"
+
+msgid "Allowed values: %(values)s"
+msgstr "Allowed values: %(values)s"
+
+msgid "Already registered?"
+msgstr "Уже зарегистрированы?"
+
+msgid "Analytics"
+msgstr "Аналитика"
+
+msgid "Annotation"
+msgstr "Annotation"
+
+msgid "Annotation not found."
+msgstr "Annotation not found."
+
+msgid "Annotation note"
+msgstr "Примечание к аннотации"
+
+msgid "Annotation title"
+msgstr "Заголовок аннотации"
+
+msgid "Annotations"
+msgstr "Annotations"
+
+msgid "Arabic"
+msgstr "Арабский"
+
+msgid "BORIS-like"
+msgstr "В стиле BORIS"
+
+msgid "Back"
+msgstr "Назад"
+
+msgid "Back to project"
+msgstr "Back to project"
+
+msgid "Behavior"
+msgstr "Behavior"
+
+msgid "Behavior created."
+msgstr "Поведение создано."
+
+msgid "Behavior deleted."
+msgstr "Поведение удалено."
+
+msgid "Behavior hotkey = instant code · Alt = forced START · Shift = forced STOP · E = quick note"
+msgstr "Горячая клавиша поведения = мгновенное кодирование · Alt = принудительный START · Shift = принудительный STOP · E = быстрая заметка"
+
+msgid "Behavior updated."
+msgstr "Поведение обновлено."
+
+msgid "Behavioral coding studio"
+msgstr "Студия кодирования поведения"
+
+msgid "Behaviors"
+msgstr "Поведения"
+
+msgid "Blocked when the project already contains sessions or events."
+msgstr "Недоступно, если проект уже содержит сеансы или события."
+
+msgid "Boolean"
+msgstr "Булево"
+
+msgid "By behavior"
+msgstr "По поведению"
+
+msgid "By session"
+msgstr "По сеансу"
+
+msgid "By subject"
+msgstr "По субъекту"
+
+msgid "Cancel"
+msgstr "Отмена"
+
+msgid "Categories"
+msgstr "Категории"
+
+msgid "Category"
+msgstr "Категория"
+
+msgid "Category created."
+msgstr "Категория создана."
+
+msgid "Category deleted."
+msgstr "Категория удалена."
+
+msgid "Category updated."
+msgstr "Категория обновлена."
+
+msgid "Chinese (Simplified)"
+msgstr "Китайский (упрощённый)"
+
+msgid "Clear modifiers"
+msgstr "Очистить модификаторы"
+
+msgid "Collaborators"
+msgstr "Соавторы"
+
+msgid "Color"
+msgstr "Цвет"
+
+msgid "Comma-separated values for list fields."
+msgstr "Comma-separated values for list fields."
+
+msgid "Comment"
+msgstr "Комментарий"
+
+msgid "Count"
+msgstr "Количество"
+
+msgid "Create"
+msgstr "Создать"
+
+msgid "Create a project"
+msgstr "Создать проект"
+
+msgid "Create a session"
+msgstr "Создать сеанс"
+
+msgid "Create account"
+msgstr "Создать аккаунт"
+
+msgid "Create an account"
+msgstr "Создать аккаунт"
+
+msgid "Create independent variable"
+msgstr "Создать независимую переменную"
+
+msgid "Create observation template"
+msgstr "Создать шаблон наблюдения"
+
+msgid "Create one"
+msgstr "Создать"
+
+msgid "Create project"
+msgstr "Создать проект"
+
+msgid "Create session"
+msgstr "Создать сеанс"
+
+msgid "Create your first project to start coding behavior from video or live observation sessions."
+msgstr "Создайте свой первый проект, чтобы начать кодировать поведение по видео или в сеансах живого наблюдения."
+
+msgid "Dashboard"
+msgstr "Панель управления"
+
+msgid "Default session kind"
+msgstr "Тип сеанса по умолчанию"
+
+msgid "Default value"
+msgstr "Значение по умолчанию"
+
+msgid "Delete"
+msgstr "Удалить"
+
+msgid "Delete existing events and annotations before import"
+msgstr "Удалить существующие события и аннотации перед импортом"
+
+msgid "Delete item"
+msgstr "Удалить элемент"
+
+msgid "Delete this annotation?"
+msgstr "Удалить эту аннотацию?"
+
+msgid "Delete this event?"
+msgstr "Удалить это событие?"
+
+msgid "Description"
+msgstr "Описание"
+
+msgid "Draft"
+msgstr "Черновик"
+
+msgid "Duration"
+msgstr "Длительность"
+
+msgid "Duration (s)"
+msgstr "Длительность (с)"
+
+msgid "Edit"
+msgstr "Изменить"
+
+msgid "Edit behavior"
+msgstr "Изменить поведение"
+
+msgid "Edit category"
+msgstr "Изменить категорию"
+
+msgid "Edit independent variable"
+msgstr "Изменить независимую переменную"
+
+msgid "Edit modifier"
+msgstr "Изменить модификатор"
+
+msgid "Edit observation template"
+msgstr "Изменить шаблон наблюдения"
+
+msgid "Edit session"
+msgstr "Изменить сеанс"
+
+msgid "Edit subject"
+msgstr "Изменить субъект"
+
+msgid "Edit subject group"
+msgstr "Изменить группу субъектов"
+
+msgid "Edit video"
+msgstr "Изменить видео"
+
+msgid "Email"
+msgstr "Электронная почта"
+
+msgid "English"
+msgstr "Английский"
+
+msgid "Ethogram JSON"
+msgstr "Этограмма JSON"
+
+msgid "Event"
+msgstr "Event"
+
+msgid "Event not found."
+msgstr "Event not found."
+
+msgid "Events"
+msgstr "Events"
+
+msgid "Export"
+msgstr "Export"
+
+msgid "Export XLSX"
+msgstr "Экспорт XLSX"
+
+msgid "Export ethogram"
+msgstr "Экспорт этограммы"
+
+msgid "False"
+msgstr "Ложь"
+
+msgid "File"
+msgstr "Файл"
+
+msgid "Frame step"
+msgstr "Шаг кадра"
+
+msgid "Frame step (seconds)"
+msgstr "Шаг кадра (секунды)"
+
+msgid "French"
+msgstr "Французский"
+
+msgid "From"
+msgstr "От"
+
+msgid "Global timeline"
+msgstr "Глобальная временная шкала"
+
+msgid "Groups"
+msgstr "Группы"
+
+msgid "I confirm the deletion"
+msgstr "Я подтверждаю удаление"
+
+msgid "Import"
+msgstr "Импорт"
+
+msgid "Import JSON"
+msgstr "Импорт JSON"
+
+msgid "Import ethogram"
+msgstr "Импортировать этограмму"
+
+msgid "Import session JSON"
+msgstr "Импортировать JSON сеанса"
+
+msgid "In review"
+msgstr "На проверке"
+
+msgid "Independent variable created."
+msgstr "Независимая переменная создана."
+
+msgid "Independent variable deleted."
+msgstr "Независимая переменная удалена."
+
+msgid "Independent variable updated."
+msgstr "Независимая переменная обновлена."
+
+msgid "Independent variables"
+msgstr "Независимые переменные"
+
+msgid "Integrity and intervals"
+msgstr "Целостность и интервалы"
+
+msgid "Invalid JSON: %(error)s"
+msgstr "Invalid JSON: %(error)s"
+
+msgid "Invalid event_kind for a state behavior."
+msgstr "Invalid event_kind for a state behavior."
+
+msgid "Invalid modifier_ids or subject_ids."
+msgstr "Invalid modifier_ids or subject_ids."
+
+msgid "Invalid workflow action."
+msgstr "Invalid workflow action."
+
+msgid "JSON export from PyBehaviorLog 0.8 and earlier supported versions or BORIS-like JSON."
+msgstr "JSON-экспорт PyBehaviorLog 0.8 и более ранних поддерживаемых версий, либо JSON в стиле BORIS."
+
+msgid "Key binding"
+msgstr "Горячая клавиша"
+
+msgid "Label"
+msgstr "Метка"
+
+msgid "Language"
+msgstr "Язык"
+
+msgid "Live"
+msgstr "Вживую"
+
+msgid "Live session"
+msgstr "Живой сеанс"
+
+msgid "Lock"
+msgstr "Заблокировать"
+
+msgid "Locked"
+msgstr "Заблокировано"
+
+msgid "Log in"
+msgstr "Войти"
+
+msgid "Log out"
+msgstr "Выйти"
+
+msgid "Long text"
+msgstr "Длинный текст"
+
+msgid "Manage the project name, description, and collaborators."
+msgstr "Управляйте названием проекта, описанием и соавторами."
+
+msgid "Max"
+msgstr "Макс"
+
+msgid "Mean"
+msgstr "Среднее"
+
+msgid "Media"
+msgstr "Медиа"
+
+msgid "Min"
+msgstr "Мин"
+
+msgid "Mode"
+msgstr "Режим"
+
+msgid "Modifier created."
+msgstr "Модификатор создан."
+
+msgid "Modifier deleted."
+msgstr "Модификатор удалён."
+
+msgid "Modifier hotkey = toggle on/off · Backspace = clear selection"
+msgstr "Горячая клавиша модификатора = переключить вкл/выкл · Backspace = очистить выбор"
+
+msgid "Modifier updated."
+msgstr "Модификатор обновлён."
+
+msgid "Modifiers"
+msgstr "Модификаторы"
+
+msgid "My PyBehaviorLog projects"
+msgstr "Мои проекты PyBehaviorLog"
+
+msgid "Name"
+msgstr "Название"
+
+msgid "New behavior"
+msgstr "Новое поведение"
+
+msgid "New category"
+msgstr "Новая категория"
+
+msgid "New independent variable"
+msgstr "Новая независимая переменная"
+
+msgid "New modifier"
+msgstr "Новый модификатор"
+
+msgid "New observation template"
+msgstr "Новый шаблон наблюдения"
+
+msgid "New project"
+msgstr "Новый проект"
+
+msgid "New session"
+msgstr "Новый сеанс"
+
+msgid "New subject"
+msgstr "Новый субъект"
+
+msgid "New subject group"
+msgstr "Новая группа субъектов"
+
+msgid "New template"
+msgstr "Новый шаблон"
+
+msgid "New variable"
+msgstr "Новая переменная"
+
+msgid "New video"
+msgstr "Новое видео"
+
+msgid "No account yet?"
+msgstr "Ещё нет аккаунта?"
+
+msgid "No active modifiers."
+msgstr "Нет активных модификаторов."
+
+msgid "No active states."
+msgstr "Нет активных состояний."
+
+msgid "No active subjects."
+msgstr "Нет активных субъектов."
+
+msgid "No audit entries yet."
+msgstr "Записей аудита пока нет."
+
+msgid "No behaviors available."
+msgstr "Нет доступных поведений."
+
+msgid "No behaviors yet."
+msgstr "Поведения пока нет."
+
+msgid "No categories yet."
+msgstr "Категорий пока нет."
+
+msgid "No independent variables yet."
+msgstr "Независимых переменных пока нет."
+
+msgid "No integrity issues detected."
+msgstr "Проблем целостности не обнаружено."
+
+msgid "No media"
+msgstr "Нет медиа"
+
+msgid "No modifiers available."
+msgstr "Нет доступных модификаторов."
+
+msgid "No modifiers yet."
+msgstr "Модификаторов пока нет."
+
+msgid "No primary media file is attached to this session. The timer and event coding tools remain available."
+msgstr "No primary media file is attached to this session. The timer and event coding tools remain available."
+
+msgid "No projects yet"
+msgstr "Проектов пока нет"
+
+msgid "No sessions yet."
+msgstr "Сеансов пока нет."
+
+msgid "No subject groups yet."
+msgstr "Групп субъектов пока нет."
+
+msgid "No subject-level events yet."
+msgstr "Событий на уровне субъекта пока нет."
+
+msgid "No subjects available."
+msgstr "Нет доступных субъектов."
+
+msgid "No subjects yet."
+msgstr "Субъектов пока нет."
+
+msgid "No templates yet."
+msgstr "Шаблонов пока нет."
+
+msgid "No transitions yet."
+msgstr "Переходов пока нет."
+
+msgid "No videos yet."
+msgstr "Видео пока нет."
+
+msgid "Note"
+msgstr "Заметка"
+
+msgid "Notes"
+msgstr "Заметки"
+
+msgid "Numeric"
+msgstr "Числовой"
+
+msgid "Observation template"
+msgstr "Шаблон наблюдения"
+
+msgid "Observation template created."
+msgstr "Шаблон наблюдения создан."
+
+msgid "Observation template deleted."
+msgstr "Шаблон наблюдения удалён."
+
+msgid "Observation template updated."
+msgstr "Шаблон наблюдения обновлён."
+
+msgid "Observation templates"
+msgstr "Шаблоны наблюдений"
+
+msgid "Observed time (s)"
+msgstr "Наблюдаемое время (с)"
+
+msgid "Observer"
+msgstr "Наблюдатель"
+
+msgid "One or more modifiers are invalid."
+msgstr "One or more modifiers are invalid."
+
+msgid "One or more subjects are invalid."
+msgstr "One or more subjects are invalid."
+
+msgid "One-minute buckets"
+msgstr "Минутные блоки"
+
+msgid "Only the project owner can delete independent variables."
+msgstr "Only the project owner can delete independent variables."
+
+msgid "Only the project owner can delete observation templates."
+msgstr "Only the project owner can delete observation templates."
+
+msgid "Only the project owner can delete subject groups."
+msgstr "Only the project owner can delete subject groups."
+
+msgid "Only the project owner can delete subjects."
+msgstr "Only the project owner can delete subjects."
+
+msgid "Only the project owner can edit independent variables."
+msgstr "Only the project owner can edit independent variables."
+
+msgid "Only the project owner can edit observation templates."
+msgstr "Only the project owner can edit observation templates."
+
+msgid "Only the project owner can edit subject groups."
+msgstr "Only the project owner can edit subject groups."
+
+msgid "Only the project owner can edit subjects."
+msgstr "Only the project owner can edit subjects."
+
+msgid "Only the project owner can manage behaviors."
+msgstr "Only the project owner can manage behaviors."
+
+msgid "Only the project owner can manage categories."
+msgstr "Only the project owner can manage categories."
+
+msgid "Only the project owner can manage modifiers."
+msgstr "Only the project owner can manage modifiers."
+
+msgid "Only the project owner can manage videos."
+msgstr "Only the project owner can manage videos."
+
+msgid "Only the project owner can update project settings."
+msgstr "Only the project owner can update project settings."
+
+msgid "Open"
+msgstr "Открыть"
+
+msgid "Open states"
+msgstr "Open states"
+
+msgid "Owner"
+msgstr "Владелец"
+
+msgid "Play / pause"
+msgstr "Воспроизвести / пауза"
+
+msgid "Playback"
+msgstr "Playback"
+
+msgid "Playback rate"
+msgstr "Скорость воспроизведения"
+
+msgid "Point"
+msgstr "Точка"
+
+msgid "Points"
+msgstr "Точки"
+
+msgid "Primary player"
+msgstr "Основной проигрыватель"
+
+msgid "Primary source"
+msgstr "Основной источник"
+
+msgid "Primary video"
+msgstr "Основное видео"
+
+msgid "Project"
+msgstr "Проект"
+
+msgid "Project XLSX"
+msgstr "XLSX проекта"
+
+msgid "Project created successfully."
+msgstr "Проект успешно создан."
+
+msgid "Project settings"
+msgstr "Настройки проекта"
+
+msgid "Project settings updated."
+msgstr "Настройки проекта обновлены."
+
+msgid "Project-wide analytics with behavior totals, subject breakdowns, transition counts, and consolidated Excel export."
+msgstr "Project-wide analytics with behavior totals, subject breakdowns, transition counts, and consolidated Excel export."
+
+msgid "PyBehaviorLog 0.8 and earlier supported versions JSON or simplified BORIS-like JSON."
+msgstr "JSON PyBehaviorLog 0.8 и более ранних поддерживаемых версий, либо упрощённый JSON в стиле BORIS."
+
+msgid "Quick overview"
+msgstr "Краткий обзор"
+
+msgid "Recorded at"
+msgstr "Записано"
+
+msgid "Refresh"
+msgstr "Обновить"
+
+msgid "Replace all existing ethogram entities"
+msgstr "Заменить все существующие сущности этограммы"
+
+msgid "Review notes"
+msgstr "Заметки проверки"
+
+msgid "Russian"
+msgstr "Русский"
+
+msgid "Save"
+msgstr "Сохранить"
+
+msgid "Segments"
+msgstr "Сегменты"
+
+msgid "Select one or more subjects. Selected subjects are attached to the next coded event."
+msgstr "Выберите один или несколько субъектов. Выбранные субъекты будут прикреплены к следующему закодированному событию."
+
+msgid "Session"
+msgstr "Сеанс"
+
+msgid "Session created."
+msgstr "Сеанс создан."
+
+msgid "Session deleted."
+msgstr "Сеанс удалён."
+
+msgid "Session kind"
+msgstr "Тип сеанса"
+
+msgid "Session updated."
+msgstr "Сеанс обновлён."
+
+msgid "Sessions"
+msgstr "Сеансы"
+
+msgid "Settings"
+msgstr "Настройки"
+
+msgid "Sign up"
+msgstr "Зарегистрироваться"
+
+msgid "Signed in as"
+msgstr "Вы вошли как"
+
+msgid "Simplified BORIS-style view"
+msgstr "Упрощённый вид в стиле BORIS"
+
+msgid "Sort order"
+msgstr "Порядок сортировки"
+
+msgid "Spanish"
+msgstr "Испанский"
+
+msgid "Start"
+msgstr "Начало"
+
+msgid "Starts"
+msgstr "Начала"
+
+msgid "State"
+msgstr "Состояние"
+
+msgid "Statistics"
+msgstr "Статистика"
+
+msgid "Status change"
+msgstr "Status change"
+
+msgid "Stop"
+msgstr "Остановка"
+
+msgid "Stops"
+msgstr "Остановки"
+
+msgid "Subject"
+msgstr "Subject"
+
+msgid "Subject created."
+msgstr "Субъект создан."
+
+msgid "Subject deleted."
+msgstr "Субъект удалён."
+
+msgid "Subject group created."
+msgstr "Группа субъектов создана."
+
+msgid "Subject group deleted."
+msgstr "Группа субъектов удалена."
+
+msgid "Subject group updated."
+msgstr "Группа субъектов обновлена."
+
+msgid "Subject groups"
+msgstr "Группы субъектов"
+
+msgid "Subject updated."
+msgstr "Субъект обновлён."
+
+msgid "Subject-level summaries and transition analytics now complement the behavior totals already available in earlier versions."
+msgstr "Subject-level summaries and transition analytics now complement the behavior totals already available in earlier versions."
+
+msgid "Subjects"
+msgstr "Субъекты"
+
+msgid "Submit for review"
+msgstr "Отправить на проверку"
+
+msgid "Summary"
+msgstr "Сводка"
+
+msgid "Synced videos"
+msgstr "Synced videos"
+
+msgid "Synchronized videos"
+msgstr "Синхронизированные видео"
+
+msgid "Text"
+msgstr "Текст"
+
+msgid "The uploaded file is not valid JSON."
+msgstr "The uploaded file is not valid JSON."
+
+msgid "This session is locked and cannot be modified."
+msgstr "This session is locked and cannot be modified."
+
+msgid "This video is still linked to one or more sessions."
+msgstr "This video is still linked to one or more sessions."
+
+msgid "Time (seconds)"
+msgstr "Время (секунды)"
+
+msgid "Timestamp"
+msgstr "Метка времени"
+
+msgid "Title"
+msgstr "Заголовок"
+
+msgid "To"
+msgstr "К"
+
+msgid "Track timeline"
+msgstr "Временная шкала дорожек"
+
+msgid "Transitions"
+msgstr "Переходы"
+
+msgid "True"
+msgstr "Истина"
+
+msgid "Type"
+msgstr "Тип"
+
+msgid "Unlock"
+msgstr "Разблокировать"
+
+msgid "Update"
+msgstr "Обновить"
+
+msgid "Update session"
+msgstr "Обновить сеанс"
+
+msgid "Validate"
+msgstr "Проверить"
+
+msgid "Validated"
+msgstr "Проверено"
+
+msgid "Value from a list"
+msgstr "Значение из списка"
+
+msgid "Value type"
+msgstr "Тип значения"
+
+msgid "Variables"
+msgstr "Переменные"
+
+msgid "Version 0.8 adds subject groups, observation templates, review workflow, audit trail, subject-level analytics, and richer BORIS-inspired interoperability."
+msgstr "Версия 0.8 добавляет группы субъектов, шаблоны наблюдений, процесс проверки, журнал аудита, аналитику на уровне субъекта и более богатую совместимость в духе BORIS."
+
+msgid "Video added."
+msgstr "Видео добавлено."
+
+msgid "Video deleted."
+msgstr "Видео удалено."
+
+msgid "Video updated."
+msgstr "Видео обновлено."
+
+msgid "Videos"
+msgstr "Видео"
+
+msgid "What is new in 0.8?"
+msgstr "Что нового в 0.8?"
+
+msgid "Workflow"
+msgstr "Рабочий процесс"
+
+msgid "Workflow and audit"
+msgstr "Рабочий процесс и аудит"
+
+msgid "annotations"
+msgstr "аннотации"
+
+msgid "behaviors"
+msgstr "поведения"
+
+msgid "categories"
+msgstr "категории"
+
+msgid "collaborator"
+msgstr "соавтор"
+
+msgid "events"
+msgstr "события"
+
+msgid "live update"
+msgstr "обновление в реальном времени"
+
+msgid "modifier_ids must be a list."
+msgstr "modifier_ids must be a list."
+
+msgid "modifiers"
+msgstr "модификаторы"
+
+msgid "no"
+msgstr "нет"
+
+msgid "none"
+msgstr "нет"
+
+msgid "observed"
+msgstr "наблюдалось"
+
+msgid "observed seconds"
+msgstr "наблюдаемые секунды"
+
+msgid "open states"
+msgstr "открытые состояния"
+
+msgid "owner"
+msgstr "владелец"
+
+msgid "points"
+msgstr "точки"
+
+msgid "s observed"
+msgstr "с наблюдения"
+
+msgid "sessions"
+msgstr "сеансы"
+
+msgid "subject_ids must be a list."
+msgstr "subject_ids must be a list."
+
+msgid "subjects"
+msgstr "субъекты"
+
+msgid "synced video"
+msgstr "синхронизированное видео"
+
+msgid "videos"
+msgstr "видео"
+
+msgid "yes"
+msgstr "да"

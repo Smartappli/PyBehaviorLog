@@ -5,6 +5,7 @@ from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.translation import gettext_lazy as _
 
 
 class Project(models.Model):
@@ -131,12 +132,12 @@ class IndependentVariableDefinition(models.Model):
     TYPE_BOOLEAN = 'boolean'
     TYPE_TIMESTAMP = 'timestamp'
     TYPE_CHOICES = [
-        (TYPE_TEXT, 'Text'),
-        (TYPE_LONGTEXT, 'Long text'),
-        (TYPE_NUMERIC, 'Numeric'),
-        (TYPE_SET, 'Value from a list'),
-        (TYPE_BOOLEAN, 'Boolean'),
-        (TYPE_TIMESTAMP, 'Timestamp'),
+        (TYPE_TEXT, _('Text')),
+        (TYPE_LONGTEXT, _('Long text')),
+        (TYPE_NUMERIC, _('Numeric')),
+        (TYPE_SET, _('Value from a list')),
+        (TYPE_BOOLEAN, _('Boolean')),
+        (TYPE_TIMESTAMP, _('Timestamp')),
     ]
 
     project = models.ForeignKey(
@@ -145,7 +146,7 @@ class IndependentVariableDefinition(models.Model):
     label = models.CharField(max_length=120)
     description = models.CharField(max_length=255, blank=True)
     value_type = models.CharField(max_length=20, choices=TYPE_CHOICES, default=TYPE_TEXT)
-    set_values = models.TextField(blank=True, help_text='Comma-separated values for list fields.')
+    set_values = models.TextField(blank=True, help_text=_('Comma-separated values for list fields.'))
     default_value = models.CharField(max_length=255, blank=True)
     sort_order = models.PositiveIntegerField(default=0)
 
@@ -171,8 +172,8 @@ class Behavior(models.Model):
     MODE_POINT = 'point'
     MODE_STATE = 'state'
     MODE_CHOICES = [
-        (MODE_POINT, 'Point'),
-        (MODE_STATE, 'State'),
+        (MODE_POINT, _('Point')),
+        (MODE_STATE, _('State')),
     ]
 
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='behaviors')
@@ -261,8 +262,8 @@ class ObservationSession(models.Model):
     KIND_MEDIA = 'media'
     KIND_LIVE = 'live'
     KIND_CHOICES = [
-        (KIND_MEDIA, 'Media'),
-        (KIND_LIVE, 'Live'),
+        (KIND_MEDIA, _('Media')),
+        (KIND_LIVE, _('Live')),
     ]
 
     STATUS_DRAFT = 'draft'
@@ -270,10 +271,10 @@ class ObservationSession(models.Model):
     STATUS_VALIDATED = 'validated'
     STATUS_LOCKED = 'locked'
     STATUS_CHOICES = [
-        (STATUS_DRAFT, 'Draft'),
-        (STATUS_IN_REVIEW, 'In review'),
-        (STATUS_VALIDATED, 'Validated'),
-        (STATUS_LOCKED, 'Locked'),
+        (STATUS_DRAFT, _('Draft')),
+        (STATUS_IN_REVIEW, _('In review')),
+        (STATUS_VALIDATED, _('Validated')),
+        (STATUS_LOCKED, _('Locked')),
     ]
 
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='sessions')
@@ -398,9 +399,9 @@ class ObservationEvent(models.Model):
     KIND_START = 'start'
     KIND_STOP = 'stop'
     KIND_CHOICES = [
-        (KIND_POINT, 'Point'),
-        (KIND_START, 'Start'),
-        (KIND_STOP, 'Stop'),
+        (KIND_POINT, _('Point')),
+        (KIND_START, _('Start')),
+        (KIND_STOP, _('Stop')),
     ]
 
     session = models.ForeignKey(ObservationSession, on_delete=models.CASCADE, related_name='events')
@@ -475,11 +476,11 @@ class ObservationAuditLog(models.Model):
     TARGET_IMPORT = 'import'
     TARGET_EXPORT = 'export'
     TARGET_CHOICES = [
-        (TARGET_EVENT, 'Event'),
-        (TARGET_ANNOTATION, 'Annotation'),
-        (TARGET_SESSION, 'Session'),
-        (TARGET_IMPORT, 'Import'),
-        (TARGET_EXPORT, 'Export'),
+        (TARGET_EVENT, _('Event')),
+        (TARGET_ANNOTATION, _('Annotation')),
+        (TARGET_SESSION, _('Session')),
+        (TARGET_IMPORT, _('Import')),
+        (TARGET_EXPORT, _('Export')),
     ]
 
     ACTION_CREATE = 'create'
@@ -489,12 +490,12 @@ class ObservationAuditLog(models.Model):
     ACTION_IMPORT = 'import'
     ACTION_EXPORT = 'export'
     ACTION_CHOICES = [
-        (ACTION_CREATE, 'Create'),
-        (ACTION_UPDATE, 'Update'),
-        (ACTION_DELETE, 'Delete'),
-        (ACTION_STATUS, 'Status change'),
-        (ACTION_IMPORT, 'Import'),
-        (ACTION_EXPORT, 'Export'),
+        (ACTION_CREATE, _('Create')),
+        (ACTION_UPDATE, _('Update')),
+        (ACTION_DELETE, _('Delete')),
+        (ACTION_STATUS, _('Status change')),
+        (ACTION_IMPORT, _('Import')),
+        (ACTION_EXPORT, _('Export')),
     ]
 
     session = models.ForeignKey(

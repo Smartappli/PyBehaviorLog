@@ -1,6 +1,7 @@
 from django import forms
 from django.contrib.auth import get_user_model
 from django.contrib.auth.forms import UserCreationForm
+from django.utils.translation import gettext_lazy as _
 
 from .models import (
     Behavior,
@@ -20,7 +21,7 @@ User = get_user_model()
 
 
 class SignUpForm(UserCreationForm):
-    email = forms.EmailField(required=False)
+    email = forms.EmailField(required=False, label=_('Email'))
 
     class Meta:
         model = User
@@ -32,12 +33,14 @@ class ProjectForm(forms.ModelForm):
         model = Project
         fields = ['name', 'description']
         widgets = {'description': forms.Textarea(attrs={'rows': 4})}
+        labels = {'name': _('Name'), 'description': _('Description')}
 
 
 class ProjectSettingsForm(forms.ModelForm):
     collaborators = forms.ModelMultipleChoiceField(
         queryset=User.objects.none(),
         required=False,
+        label=_('Collaborators'),
         widget=forms.CheckboxSelectMultiple,
     )
 
@@ -45,6 +48,7 @@ class ProjectSettingsForm(forms.ModelForm):
         model = Project
         fields = ['name', 'description', 'collaborators']
         widgets = {'description': forms.Textarea(attrs={'rows': 4})}
+        labels = {'name': _('Name'), 'description': _('Description')}
 
     def __init__(self, *args, owner=None, **kwargs):
         super().__init__(*args, **kwargs)
@@ -56,20 +60,21 @@ class ProjectSettingsForm(forms.ModelForm):
 
 class EthogramImportForm(forms.Form):
     file = forms.FileField(
-        help_text='JSON export from PyBehaviorLog 0.8 and earlier supported versions or BORIS-like JSON.'
+        label=_('File'),
+        help_text=_('JSON export from PyBehaviorLog 0.8 and earlier supported versions or BORIS-like JSON.')
     )
     replace_existing = forms.BooleanField(
         required=False,
-        label='Replace all existing ethogram entities',
-        help_text='Blocked when the project already contains sessions or events.',
+        label=_('Replace all existing ethogram entities'),
+        help_text=_('Blocked when the project already contains sessions or events.'),
     )
 
 
 class SessionImportForm(forms.Form):
-    file = forms.FileField(help_text='PyBehaviorLog 0.8 and earlier supported versions JSON or simplified BORIS-like JSON.')
+    file = forms.FileField(label=_('File'), help_text=_('PyBehaviorLog 0.8 and earlier supported versions JSON or simplified BORIS-like JSON.'))
     clear_existing = forms.BooleanField(
         required=False,
-        label='Delete existing events and annotations before import',
+        label=_('Delete existing events and annotations before import'),
     )
 
 
@@ -78,6 +83,7 @@ class BehaviorCategoryForm(forms.ModelForm):
         model = BehaviorCategory
         fields = ['name', 'color', 'sort_order']
         widgets = {'color': forms.TextInput(attrs={'type': 'color'})}
+        labels = {'name': _('Name'), 'color': _('Color'), 'sort_order': _('Sort order')}
 
 
 class ModifierForm(forms.ModelForm):
@@ -88,6 +94,7 @@ class ModifierForm(forms.ModelForm):
             'description': forms.TextInput(),
             'key_binding': forms.TextInput(attrs={'maxlength': 1}),
         }
+        labels = {'name': _('Name'), 'description': _('Description'), 'key_binding': _('Key binding'), 'sort_order': _('Sort order')}
 
     def clean_key_binding(self):
         return self.cleaned_data['key_binding'].upper()
@@ -101,6 +108,7 @@ class SubjectGroupForm(forms.ModelForm):
             'description': forms.TextInput(),
             'color': forms.TextInput(attrs={'type': 'color'}),
         }
+        labels = {'name': _('Name'), 'description': _('Description'), 'color': _('Color'), 'sort_order': _('Sort order')}
 
 
 class SubjectForm(forms.ModelForm):
@@ -113,6 +121,7 @@ class SubjectForm(forms.ModelForm):
             'color': forms.TextInput(attrs={'type': 'color'}),
             'groups': forms.CheckboxSelectMultiple(),
         }
+        labels = {'name': _('Name'), 'description': _('Description'), 'groups': _('Groups'), 'key_binding': _('Key binding'), 'color': _('Color'), 'sort_order': _('Sort order')}
 
     def __init__(self, *args, project=None, **kwargs):
         super().__init__(*args, **kwargs)
@@ -134,6 +143,7 @@ class IndependentVariableDefinitionForm(forms.ModelForm):
             'set_values': forms.Textarea(attrs={'rows': 3}),
             'default_value': forms.TextInput(),
         }
+        labels = {'label': _('Label'), 'description': _('Description'), 'value_type': _('Value type'), 'set_values': _('Allowed values'), 'default_value': _('Default value'), 'sort_order': _('Sort order')}
 
 
 class BehaviorForm(forms.ModelForm):
@@ -145,6 +155,7 @@ class BehaviorForm(forms.ModelForm):
             'key_binding': forms.TextInput(attrs={'maxlength': 1}),
             'color': forms.TextInput(attrs={'type': 'color'}),
         }
+        labels = {'category': _('Category'), 'name': _('Name'), 'description': _('Description'), 'key_binding': _('Key binding'), 'color': _('Color'), 'mode': _('Mode'), 'sort_order': _('Sort order')}
 
     def __init__(self, *args, project=None, **kwargs):
         super().__init__(*args, **kwargs)
@@ -175,6 +186,7 @@ class ObservationTemplateForm(forms.ModelForm):
             'subjects': forms.CheckboxSelectMultiple(),
             'variable_definitions': forms.CheckboxSelectMultiple(),
         }
+        labels = {'name': _('Name'), 'description': _('Description'), 'default_session_kind': _('Default session kind'), 'behaviors': _('Behaviors'), 'modifiers': _('Modifiers'), 'subjects': _('Subjects'), 'variable_definitions': _('Independent variables')}
 
     def __init__(self, *args, project=None, **kwargs):
         super().__init__(*args, **kwargs)
@@ -195,6 +207,7 @@ class VideoAssetForm(forms.ModelForm):
         model = VideoAsset
         fields = ['title', 'file', 'notes']
         widgets = {'notes': forms.Textarea(attrs={'rows': 4})}
+        labels = {'title': _('Title'), 'file': _('File'), 'notes': _('Notes')}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -206,7 +219,8 @@ class ObservationSessionForm(forms.ModelForm):
     additional_videos = forms.ModelMultipleChoiceField(
         queryset=VideoAsset.objects.none(),
         required=False,
-        help_text='Additional videos synchronized with the primary one.',
+        label=_('Additional synchronized videos'),
+        help_text=_('Additional videos synchronized with the primary one.'),
         widget=forms.CheckboxSelectMultiple,
     )
 
@@ -231,6 +245,18 @@ class ObservationSessionForm(forms.ModelForm):
             'review_notes': forms.Textarea(attrs={'rows': 3}),
             'recorded_at': forms.DateTimeInput(attrs={'type': 'datetime-local'}),
         }
+        labels = {
+            'template': _('Observation template'),
+            'session_kind': _('Session kind'),
+            'video': _('Primary video'),
+            'title': _('Title'),
+            'description': _('Description'),
+            'playback_rate': _('Playback rate'),
+            'frame_step_seconds': _('Frame step (seconds)'),
+            'recorded_at': _('Recorded at'),
+            'notes': _('Notes'),
+            'review_notes': _('Review notes'),
+        }
 
     def __init__(self, *args, project=None, **kwargs):
         super().__init__(*args, **kwargs)
@@ -250,7 +276,7 @@ class ObservationSessionForm(forms.ModelForm):
                 if definition.value_type == IndependentVariableDefinition.TYPE_NUMERIC:
                     field = forms.DecimalField(required=False, label=definition.label)
                 elif definition.value_type == IndependentVariableDefinition.TYPE_SET:
-                    choices = [('', '---------')] + [
+                    choices = [('', _('---------'))] + [
                         (item, item) for item in definition.value_options
                     ]
                     field = forms.ChoiceField(
@@ -260,7 +286,7 @@ class ObservationSessionForm(forms.ModelForm):
                     field = forms.TypedChoiceField(
                         required=False,
                         label=definition.label,
-                        choices=[('', '---------'), ('true', 'True'), ('false', 'False')],
+                        choices=[('', _('---------')), ('true', _('True')), ('false', _('False'))],
                         coerce=str,
                     )
                 elif definition.value_type == IndependentVariableDefinition.TYPE_TIMESTAMP:
@@ -284,7 +310,7 @@ class ObservationSessionForm(forms.ModelForm):
                 ):
                     help_text = (
                         help_text + ' ' if help_text else ''
-                    ) + f'Allowed values: {definition.set_values}'
+                    ) + _('Allowed values: %(values)s') % {'values': definition.set_values}
                 field.help_text = help_text
                 self.fields[field_name] = field
                 initial_value = definition.default_value
@@ -308,7 +334,7 @@ class ObservationSessionForm(forms.ModelForm):
         session_kind = cleaned_data.get('session_kind')
         video = cleaned_data.get('video')
         if session_kind == ObservationSession.KIND_MEDIA and video is None:
-            self.add_error('video', 'A primary video is required for a media session.')
+            self.add_error('video', _('A primary video is required for a media session.'))
         if session_kind == ObservationSession.KIND_LIVE:
             cleaned_data['video'] = None
             cleaned_data['additional_videos'] = []
@@ -332,4 +358,4 @@ class ObservationSessionForm(forms.ModelForm):
 
 
 class DeleteConfirmForm(forms.Form):
-    confirm = forms.BooleanField(label='I confirm the deletion')
+    confirm = forms.BooleanField(label=_('I confirm the deletion'))

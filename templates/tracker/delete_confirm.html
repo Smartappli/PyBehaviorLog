@@ -1,3 +1,4 @@
 {% extends 'base.html' %}
-{% block title %}Delete{% endblock %}
-{% block content %}<article class="auth-card"><h1>Delete item</h1><p>You are about to delete {{ object_label }}.</p><form method="post">{% csrf_token %}{{ form.as_p }}<div class="action-stack"><button type="submit" class="contrast">Delete</button><a href="{{ project.get_absolute_url }}" role="button" class="secondary">Cancel</a></div></form></article>{% endblock %}
+{% load i18n %}
+{% block title %}{% trans 'Delete' %}{% endblock %}
+{% block content %}<article class="auth-card"><h1>{% trans 'Delete item' %}</h1><p>{% blocktrans with label=object_label %}You are about to delete {{ label }}.{% endblocktrans %}</p><form method="post">{% csrf_token %}{{ form.as_p }}<div class="action-stack"><button type="submit" class="contrast">{% trans 'Delete' %}</button><a href="{{ project.get_absolute_url }}" role="button" class="secondary">{% trans 'Cancel' %}</a></div></form></article>{% endblock %}

@@ -1,21 +1,23 @@
 {% extends 'base.html' %}
+{% load i18n %}
 
 {% block title %}{{ session.title }}{% endblock %}
 
 {% block content %}
+{% trans 'not set' as not_set %}
 <header class="page-header">
     <div>
         <h1>{{ session.title }}</h1>
-        <p>Project: <a href="{{ session.project.get_absolute_url }}">{{ session.project.name }}</a> · Primary source: {{ session.primary_label }} · Workflow: <strong>{{ session.workflow_status }}</strong></p>
-        <p class="muted">Observer: {{ session.observer.username|default:'not set' }} · Playback: {{ session.playback_rate }}x · Frame step: {{ session.frame_step_seconds }} s · {{ synced_videos|length }} synced video{{ synced_videos|length|pluralize }}</p>
+        <p>{% trans 'Project' %}: <a href="{{ session.project.get_absolute_url }}">{{ session.project.name }}</a> · {% trans 'Primary source' %}: {{ session.primary_label }} · {% trans 'Workflow' %}: <strong>{{ session.get_workflow_status_display }}</strong></p>
+        <p class="muted">{% trans 'Observer' %}: {% firstof session.observer.username not_set %} · {% trans 'Playback' %}: {{ session.playback_rate }}x · {% trans 'Frame step' %}: {{ session.frame_step_seconds }} s · {{ synced_videos|length }} {% trans 'synced video' %}{{ synced_videos|length|pluralize }}</p>
     </div>
     <div class="action-stack compact">
-        <a href="{% url 'tracker:session_update' session.pk %}" role="button" class="secondary">Settings</a>
-        <a href="{% url 'tracker:session_import_json' session.pk %}" role="button" class="secondary">Import JSON</a>
+        <a href="{% url 'tracker:session_update' session.pk %}" role="button" class="secondary">{% trans 'Settings' %}</a>
+        <a href="{% url 'tracker:session_import_json' session.pk %}" role="button" class="secondary">{% trans 'Import JSON' %}</a>
         <a href="{% url 'tracker:session_export_csv' session.pk %}" role="button" class="secondary">CSV</a>
         <a href="{% url 'tracker:session_export_tsv' session.pk %}" role="button" class="secondary">TSV</a>
         <a href="{% url 'tracker:session_export_json' session.pk %}" role="button" class="secondary">JSON</a>
-        <a href="{% url 'tracker:session_export_boris_json' session.pk %}" role="button" class="secondary">BORIS-like</a>
+        <a href="{% url 'tracker:session_export_boris_json' session.pk %}" role="button" class="secondary">{% trans 'BORIS-like' %}</a>
         <a href="{% url 'tracker:session_export_xlsx' session.pk %}" role="button">XLSX</a>
     </div>
 </header>
@@ -23,7 +25,7 @@
 <div class="grid two-columns player-layout">
     <section>
         <article>
-            <h3>Primary player</h3>
+            <h3>{% trans 'Primary player' %}</h3>
             {% if session.video %}
             <video id="main-video" controls preload="metadata" class="session-video" data-base-rate="{{ session.playback_rate|floatformat:2 }}">
                 <source src="{{ session.video.file.url }}">
@@ -31,18 +33,18 @@
             {% else %}
             <div id="main-video" class="session-video live-panel" data-base-rate="{{ session.playback_rate|floatformat:2 }}">
                 <div class="live-panel-inner">
-                    <strong>Session live</strong>
-                    <p>No primary media file is attached to this session. The timer and event coding tools remain available.</p>
+                    <strong>{% trans 'Live session' %}</strong>
+                    <p>{% trans 'No primary media file is attached to this session. The timer and event coding tools remain available.' %}</p>
                 </div>
             </div>
             {% endif %}
             <div class="video-controls-inline">
-                <button type="button" id="play-pause-btn" class="secondary">Play / pause</button>
+                <button type="button" id="play-pause-btn" class="secondary">{% trans 'Play / pause' %}</button>
                 <button type="button" id="back-2-btn" class="secondary">-2 s</button>
                 <button type="button" id="forward-2-btn" class="secondary">+2 s</button>
-                <button type="button" id="prev-frame-btn" class="secondary">-1 image</button>
-                <button type="button" id="next-frame-btn" class="secondary">+1 image</button>
-                <button type="button" id="clear-modifiers-btn" class="secondary">Clear modifiers</button>
+                <button type="button" id="prev-frame-btn" class="secondary">{% trans '-1 frame' %}</button>
+                <button type="button" id="next-frame-btn" class="secondary">{% trans '+1 frame' %}</button>
+                <button type="button" id="clear-modifiers-btn" class="secondary">{% trans 'Clear modifiers' %}</button>
                 <span id="video-time" class="pill large-pill">0.000 s</span>
             </div>
             {% if session.notes %}
@@ -52,7 +54,7 @@
 
         {% if synced_videos|length > 1 %}
         <article>
-            <h3>Synchronized videos</h3>
+            <h3>{% trans 'Synchronized videos' %}</h3>
             <div class="sync-grid">
                 {% for link in synced_videos %}
                     {% if forloop.first %}{% else %}
@@ -69,25 +71,25 @@
         {% endif %}
 
         <article>
-            <h3>Behaviors</h3>
-            <div class="keyboard-hint">Behavior hotkey = instant code · Alt = forced START · Shift = forced STOP · E = quick note</div>
+            <h3>{% trans 'Behaviors' %}</h3>
+            <div class="keyboard-hint">{% trans 'Behavior hotkey = instant code · Alt = forced START · Shift = forced STOP · E = quick note' %}</div>
             <div class="behavior-list">
                 {% for behavior in behaviors %}
                     <button type="button" class="behavior-button" data-behavior-id="{{ behavior.id }}" data-key="{{ behavior.key_binding|lower }}" data-mode="{{ behavior.mode }}" data-color="{{ behavior.color }}">
                         <span class="behavior-badge" style="background-color: {{ behavior.color }};"></span>
                         <span>{{ behavior.name }}</span>
-                        <span class="pill">{{ behavior.mode }}</span>
+                        <span class="pill">{{ behavior.get_mode_display }}</span>
                         <kbd>{{ behavior.key_binding }}</kbd>
                     </button>
                 {% empty %}
-                    <p>No behaviors available.</p>
+                    <p>{% trans 'No behaviors available.' %}</p>
                 {% endfor %}
             </div>
         </article>
 
         <article>
-            <h3>Subjects</h3>
-            <div class="keyboard-hint">Select one or more subjects. Selected subjects are attached to the next coded event.</div>
+            <h3>{% trans 'Subjects' %}</h3>
+            <div class="keyboard-hint">{% trans 'Select one or more subjects. Selected subjects are attached to the next coded event.' %}</div>
             <div class="modifier-list" id="subject-list">
                 {% for subject in subjects %}
                     <button type="button" class="modifier-button subject-button" data-subject-id="{{ subject.id }}" data-key="{{ subject.key_binding|lower }}">
@@ -95,15 +97,15 @@
                         <span>{{ subject.name }}</span>
                     </button>
                 {% empty %}
-                    <p>No subjects available.</p>
+                    <p>{% trans 'No subjects available.' %}</p>
                 {% endfor %}
             </div>
-            <p id="active-subjects-output" class="muted">No active subjects.</p>
+            <p id="active-subjects-output" class="muted">{% trans 'No active subjects.' %}</p>
         </article>
 
         <article>
-            <h3>Modifiers</h3>
-            <div class="keyboard-hint">Modifier hotkey = toggle on/off · Backspace = clear selection</div>
+            <h3>{% trans 'Modifiers' %}</h3>
+            <div class="keyboard-hint">{% trans 'Modifier hotkey = toggle on/off · Backspace = clear selection' %}</div>
             <div class="modifier-list">
                 {% for modifier in modifiers %}
                     <button type="button" class="modifier-button" data-modifier-id="{{ modifier.id }}" data-key="{{ modifier.key_binding|lower }}">
@@ -111,25 +113,25 @@
                         <span>{{ modifier.name }}</span>
                     </button>
                 {% empty %}
-                    <p>No modifiers available.</p>
+                    <p>{% trans 'No modifiers available.' %}</p>
                 {% endfor %}
             </div>
-            <p id="active-modifiers-output" class="muted">No active modifiers.</p>
+            <p id="active-modifiers-output" class="muted">{% trans 'No active modifiers.' %}</p>
             <div id="active-states-container" class="state-container"></div>
         </article>
 
         <article>
             <div class="section-headline">
-                <h3>Global timeline</h3>
-                <span class="muted">One-minute buckets</span>
+                <h3>{% trans 'Global timeline' %}</h3>
+                <span class="muted">{% trans 'One-minute buckets' %}</span>
             </div>
             <div id="timeline-grid" class="timeline-grid"></div>
         </article>
 
         <article>
             <div class="section-headline">
-                <h3>Track timeline</h3>
-                <span class="muted">Simplified BORIS-style view</span>
+                <h3>{% trans 'Track timeline' %}</h3>
+                <span class="muted">{% trans 'Simplified BORIS-style view' %}</span>
             </div>
             <div id="track-container" class="track-container"></div>
         </article>
@@ -138,27 +140,27 @@
     <section>
         <article>
             <div class="section-headline">
-                <h3>Statistiques</h3>
-                <span class="pill">live update</span>
+                <h3>{% trans 'Statistics' %}</h3>
+                <span class="pill">{% trans 'live update' %}</span>
             </div>
             <div class="stats-row stacked" id="summary-strip">
-                <span>{{ stats.session_event_count }} events</span>
-                <span>{{ stats.annotation_count }} annotations</span>
-                <span>{{ stats.point_event_count }} points</span>
-                <span>{{ stats.open_state_count }} open states</span>
-                <span>{{ stats.observed_span_seconds }}  s observed</span>
+                <span>{{ stats.session_event_count }} {% trans 'events' %}</span>
+                <span>{{ stats.annotation_count }} {% trans 'annotations' %}</span>
+                <span>{{ stats.point_event_count }} {% trans 'points' %}</span>
+                <span>{{ stats.open_state_count }} {% trans 'open states' %}</span>
+                <span>{{ stats.observed_span_seconds }} {% trans 's observed' %}</span>
             </div>
             <div class="table-wrapper compact-table-wrapper">
                 <table id="stats-table">
                     <thead>
                         <tr>
-                            <th>Behavior</th>
-                            <th>Mode</th>
-                            <th>Points</th>
-                            <th>Segments</th>
-                            <th>Duration</th>
+                            <th>{% trans 'Behavior' %}</th>
+                            <th>{% trans 'Mode' %}</th>
+                            <th>{% trans 'Points' %}</th>
+                            <th>{% trans 'Segments' %}</th>
+                            <th>{% trans 'Duration' %}</th>
                             <th>%</th>
-                            <th>Ouvert</th>
+                            <th>{% trans 'Open' %}</th>
                         </tr>
                     </thead>
                     <tbody></tbody>
@@ -168,19 +170,19 @@
 
         <article>
             <div class="section-headline">
-                <h3>Integrity and intervals</h3>
-                <button type="button" id="refresh-events-btn" class="secondary">Refresh</button>
+                <h3>{% trans 'Integrity and intervals' %}</h3>
+                <button type="button" id="refresh-events-btn" class="secondary">{% trans 'Refresh' %}</button>
             </div>
             <div id="integrity-output" class="integrity-box"></div>
             <div class="table-wrapper compact-table-wrapper">
                 <table id="intervals-table">
                     <thead>
                         <tr>
-                            <th>Behavior</th>
-                            <th>Nb</th>
-                            <th>Moyenne</th>
-                            <th>Min</th>
-                            <th>Max</th>
+                            <th>{% trans 'Behavior' %}</th>
+                            <th>{% trans 'Count' %}</th>
+                            <th>{% trans 'Mean' %}</th>
+                            <th>{% trans 'Min' %}</th>
+                            <th>{% trans 'Max' %}</th>
                         </tr>
                     </thead>
                     <tbody></tbody>
@@ -190,17 +192,17 @@
 
         <article>
             <div class="section-headline">
-                <h3>Annotations</h3>
-                <button type="button" id="add-annotation-btn" class="secondary">Add at current position</button>
+                <h3>{% trans 'Annotations' %}</h3>
+                <button type="button" id="add-annotation-btn" class="secondary">{% trans 'Add at current position' %}</button>
             </div>
             <div class="table-wrapper compact-table-wrapper">
                 <table id="annotations-table">
                     <thead>
                         <tr>
                             <th>Time</th>
-                            <th>Titre</th>
-                            <th>Note</th>
-                            <th>Actions</th>
+                            <th>{% trans 'Title' %}</th>
+                            <th>{% trans 'Note' %}</th>
+                            <th>{% trans 'Actions' %}</th>
                         </tr>
                     </thead>
                     <tbody></tbody>
@@ -210,12 +212,12 @@
 
         <article>
             <div class="section-headline">
-                <h3>Workflow and audit</h3>
+                <h3>{% trans 'Workflow and audit' %}</h3>
                 <div class="mini-actions">
-                    <button type="button" id="workflow-submit-btn" class="secondary">Submit for review</button>
-                    <button type="button" id="workflow-validate-btn" class="secondary">Validate</button>
-                    <button type="button" id="workflow-lock-btn" class="secondary">Lock</button>
-                    <button type="button" id="workflow-unlock-btn" class="secondary">Unlock</button>
+                    <button type="button" id="workflow-submit-btn" class="secondary">{% trans 'Submit for review' %}</button>
+                    <button type="button" id="workflow-validate-btn" class="secondary">{% trans 'Validate' %}</button>
+                    <button type="button" id="workflow-lock-btn" class="secondary">{% trans 'Lock' %}</button>
+                    <button type="button" id="workflow-unlock-btn" class="secondary">{% trans 'Unlock' %}</button>
                 </div>
             </div>
             <div id="audit-output" class="integrity-box"></div>
@@ -223,19 +225,19 @@
 
         <article>
             <div class="section-headline">
-                <h3>Events</h3>
+                <h3>{% trans 'Events' %}</h3>
             </div>
             <div class="table-wrapper compact-table-wrapper">
                 <table id="events-table">
                     <thead>
                         <tr>
                             <th>Time</th>
-                            <th>Behavior</th>
-                            <th>Type</th>
-                            <th>Subjects</th>
-                            <th>Modifiers</th>
-                            <th>Commentaire</th>
-                            <th>Actions</th>
+                            <th>{% trans 'Behavior' %}</th>
+                            <th>{% trans 'Type' %}</th>
+                            <th>{% trans 'Subjects' %}</th>
+                            <th>{% trans 'Modifiers' %}</th>
+                            <th>{% trans 'Comment' %}</th>
+                            <th>{% trans 'Actions' %}</th>
                         </tr>
                     </thead>
                     <tbody></tbody>
@@ -289,6 +291,33 @@ function getCookie(name) {
     return document.cookie.split('; ').find((row) => row.startsWith(`${name}=`))?.split('=')[1] || '';
 }
 const csrfToken = getCookie('csrftoken');
+const jsI18n = {
+    activeSubjects: "{% trans 'Active subjects' %}",
+    noActiveSubjects: "{% trans 'No active subjects.' %}",
+    activeModifiers: "{% trans 'Active modifiers' %}",
+    noActiveModifiers: "{% trans 'No active modifiers.' %}",
+    noActiveStates: "{% trans 'No active states.' %}",
+    events: "{% trans 'events' %}",
+    annotations: "{% trans 'annotations' %}",
+    points: "{% trans 'points' %}",
+    openStates: "{% trans 'open states' %}",
+    observed: "{% trans 'observed' %}",
+    yes: "{% trans 'yes' %}",
+    no: "{% trans 'no' %}",
+    noIntegrityIssues: "{% trans 'No integrity issues detected.' %}",
+    noAuditEntries: "{% trans 'No audit entries yet.' %}",
+    edit: "{% trans 'Edit' %}",
+    delete: "{% trans 'Delete' %}",
+    deleteEventConfirm: "{% trans 'Delete this event?' %}",
+    deleteAnnotationConfirm: "{% trans 'Delete this annotation?' %}",
+    annotationTitle: "{% trans 'Annotation title' %}",
+    defaultAnnotationTitle: "{% trans 'Note' %}",
+    annotationNote: "{% trans 'Annotation note' %}",
+    comment: "{% trans 'Comment' %}",
+    timeSeconds: "{% trans 'Time (seconds)' %}",
+    title: "{% trans 'Title' %}",
+    note: "{% trans 'Note' %}",
+};
 
 let stateStatus = JSON.parse(document.getElementById('state-status-data').textContent);
 let timelineBuckets = JSON.parse(document.getElementById('timeline-data').textContent);
@@ -319,7 +348,7 @@ function renderSubjectStates() {
         button.classList.toggle('is-active-modifier', isActive);
         if (isActive) activeNames.push(button.textContent.trim());
     });
-    activeSubjectsOutput.textContent = activeNames.length ? `Active subjects: ${activeNames.join(' · ')}` : 'No active subjects.';
+    activeSubjectsOutput.textContent = activeNames.length ? `${jsI18n.activeSubjects}: ${activeNames.join(' · ')}` : jsI18n.noActiveSubjects;
 }
 
 function renderModifierStates() {
@@ -344,13 +373,13 @@ modifierButtons.forEach((button) => {
             activeNames.push(button.textContent.trim());
         }
     });
-    activeModifiersOutput.textContent = activeNames.length ? `Active modifiers: ${activeNames.join(' · ')}` : 'No active modifiers.';
+    activeModifiersOutput.textContent = activeNames.length ? `${jsI18n.activeModifiers}: ${activeNames.join(' · ')}` : jsI18n.noActiveModifiers;
 }
 
 function renderActiveStates() {
     const activeButtons = behaviorButtons.filter((button) => stateStatus[String(button.dataset.behaviorId)] || stateStatus[Number(button.dataset.behaviorId)]);
     if (!activeButtons.length) {
-        activeStatesContainer.innerHTML = '<span class="muted">No active states.</span>';
+        activeStatesContainer.innerHTML = `<span class="muted">${jsI18n.noActiveStates}</span>`;
         return;
     }
     activeStatesContainer.innerHTML = activeButtons.map((button) => `
@@ -362,11 +391,11 @@ function renderActiveStates() {
 
 function renderStats(rows, summary) {
     summaryStrip.innerHTML = `
-        <span>${summary.session_event_count} events</span>
-        <span>${summary.annotation_count} annotations</span>
-        <span>${summary.point_event_count} points</span>
-        <span>${summary.open_state_count} open states</span>
-        <span>${formatSeconds(summary.observed_span_seconds)} observed</span>`;
+        <span>${summary.session_event_count} ${jsI18n.events}</span>
+        <span>${summary.annotation_count} ${jsI18n.annotations}</span>
+        <span>${summary.point_event_count} ${jsI18n.points}</span>
+        <span>${summary.open_state_count} ${jsI18n.openStates}</span>
+        <span>${formatSeconds(summary.observed_span_seconds)} ${jsI18n.observed}</span>`;
     statsTableBody.innerHTML = rows.map((row) => `
         <tr>
             <td><span class="behavior-badge" style="background-color:${row.color};"></span>${row.name}</td>
@@ -375,7 +404,7 @@ function renderStats(rows, summary) {
             <td>${row.segment_count}</td>
             <td>${formatSeconds(row.total_duration_seconds)}</td>
             <td>${row.occupancy_percent}</td>
-            <td>${row.is_open ? 'yes' : 'no'}</td>
+            <td>${row.is_open ? jsI18n.yes : jsI18n.no}</td>
         </tr>`).join('');
 }
 
@@ -414,7 +443,7 @@ function renderTracks() {
 
 function renderIntegrity() {
     if (!integrityReport.issue_count) {
-        integrityOutput.innerHTML = '<p class="muted">No integrity issues detected.</p>';
+        integrityOutput.innerHTML = `<p class="muted">${jsI18n.noIntegrityIssues}</p>`;
         return;
     }
     integrityOutput.innerHTML = `<ul class="integrity-list">${integrityReport.issues.map((item) => `<li>${item.message}</li>`).join('')}</ul>`;
@@ -441,8 +470,8 @@ function renderEvents(events) {
             <td>${event.modifiers.map((modifier) => modifier.name).join(', ')}</td>
             <td>${event.comment || ''}</td>
             <td class="mini-actions">
-                <button type="button" class="linkish edit-event-btn" data-event='${JSON.stringify(event).replace(/'/g, '&apos;')}'>Edit</button>
-                <button type="button" class="linkish delete-event-btn" data-event-id="${event.id}">Delete</button>
+                <button type="button" class="linkish edit-event-btn" data-event='${JSON.stringify(event).replace(/'/g, '&apos;')}'>${jsI18n.edit}</button>
+                <button type="button" class="linkish delete-event-btn" data-event-id="${event.id}">${jsI18n.delete}</button>
             </td>
         </tr>`).join('');
 }
@@ -454,8 +483,8 @@ function renderAnnotations(annotations) {
             <td><span class="behavior-badge" style="background-color:${annotation.color};"></span>${annotation.title}</td>
             <td>${annotation.note || ''}</td>
             <td class="mini-actions">
-                <button type="button" class="linkish edit-annotation-btn" data-annotation='${JSON.stringify(annotation).replace(/'/g, '&apos;')}'>Edit</button>
-                <button type="button" class="linkish delete-annotation-btn" data-annotation-id="${annotation.id}">Delete</button>
+                <button type="button" class="linkish edit-annotation-btn" data-annotation='${JSON.stringify(annotation).replace(/'/g, '&apos;')}'>${jsI18n.edit}</button>
+                <button type="button" class="linkish delete-annotation-btn" data-annotation-id="${annotation.id}">${jsI18n.delete}</button>
             </td>
         </tr>`).join('');
 }
@@ -483,7 +512,7 @@ async function fetchSessionState() {
 
 function renderAudit() {
     if (!auditRows.length) {
-        auditOutput.innerHTML = '<p class="muted">No audit entries yet.</p>';
+        auditOutput.innerHTML = `<p class="muted">${jsI18n.noAuditEntries}</p>`;
         return;
     }
     auditOutput.innerHTML = `<ul class="integrity-list">${auditRows.slice(0, 8).map((row) => `<li><strong>${row.action}</strong> ${row.summary} <span class="muted">${row.actor || ''}</span></li>`).join('')}</ul>`;
@@ -593,9 +622,9 @@ clearModifiersBtn.addEventListener('click', () => { activeModifierIds = new Set(
 refreshEventsBtn.addEventListener('click', fetchSessionState);
 
 addAnnotationBtn.addEventListener('click', async () => {
-    const title = prompt('Annotation title', 'Note');
+    const title = prompt(jsI18n.annotationTitle, jsI18n.defaultAnnotationTitle);
     if (title === null) return;
-    const note = prompt('Annotation note', '');
+    const note = prompt(jsI18n.annotationNote, '');
     await sendJSON(`{% url 'tracker:annotation_create_api' session.pk %}`, {
         timestamp_seconds: mainVideo.currentTime.toFixed(3),
         title,
@@ -611,7 +640,7 @@ document.addEventListener('click', async (event) => {
         seekAll(Number(jumpButton.dataset.seconds));
     }
     const deleteEventBtn = event.target.closest('.delete-event-btn');
-    if (deleteEventBtn && confirm('Delete this event?')) {
+    if (deleteEventBtn && confirm(jsI18n.deleteEventConfirm)) {
         await sendJSON(`/events/${deleteEventBtn.dataset.eventId}/delete/`, {});
         await fetchSessionState();
     }
@@ -619,9 +648,9 @@ document.addEventListener('click', async (event) => {
     if (editEventBtn) {
         const raw = editEventBtn.dataset.event.replace(/&apos;/g, "'");
         const eventData = JSON.parse(raw);
-        const newComment = prompt('Comment', eventData.comment || '');
+        const newComment = prompt(jsI18n.comment, eventData.comment || '');
         if (newComment === null) return;
-        const newTime = prompt('Time (seconds)', eventData.timestamp_seconds);
+        const newTime = prompt(jsI18n.timeSeconds, eventData.timestamp_seconds);
         if (newTime === null) return;
         await sendJSON(`/events/${eventData.id}/update/`, {
             behavior_id: eventData.behavior_id,
@@ -634,7 +663,7 @@ document.addEventListener('click', async (event) => {
         await fetchSessionState();
     }
     const deleteAnnotationBtn = event.target.closest('.delete-annotation-btn');
-    if (deleteAnnotationBtn && confirm('Delete this annotation?')) {
+    if (deleteAnnotationBtn && confirm(jsI18n.deleteAnnotationConfirm)) {
         await sendJSON(`/annotations/${deleteAnnotationBtn.dataset.annotationId}/delete/`, {});
         await fetchSessionState();
     }
@@ -642,11 +671,11 @@ document.addEventListener('click', async (event) => {
     if (editAnnotationBtn) {
         const raw = editAnnotationBtn.dataset.annotation.replace(/&apos;/g, "'");
         const annotation = JSON.parse(raw);
-        const title = prompt('Title', annotation.title);
+        const title = prompt(jsI18n.title, annotation.title);
         if (title === null) return;
-        const note = prompt('Note', annotation.note || '');
+        const note = prompt(jsI18n.note, annotation.note || '');
         if (note === null) return;
-        const newTime = prompt('Time (seconds)', annotation.timestamp_seconds);
+        const newTime = prompt(jsI18n.timeSeconds, annotation.timestamp_seconds);
         if (newTime === null) return;
         await sendJSON(`/annotations/${annotation.id}/update/`, {
             timestamp_seconds: newTime,

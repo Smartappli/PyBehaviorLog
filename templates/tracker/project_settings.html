@@ -1,3 +1,4 @@
 {% extends 'base.html' %}
-{% block title %}Project settings{% endblock %}
-{% block content %}<article class="auth-card wide-card"><h1>Project settings — {{ project.name }}</h1><p>Manage the project name, description, and collaborators.</p><form method="post">{% csrf_token %}{{ form.as_p }}<div class="action-stack"><button type="submit">Save</button><a href="{{ project.get_absolute_url }}" role="button" class="secondary">Back</a></div></form></article>{% endblock %}
+{% load i18n %}
+{% block title %}{% trans 'Project settings' %}{% endblock %}
+{% block content %}<article class="auth-card wide-card"><h1>{% trans 'Project settings' %} — {{ project.name }}</h1><p>{% trans 'Manage the project name, description, and collaborators.' %}</p><form method="post">{% csrf_token %}{{ form.as_p }}<div class="action-stack"><button type="submit">{% trans 'Save' %}</button><a href="{{ project.get_absolute_url }}" role="button" class="secondary">{% trans 'Back' %}</a></div></form></article>{% endblock %}

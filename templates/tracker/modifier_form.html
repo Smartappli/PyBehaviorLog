@@ -1,3 +1,4 @@
 {% extends 'base.html' %}
-{% block title %}{% if mode == 'update' %}Edit modifier{% else %}New modifier{% endif %}{% endblock %}
-{% block content %}<article class="auth-card"><h1>{% if mode == 'update' %}Edit modifier{% else %}Add modifier{% endif %}</h1><p>Project: <a href="{{ project.get_absolute_url }}">{{ project.name }}</a></p><form method="post">{% csrf_token %}{{ form.as_p }}<div class="action-stack"><button type="submit">{% if mode == 'update' %}Update{% else %}Create{% endif %}</button><a href="{{ project.get_absolute_url }}" role="button" class="secondary">Back</a></div></form></article>{% endblock %}
+{% load i18n %}
+{% block title %}{% if mode == 'update' %}{% trans 'Edit modifier' %}{% else %}{% trans 'New modifier' %}{% endif %}{% endblock %}
+{% block content %}<article class="auth-card"><h1>{% if mode == 'update' %}{% trans 'Edit modifier' %}{% else %}{% trans 'Add modifier' %}{% endif %}</h1><p>{% trans 'Project' %}: <a href="{{ project.get_absolute_url }}">{{ project.name }}</a></p><form method="post">{% csrf_token %}{{ form.as_p }}<div class="action-stack"><button type="submit">{% if mode == 'update' %}{% trans 'Update' %}{% else %}{% trans 'Create' %}{% endif %}</button><a href="{{ project.get_absolute_url }}" role="button" class="secondary">{% trans 'Back' %}</a></div></form></article>{% endblock %}

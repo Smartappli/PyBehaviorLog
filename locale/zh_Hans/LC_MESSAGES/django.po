@@ -1,0 +1,953 @@
+msgid ""
+msgstr ""
+"Language: zh_Hans\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "+1 frame"
+msgstr "+1 帧"
+
+msgid "---------"
+msgstr "---------"
+
+msgid "-1 frame"
+msgstr "-1 帧"
+
+msgid "A primary video is required for a media session."
+msgstr "A primary video is required for a media session."
+
+msgid "Account created successfully."
+msgstr "账户创建成功。"
+
+msgid "Actions"
+msgstr "操作"
+
+msgid "Active modifiers"
+msgstr "活动修饰符"
+
+msgid "Active subjects"
+msgstr "活动对象"
+
+msgid "Add at current position"
+msgstr "在当前位置添加"
+
+msgid "Add behavior"
+msgstr "添加行为"
+
+msgid "Add category"
+msgstr "添加类别"
+
+msgid "Add modifier"
+msgstr "添加修饰符"
+
+msgid "Add subject"
+msgstr "添加对象"
+
+msgid "Add subject group"
+msgstr "添加对象组"
+
+msgid "Add video"
+msgstr "添加视频"
+
+msgid "Additional synchronized videos"
+msgstr "附加同步视频"
+
+msgid "Additional videos synchronized with the primary one."
+msgstr "与主视频同步的其他视频。"
+
+msgid "Administration"
+msgstr "管理"
+
+msgid "Allowed values"
+msgstr "允许的值"
+
+msgid "Allowed values: %(values)s"
+msgstr "Allowed values: %(values)s"
+
+msgid "Already registered?"
+msgstr "已经注册？"
+
+msgid "Analytics"
+msgstr "分析"
+
+msgid "Annotation"
+msgstr "Annotation"
+
+msgid "Annotation not found."
+msgstr "Annotation not found."
+
+msgid "Annotation note"
+msgstr "注释内容"
+
+msgid "Annotation title"
+msgstr "注释标题"
+
+msgid "Annotations"
+msgstr "Annotations"
+
+msgid "Arabic"
+msgstr "阿拉伯语"
+
+msgid "BORIS-like"
+msgstr "BORIS 风格"
+
+msgid "Back"
+msgstr "返回"
+
+msgid "Back to project"
+msgstr "Back to project"
+
+msgid "Behavior"
+msgstr "Behavior"
+
+msgid "Behavior created."
+msgstr "行为已创建。"
+
+msgid "Behavior deleted."
+msgstr "行为已删除。"
+
+msgid "Behavior hotkey = instant code · Alt = forced START · Shift = forced STOP · E = quick note"
+msgstr "行为快捷键 = 即时编码 · Alt = 强制 START · Shift = 强制 STOP · E = 快速备注"
+
+msgid "Behavior updated."
+msgstr "行为已更新。"
+
+msgid "Behavioral coding studio"
+msgstr "行为编码工作台"
+
+msgid "Behaviors"
+msgstr "行为"
+
+msgid "Blocked when the project already contains sessions or events."
+msgstr "当项目已包含会话或事件时将被阻止。"
+
+msgid "Boolean"
+msgstr "布尔值"
+
+msgid "By behavior"
+msgstr "按行为"
+
+msgid "By session"
+msgstr "按会话"
+
+msgid "By subject"
+msgstr "按对象"
+
+msgid "Cancel"
+msgstr "取消"
+
+msgid "Categories"
+msgstr "类别"
+
+msgid "Category"
+msgstr "类别"
+
+msgid "Category created."
+msgstr "类别已创建。"
+
+msgid "Category deleted."
+msgstr "类别已删除。"
+
+msgid "Category updated."
+msgstr "类别已更新。"
+
+msgid "Chinese (Simplified)"
+msgstr "简体中文"
+
+msgid "Clear modifiers"
+msgstr "清除修饰符"
+
+msgid "Collaborators"
+msgstr "协作者"
+
+msgid "Color"
+msgstr "颜色"
+
+msgid "Comma-separated values for list fields."
+msgstr "Comma-separated values for list fields."
+
+msgid "Comment"
+msgstr "评论"
+
+msgid "Count"
+msgstr "数量"
+
+msgid "Create"
+msgstr "创建"
+
+msgid "Create a project"
+msgstr "创建项目"
+
+msgid "Create a session"
+msgstr "创建会话"
+
+msgid "Create account"
+msgstr "创建账户"
+
+msgid "Create an account"
+msgstr "创建账户"
+
+msgid "Create independent variable"
+msgstr "创建独立变量"
+
+msgid "Create observation template"
+msgstr "创建观察模板"
+
+msgid "Create one"
+msgstr "创建一个"
+
+msgid "Create project"
+msgstr "创建项目"
+
+msgid "Create session"
+msgstr "创建会话"
+
+msgid "Create your first project to start coding behavior from video or live observation sessions."
+msgstr "创建你的第一个项目，以便从视频或实时观察会话开始进行行为编码。"
+
+msgid "Dashboard"
+msgstr "仪表板"
+
+msgid "Default session kind"
+msgstr "默认会话类型"
+
+msgid "Default value"
+msgstr "默认值"
+
+msgid "Delete"
+msgstr "删除"
+
+msgid "Delete existing events and annotations before import"
+msgstr "导入前删除现有事件和注释"
+
+msgid "Delete item"
+msgstr "删除项目"
+
+msgid "Delete this annotation?"
+msgstr "删除此注释？"
+
+msgid "Delete this event?"
+msgstr "删除此事件？"
+
+msgid "Description"
+msgstr "描述"
+
+msgid "Draft"
+msgstr "草稿"
+
+msgid "Duration"
+msgstr "时长"
+
+msgid "Duration (s)"
+msgstr "时长（秒）"
+
+msgid "Edit"
+msgstr "编辑"
+
+msgid "Edit behavior"
+msgstr "编辑行为"
+
+msgid "Edit category"
+msgstr "编辑类别"
+
+msgid "Edit independent variable"
+msgstr "编辑独立变量"
+
+msgid "Edit modifier"
+msgstr "编辑修饰符"
+
+msgid "Edit observation template"
+msgstr "编辑观察模板"
+
+msgid "Edit session"
+msgstr "编辑会话"
+
+msgid "Edit subject"
+msgstr "编辑对象"
+
+msgid "Edit subject group"
+msgstr "编辑对象组"
+
+msgid "Edit video"
+msgstr "编辑视频"
+
+msgid "Email"
+msgstr "电子邮件"
+
+msgid "English"
+msgstr "英语"
+
+msgid "Ethogram JSON"
+msgstr "行为谱 JSON"
+
+msgid "Event"
+msgstr "Event"
+
+msgid "Event not found."
+msgstr "Event not found."
+
+msgid "Events"
+msgstr "Events"
+
+msgid "Export"
+msgstr "Export"
+
+msgid "Export XLSX"
+msgstr "导出 XLSX"
+
+msgid "Export ethogram"
+msgstr "导出行为谱"
+
+msgid "False"
+msgstr "假"
+
+msgid "File"
+msgstr "文件"
+
+msgid "Frame step"
+msgstr "帧步长"
+
+msgid "Frame step (seconds)"
+msgstr "帧步长（秒）"
+
+msgid "French"
+msgstr "法语"
+
+msgid "From"
+msgstr "从"
+
+msgid "Global timeline"
+msgstr "全局时间线"
+
+msgid "Groups"
+msgstr "组"
+
+msgid "I confirm the deletion"
+msgstr "我确认删除"
+
+msgid "Import"
+msgstr "导入"
+
+msgid "Import JSON"
+msgstr "导入 JSON"
+
+msgid "Import ethogram"
+msgstr "导入行为谱"
+
+msgid "Import session JSON"
+msgstr "导入会话 JSON"
+
+msgid "In review"
+msgstr "审核中"
+
+msgid "Independent variable created."
+msgstr "独立变量已创建。"
+
+msgid "Independent variable deleted."
+msgstr "独立变量已删除。"
+
+msgid "Independent variable updated."
+msgstr "独立变量已更新。"
+
+msgid "Independent variables"
+msgstr "独立变量"
+
+msgid "Integrity and intervals"
+msgstr "完整性与间隔"
+
+msgid "Invalid JSON: %(error)s"
+msgstr "Invalid JSON: %(error)s"
+
+msgid "Invalid event_kind for a state behavior."
+msgstr "Invalid event_kind for a state behavior."
+
+msgid "Invalid modifier_ids or subject_ids."
+msgstr "Invalid modifier_ids or subject_ids."
+
+msgid "Invalid workflow action."
+msgstr "Invalid workflow action."
+
+msgid "JSON export from PyBehaviorLog 0.8 and earlier supported versions or BORIS-like JSON."
+msgstr "PyBehaviorLog 0.8 及更早受支持版本的 JSON 导出，或 BORIS 风格 JSON。"
+
+msgid "Key binding"
+msgstr "快捷键"
+
+msgid "Label"
+msgstr "标签"
+
+msgid "Language"
+msgstr "语言"
+
+msgid "Live"
+msgstr "实时"
+
+msgid "Live session"
+msgstr "实时会话"
+
+msgid "Lock"
+msgstr "锁定"
+
+msgid "Locked"
+msgstr "已锁定"
+
+msgid "Log in"
+msgstr "登录"
+
+msgid "Log out"
+msgstr "退出登录"
+
+msgid "Long text"
+msgstr "长文本"
+
+msgid "Manage the project name, description, and collaborators."
+msgstr "管理项目名称、描述和协作者。"
+
+msgid "Max"
+msgstr "最大值"
+
+msgid "Mean"
+msgstr "平均值"
+
+msgid "Media"
+msgstr "媒体"
+
+msgid "Min"
+msgstr "最小值"
+
+msgid "Mode"
+msgstr "模式"
+
+msgid "Modifier created."
+msgstr "修饰符已创建。"
+
+msgid "Modifier deleted."
+msgstr "修饰符已删除。"
+
+msgid "Modifier hotkey = toggle on/off · Backspace = clear selection"
+msgstr "修饰符快捷键 = 开/关切换 · Backspace = 清除选择"
+
+msgid "Modifier updated."
+msgstr "修饰符已更新。"
+
+msgid "Modifiers"
+msgstr "修饰符"
+
+msgid "My PyBehaviorLog projects"
+msgstr "我的 PyBehaviorLog 项目"
+
+msgid "Name"
+msgstr "名称"
+
+msgid "New behavior"
+msgstr "新建行为"
+
+msgid "New category"
+msgstr "新建类别"
+
+msgid "New independent variable"
+msgstr "新建独立变量"
+
+msgid "New modifier"
+msgstr "新建修饰符"
+
+msgid "New observation template"
+msgstr "新建观察模板"
+
+msgid "New project"
+msgstr "新建项目"
+
+msgid "New session"
+msgstr "新建会话"
+
+msgid "New subject"
+msgstr "新建对象"
+
+msgid "New subject group"
+msgstr "新建对象组"
+
+msgid "New template"
+msgstr "新建模板"
+
+msgid "New variable"
+msgstr "新建变量"
+
+msgid "New video"
+msgstr "新建视频"
+
+msgid "No account yet?"
+msgstr "还没有账户？"
+
+msgid "No active modifiers."
+msgstr "没有活动修饰符。"
+
+msgid "No active states."
+msgstr "没有活动状态。"
+
+msgid "No active subjects."
+msgstr "没有活动对象。"
+
+msgid "No audit entries yet."
+msgstr "暂无审计条目。"
+
+msgid "No behaviors available."
+msgstr "没有可用行为。"
+
+msgid "No behaviors yet."
+msgstr "暂无行为。"
+
+msgid "No categories yet."
+msgstr "暂无类别。"
+
+msgid "No independent variables yet."
+msgstr "暂无独立变量。"
+
+msgid "No integrity issues detected."
+msgstr "未检测到完整性问题。"
+
+msgid "No media"
+msgstr "无媒体"
+
+msgid "No modifiers available."
+msgstr "没有可用修饰符。"
+
+msgid "No modifiers yet."
+msgstr "暂无修饰符。"
+
+msgid "No primary media file is attached to this session. The timer and event coding tools remain available."
+msgstr "No primary media file is attached to this session. The timer and event coding tools remain available."
+
+msgid "No projects yet"
+msgstr "还没有项目"
+
+msgid "No sessions yet."
+msgstr "暂无会话。"
+
+msgid "No subject groups yet."
+msgstr "暂无对象组。"
+
+msgid "No subject-level events yet."
+msgstr "暂无对象级事件。"
+
+msgid "No subjects available."
+msgstr "没有可用对象。"
+
+msgid "No subjects yet."
+msgstr "暂无对象。"
+
+msgid "No templates yet."
+msgstr "暂无模板。"
+
+msgid "No transitions yet."
+msgstr "暂无转移。"
+
+msgid "No videos yet."
+msgstr "暂无视频。"
+
+msgid "Note"
+msgstr "备注"
+
+msgid "Notes"
+msgstr "备注"
+
+msgid "Numeric"
+msgstr "数值"
+
+msgid "Observation template"
+msgstr "观察模板"
+
+msgid "Observation template created."
+msgstr "观察模板已创建。"
+
+msgid "Observation template deleted."
+msgstr "观察模板已删除。"
+
+msgid "Observation template updated."
+msgstr "观察模板已更新。"
+
+msgid "Observation templates"
+msgstr "观察模板"
+
+msgid "Observed time (s)"
+msgstr "观测时间（秒）"
+
+msgid "Observer"
+msgstr "观察者"
+
+msgid "One or more modifiers are invalid."
+msgstr "One or more modifiers are invalid."
+
+msgid "One or more subjects are invalid."
+msgstr "One or more subjects are invalid."
+
+msgid "One-minute buckets"
+msgstr "一分钟分桶"
+
+msgid "Only the project owner can delete independent variables."
+msgstr "Only the project owner can delete independent variables."
+
+msgid "Only the project owner can delete observation templates."
+msgstr "Only the project owner can delete observation templates."
+
+msgid "Only the project owner can delete subject groups."
+msgstr "Only the project owner can delete subject groups."
+
+msgid "Only the project owner can delete subjects."
+msgstr "Only the project owner can delete subjects."
+
+msgid "Only the project owner can edit independent variables."
+msgstr "Only the project owner can edit independent variables."
+
+msgid "Only the project owner can edit observation templates."
+msgstr "Only the project owner can edit observation templates."
+
+msgid "Only the project owner can edit subject groups."
+msgstr "Only the project owner can edit subject groups."
+
+msgid "Only the project owner can edit subjects."
+msgstr "Only the project owner can edit subjects."
+
+msgid "Only the project owner can manage behaviors."
+msgstr "Only the project owner can manage behaviors."
+
+msgid "Only the project owner can manage categories."
+msgstr "Only the project owner can manage categories."
+
+msgid "Only the project owner can manage modifiers."
+msgstr "Only the project owner can manage modifiers."
+
+msgid "Only the project owner can manage videos."
+msgstr "Only the project owner can manage videos."
+
+msgid "Only the project owner can update project settings."
+msgstr "Only the project owner can update project settings."
+
+msgid "Open"
+msgstr "打开"
+
+msgid "Open states"
+msgstr "Open states"
+
+msgid "Owner"
+msgstr "所有者"
+
+msgid "Play / pause"
+msgstr "播放 / 暂停"
+
+msgid "Playback"
+msgstr "Playback"
+
+msgid "Playback rate"
+msgstr "播放速度"
+
+msgid "Point"
+msgstr "点"
+
+msgid "Points"
+msgstr "点事件"
+
+msgid "Primary player"
+msgstr "主播放器"
+
+msgid "Primary source"
+msgstr "主来源"
+
+msgid "Primary video"
+msgstr "主视频"
+
+msgid "Project"
+msgstr "项目"
+
+msgid "Project XLSX"
+msgstr "项目 XLSX"
+
+msgid "Project created successfully."
+msgstr "项目创建成功。"
+
+msgid "Project settings"
+msgstr "项目设置"
+
+msgid "Project settings updated."
+msgstr "项目设置已更新。"
+
+msgid "Project-wide analytics with behavior totals, subject breakdowns, transition counts, and consolidated Excel export."
+msgstr "Project-wide analytics with behavior totals, subject breakdowns, transition counts, and consolidated Excel export."
+
+msgid "PyBehaviorLog 0.8 and earlier supported versions JSON or simplified BORIS-like JSON."
+msgstr "PyBehaviorLog 0.8 及更早受支持版本 JSON，或简化的 BORIS 风格 JSON。"
+
+msgid "Quick overview"
+msgstr "快速概览"
+
+msgid "Recorded at"
+msgstr "记录时间"
+
+msgid "Refresh"
+msgstr "刷新"
+
+msgid "Replace all existing ethogram entities"
+msgstr "替换所有现有行为谱实体"
+
+msgid "Review notes"
+msgstr "审核备注"
+
+msgid "Russian"
+msgstr "俄语"
+
+msgid "Save"
+msgstr "保存"
+
+msgid "Segments"
+msgstr "区段"
+
+msgid "Select one or more subjects. Selected subjects are attached to the next coded event."
+msgstr "选择一个或多个对象。所选对象将附加到下一个编码事件。"
+
+msgid "Session"
+msgstr "会话"
+
+msgid "Session created."
+msgstr "会话已创建。"
+
+msgid "Session deleted."
+msgstr "会话已删除。"
+
+msgid "Session kind"
+msgstr "会话类型"
+
+msgid "Session updated."
+msgstr "会话已更新。"
+
+msgid "Sessions"
+msgstr "会话"
+
+msgid "Settings"
+msgstr "设置"
+
+msgid "Sign up"
+msgstr "注册"
+
+msgid "Signed in as"
+msgstr "当前登录用户"
+
+msgid "Simplified BORIS-style view"
+msgstr "简化的 BORIS 风格视图"
+
+msgid "Sort order"
+msgstr "排序"
+
+msgid "Spanish"
+msgstr "西班牙语"
+
+msgid "Start"
+msgstr "开始"
+
+msgid "Starts"
+msgstr "开始"
+
+msgid "State"
+msgstr "状态"
+
+msgid "Statistics"
+msgstr "统计"
+
+msgid "Status change"
+msgstr "Status change"
+
+msgid "Stop"
+msgstr "停止"
+
+msgid "Stops"
+msgstr "结束"
+
+msgid "Subject"
+msgstr "Subject"
+
+msgid "Subject created."
+msgstr "对象已创建。"
+
+msgid "Subject deleted."
+msgstr "对象已删除。"
+
+msgid "Subject group created."
+msgstr "对象组已创建。"
+
+msgid "Subject group deleted."
+msgstr "对象组已删除。"
+
+msgid "Subject group updated."
+msgstr "对象组已更新。"
+
+msgid "Subject groups"
+msgstr "对象组"
+
+msgid "Subject updated."
+msgstr "对象已更新。"
+
+msgid "Subject-level summaries and transition analytics now complement the behavior totals already available in earlier versions."
+msgstr "Subject-level summaries and transition analytics now complement the behavior totals already available in earlier versions."
+
+msgid "Subjects"
+msgstr "对象"
+
+msgid "Submit for review"
+msgstr "提交审核"
+
+msgid "Summary"
+msgstr "摘要"
+
+msgid "Synced videos"
+msgstr "Synced videos"
+
+msgid "Synchronized videos"
+msgstr "同步视频"
+
+msgid "Text"
+msgstr "文本"
+
+msgid "The uploaded file is not valid JSON."
+msgstr "The uploaded file is not valid JSON."
+
+msgid "This session is locked and cannot be modified."
+msgstr "This session is locked and cannot be modified."
+
+msgid "This video is still linked to one or more sessions."
+msgstr "This video is still linked to one or more sessions."
+
+msgid "Time (seconds)"
+msgstr "时间（秒）"
+
+msgid "Timestamp"
+msgstr "时间戳"
+
+msgid "Title"
+msgstr "标题"
+
+msgid "To"
+msgstr "到"
+
+msgid "Track timeline"
+msgstr "轨道时间线"
+
+msgid "Transitions"
+msgstr "转移"
+
+msgid "True"
+msgstr "真"
+
+msgid "Type"
+msgstr "类型"
+
+msgid "Unlock"
+msgstr "解锁"
+
+msgid "Update"
+msgstr "更新"
+
+msgid "Update session"
+msgstr "更新会话"
+
+msgid "Validate"
+msgstr "验证"
+
+msgid "Validated"
+msgstr "已验证"
+
+msgid "Value from a list"
+msgstr "列表值"
+
+msgid "Value type"
+msgstr "值类型"
+
+msgid "Variables"
+msgstr "变量"
+
+msgid "Version 0.8 adds subject groups, observation templates, review workflow, audit trail, subject-level analytics, and richer BORIS-inspired interoperability."
+msgstr "0.8 版本新增了对象组、观察模板、审核工作流、审计跟踪、对象级分析以及更丰富的 BORIS 风格互操作性。"
+
+msgid "Video added."
+msgstr "视频已添加。"
+
+msgid "Video deleted."
+msgstr "视频已删除。"
+
+msgid "Video updated."
+msgstr "视频已更新。"
+
+msgid "Videos"
+msgstr "视频"
+
+msgid "What is new in 0.8?"
+msgstr "0.8 有哪些新内容？"
+
+msgid "Workflow"
+msgstr "工作流"
+
+msgid "Workflow and audit"
+msgstr "工作流与审计"
+
+msgid "annotations"
+msgstr "注释"
+
+msgid "behaviors"
+msgstr "行为"
+
+msgid "categories"
+msgstr "类别"
+
+msgid "collaborator"
+msgstr "协作者"
+
+msgid "events"
+msgstr "事件"
+
+msgid "live update"
+msgstr "实时更新"
+
+msgid "modifier_ids must be a list."
+msgstr "modifier_ids must be a list."
+
+msgid "modifiers"
+msgstr "修饰符"
+
+msgid "no"
+msgstr "否"
+
+msgid "none"
+msgstr "无"
+
+msgid "observed"
+msgstr "已观测"
+
+msgid "observed seconds"
+msgstr "观测秒数"
+
+msgid "open states"
+msgstr "未结束状态"
+
+msgid "owner"
+msgstr "所有者"
+
+msgid "points"
+msgstr "点事件"
+
+msgid "s observed"
+msgstr "秒已观测"
+
+msgid "sessions"
+msgstr "会话"
+
+msgid "subject_ids must be a list."
+msgstr "subject_ids must be a list."
+
+msgid "subjects"
+msgstr "对象"
+
+msgid "synced video"
+msgstr "同步视频"
+
+msgid "videos"
+msgstr "视频"
+
+msgid "yes"
+msgstr "是"

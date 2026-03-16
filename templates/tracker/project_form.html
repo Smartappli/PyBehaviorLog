@@ -1,3 +1,14 @@
 {% extends 'base.html' %}
-{% block title %}New project{% endblock %}
-{% block content %}<article class="auth-card wide-card"><h1>Create a project</h1><form method="post">{% csrf_token %}{{ form.as_p }}<div class="action-stack"><button type="submit">Create project</button><a href="{% url 'tracker:home' %}" role="button" class="secondary">Back</a></div></form></article>{% endblock %}
+{% load i18n %}
+{% block title %}{% trans 'New project' %}{% endblock %}
+{% block content %}
+<article class="auth-card wide-card">
+    <h1>{% trans 'Create a project' %}</h1>
+    <form method="post">{% csrf_token %}{{ form.as_p }}
+        <div class="action-stack">
+            <button type="submit">{% trans 'Create project' %}</button>
+            <a href="{% url 'tracker:home' %}" role="button" class="secondary">{% trans 'Back' %}</a>
+        </div>
+    </form>
+</article>
+{% endblock %}

@@ -14,6 +14,7 @@ from django.db.models import Prefetch, Q
 from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+from django.utils.translation import gettext as _
 from django.utils.text import slugify
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_POST
@@ -63,7 +64,7 @@ def signup(request):  # pragma: no cover
     if request.method == 'POST' and form.is_valid():
         user = form.save()
         login(request, user)
-        messages.success(request, 'Account created successfully.')
+        messages.success(request, _('Account created successfully.'))
         return redirect('tracker:home')
     return render(request, 'registration/signup.html', {'form': form})
 
@@ -84,7 +85,7 @@ def get_accessible_project(user, pk: int) -> Project:
 def get_owned_project(user, pk: int) -> Project:
     project = get_accessible_project(user, pk)
     if project.owner_id != user.id:
-        raise PermissionDenied('Only the project owner can update project settings.')
+        raise PermissionDenied(_('Only the project owner can update project settings.'))
     return project
 
 
@@ -124,34 +125,34 @@ def get_accessible_session(user, pk: int) -> ObservationSession:
 def _get_owned_category(user, pk: int) -> BehaviorCategory:
     category = get_object_or_404(BehaviorCategory.objects.select_related('project'), pk=pk)
     if category.project.owner_id != user.id:
-        raise PermissionDenied('Only the project owner can manage categories.')
+        raise PermissionDenied(_('Only the project owner can manage categories.'))
     return category
 
 
 def _get_owned_modifier(user, pk: int) -> Modifier:
     modifier = get_object_or_404(Modifier.objects.select_related('project'), pk=pk)
     if modifier.project.owner_id != user.id:
-        raise PermissionDenied('Only the project owner can manage modifiers.')
+        raise PermissionDenied(_('Only the project owner can manage modifiers.'))
     return modifier
 
 
 def _get_owned_behavior(user, pk: int) -> Behavior:
     behavior = get_object_or_404(Behavior.objects.select_related('project', 'category'), pk=pk)
     if behavior.project.owner_id != user.id:
-        raise PermissionDenied('Only the project owner can manage behaviors.')
+        raise PermissionDenied(_('Only the project owner can manage behaviors.'))
     return behavior
 
 
 def _get_owned_video(user, pk: int) -> VideoAsset:
     video = get_object_or_404(VideoAsset.objects.select_related('project'), pk=pk)
     if video.project.owner_id != user.id:
-        raise PermissionDenied('Only the project owner can manage videos.')
+        raise PermissionDenied(_('Only the project owner can manage videos.'))
     return video
 
 
 def _require_editable_session(session: ObservationSession) -> None:
     if session.is_locked_for_coding:
-        raise PermissionDenied('This session is locked and cannot be modified.')
+        raise PermissionDenied(_('This session is locked and cannot be modified.'))
 
 
 def _log_audit(
@@ -1187,7 +1188,7 @@ def project_create(request):  # pragma: no cover
         project = form.save(commit=False)
         project.owner = request.user
         project.save()
-        messages.success(request, 'Project created successfully.')
+        messages.success(request, _('Project created successfully.'))
         return redirect(project)
     return render(request, 'tracker/project_form.html', {'form': form})
 
@@ -1198,7 +1199,7 @@ def project_update(request, pk: int):  # pragma: no cover
     form = ProjectSettingsForm(request.POST or None, instance=project, owner=request.user)
     if request.method == 'POST' and form.is_valid():
         form.save()
-        messages.success(request, 'Project settings updated.')
+        messages.success(request, _('Project settings updated.'))
         return redirect(project)
     return render(request, 'tracker/project_settings.html', {'form': form, 'project': project})
 
@@ -1381,7 +1382,7 @@ def project_import_ethogram(request, pk: int):  # pragma: no cover
                 project, payload, replace_existing=replace_existing
             )
         except (UnicodeDecodeError, json.JSONDecodeError):
-            messages.error(request, 'The uploaded file is not valid JSON.')
+            messages.error(request, _('The uploaded file is not valid JSON.'))
         except ValueError as exc:
             messages.error(request, str(exc))
         else:
@@ -1401,7 +1402,7 @@ def category_create(request, pk: int):  # pragma: no cover
         category = form.save(commit=False)
         category.project = project
         category.save()
-        messages.success(request, 'Category created.')
+        messages.success(request, _('Category created.'))
         return redirect(project)
     return render(
         request, 'tracker/category_form.html', {'form': form, 'project': project, 'mode': 'create'}
@@ -1414,7 +1415,7 @@ def category_update(request, pk: int):  # pragma: no cover
     form = BehaviorCategoryForm(request.POST or None, instance=category)
     if request.method == 'POST' and form.is_valid():
         form.save()
-        messages.success(request, 'Category updated.')
+        messages.success(request, _('Category updated.'))
         return redirect(category.project)
     return render(
         request,
@@ -1430,7 +1431,7 @@ def category_delete(request, pk: int):  # pragma: no cover
     if request.method == 'POST' and form.is_valid():
         project = category.project
         category.delete()
-        messages.success(request, 'Category deleted.')
+        messages.success(request, _('Category deleted.'))
         return redirect(project)
     return render(
         request,
@@ -1451,7 +1452,7 @@ def modifier_create(request, pk: int):  # pragma: no cover
         modifier = form.save(commit=False)
         modifier.project = project
         modifier.save()
-        messages.success(request, 'Modifier created.')
+        messages.success(request, _('Modifier created.'))
         return redirect(project)
     return render(
         request, 'tracker/modifier_form.html', {'form': form, 'project': project, 'mode': 'create'}
@@ -1464,7 +1465,7 @@ def modifier_update(request, pk: int):  # pragma: no cover
     form = ModifierForm(request.POST or None, instance=modifier)
     if request.method == 'POST' and form.is_valid():
         form.save()
-        messages.success(request, 'Modifier updated.')
+        messages.success(request, _('Modifier updated.'))
         return redirect(modifier.project)
     return render(
         request,
@@ -1480,7 +1481,7 @@ def modifier_delete(request, pk: int):  # pragma: no cover
     if request.method == 'POST' and form.is_valid():
         project = modifier.project
         modifier.delete()
-        messages.success(request, 'Modifier deleted.')
+        messages.success(request, _('Modifier deleted.'))
         return redirect(project)
     return render(
         request,
@@ -1501,7 +1502,7 @@ def subject_group_create(request, pk: int):  # pragma: no cover
         group = form.save(commit=False)
         group.project = project
         group.save()
-        messages.success(request, 'Subject group created.')
+        messages.success(request, _('Subject group created.'))
         return redirect(project)
     return render(
         request,
@@ -1514,11 +1515,11 @@ def subject_group_create(request, pk: int):  # pragma: no cover
 def subject_group_update(request, pk: int):  # pragma: no cover
     group = get_object_or_404(SubjectGroup.objects.select_related('project'), pk=pk)
     if group.project.owner_id != request.user.id:
-        raise PermissionDenied('Only the project owner can edit subject groups.')
+        raise PermissionDenied(_('Only the project owner can edit subject groups.'))
     form = SubjectGroupForm(request.POST or None, instance=group)
     if request.method == 'POST' and form.is_valid():
         form.save()
-        messages.success(request, 'Subject group updated.')
+        messages.success(request, _('Subject group updated.'))
         return redirect(group.project)
     return render(
         request,
@@ -1531,12 +1532,12 @@ def subject_group_update(request, pk: int):  # pragma: no cover
 def subject_group_delete(request, pk: int):  # pragma: no cover
     group = get_object_or_404(SubjectGroup.objects.select_related('project'), pk=pk)
     if group.project.owner_id != request.user.id:
-        raise PermissionDenied('Only the project owner can delete subject groups.')
+        raise PermissionDenied(_('Only the project owner can delete subject groups.'))
     form = DeleteConfirmForm(request.POST or None)
     if request.method == 'POST' and form.is_valid() and form.cleaned_data['confirm']:
         project = group.project
         group.delete()
-        messages.success(request, 'Subject group deleted.')
+        messages.success(request, _('Subject group deleted.'))
         return redirect(project)
     return render(
         request,
@@ -1558,7 +1559,7 @@ def subject_create(request, pk: int):  # pragma: no cover
         subject.project = project
         subject.save()
         form.save_m2m()
-        messages.success(request, 'Subject created.')
+        messages.success(request, _('Subject created.'))
         return redirect(project)
     return render(
         request, 'tracker/subject_form.html', {'form': form, 'project': project, 'mode': 'create'}
@@ -1569,11 +1570,11 @@ def subject_create(request, pk: int):  # pragma: no cover
 def subject_update(request, pk: int):  # pragma: no cover
     subject = get_object_or_404(Subject.objects.select_related('project'), pk=pk)
     if subject.project.owner_id != request.user.id:
-        raise PermissionDenied('Only the project owner can edit subjects.')
+        raise PermissionDenied(_('Only the project owner can edit subjects.'))
     form = SubjectForm(request.POST or None, instance=subject, project=subject.project)
     if request.method == 'POST' and form.is_valid():
         form.save()
-        messages.success(request, 'Subject updated.')
+        messages.success(request, _('Subject updated.'))
         return redirect(subject.project)
     return render(
         request,
@@ -1586,12 +1587,12 @@ def subject_update(request, pk: int):  # pragma: no cover
 def subject_delete(request, pk: int):  # pragma: no cover
     subject = get_object_or_404(Subject.objects.select_related('project'), pk=pk)
     if subject.project.owner_id != request.user.id:
-        raise PermissionDenied('Only the project owner can delete subjects.')
+        raise PermissionDenied(_('Only the project owner can delete subjects.'))
     form = DeleteConfirmForm(request.POST or None)
     if request.method == 'POST' and form.is_valid() and form.cleaned_data['confirm']:
         project = subject.project
         subject.delete()
-        messages.success(request, 'Subject deleted.')
+        messages.success(request, _('Subject deleted.'))
         return redirect(project)
     return render(
         request,
@@ -1608,7 +1609,7 @@ def independent_variable_create(request, pk: int):  # pragma: no cover
         item = form.save(commit=False)
         item.project = project
         item.save()
-        messages.success(request, 'Independent variable created.')
+        messages.success(request, _('Independent variable created.'))
         return redirect(project)
     return render(
         request,
@@ -1623,11 +1624,11 @@ def independent_variable_update(request, pk: int):  # pragma: no cover
         IndependentVariableDefinition.objects.select_related('project'), pk=pk
     )
     if definition.project.owner_id != request.user.id:
-        raise PermissionDenied('Only the project owner can edit independent variables.')
+        raise PermissionDenied(_('Only the project owner can edit independent variables.'))
     form = IndependentVariableDefinitionForm(request.POST or None, instance=definition)
     if request.method == 'POST' and form.is_valid():
         form.save()
-        messages.success(request, 'Independent variable updated.')
+        messages.success(request, _('Independent variable updated.'))
         return redirect(definition.project)
     return render(
         request,
@@ -1642,12 +1643,12 @@ def independent_variable_delete(request, pk: int):  # pragma: no cover
         IndependentVariableDefinition.objects.select_related('project'), pk=pk
     )
     if definition.project.owner_id != request.user.id:
-        raise PermissionDenied('Only the project owner can delete independent variables.')
+        raise PermissionDenied(_('Only the project owner can delete independent variables.'))
     form = DeleteConfirmForm(request.POST or None)
     if request.method == 'POST' and form.is_valid() and form.cleaned_data['confirm']:
         project = definition.project
         definition.delete()
-        messages.success(request, 'Independent variable deleted.')
+        messages.success(request, _('Independent variable deleted.'))
         return redirect(project)
     return render(
         request,
@@ -1669,7 +1670,7 @@ def observation_template_create(request, pk: int):  # pragma: no cover
         template.project = project
         template.save()
         form.save_m2m()
-        messages.success(request, 'Observation template created.')
+        messages.success(request, _('Observation template created.'))
         return redirect(project)
     return render(
         request,
@@ -1682,13 +1683,13 @@ def observation_template_create(request, pk: int):  # pragma: no cover
 def observation_template_update(request, pk: int):  # pragma: no cover
     template = get_object_or_404(ObservationTemplate.objects.select_related('project'), pk=pk)
     if template.project.owner_id != request.user.id:
-        raise PermissionDenied('Only the project owner can edit observation templates.')
+        raise PermissionDenied(_('Only the project owner can edit observation templates.'))
     form = ObservationTemplateForm(
         request.POST or None, instance=template, project=template.project
     )
     if request.method == 'POST' and form.is_valid():
         form.save()
-        messages.success(request, 'Observation template updated.')
+        messages.success(request, _('Observation template updated.'))
         return redirect(template.project)
     return render(
         request,
@@ -1701,12 +1702,12 @@ def observation_template_update(request, pk: int):  # pragma: no cover
 def observation_template_delete(request, pk: int):  # pragma: no cover
     template = get_object_or_404(ObservationTemplate.objects.select_related('project'), pk=pk)
     if template.project.owner_id != request.user.id:
-        raise PermissionDenied('Only the project owner can delete observation templates.')
+        raise PermissionDenied(_('Only the project owner can delete observation templates.'))
     form = DeleteConfirmForm(request.POST or None)
     if request.method == 'POST' and form.is_valid() and form.cleaned_data['confirm']:
         project = template.project
         template.delete()
-        messages.success(request, 'Observation template deleted.')
+        messages.success(request, _('Observation template deleted.'))
         return redirect(project)
     return render(
         request,
@@ -1727,7 +1728,7 @@ def behavior_create(request, pk: int):  # pragma: no cover
         behavior = form.save(commit=False)
         behavior.project = project
         behavior.save()
-        messages.success(request, 'Behavior created.')
+        messages.success(request, _('Behavior created.'))
         return redirect(project)
     return render(
         request, 'tracker/behavior_form.html', {'form': form, 'project': project, 'mode': 'create'}
@@ -1740,7 +1741,7 @@ def behavior_update(request, pk: int):  # pragma: no cover
     form = BehaviorForm(request.POST or None, instance=behavior, project=behavior.project)
     if request.method == 'POST' and form.is_valid():
         form.save()
-        messages.success(request, 'Behavior updated.')
+        messages.success(request, _('Behavior updated.'))
         return redirect(behavior.project)
     return render(
         request,
@@ -1756,7 +1757,7 @@ def behavior_delete(request, pk: int):  # pragma: no cover
     if request.method == 'POST' and form.is_valid():
         project = behavior.project
         behavior.delete()
-        messages.success(request, 'Behavior deleted.')
+        messages.success(request, _('Behavior deleted.'))
         return redirect(project)
     return render(
         request,
@@ -1777,7 +1778,7 @@ def video_create(request, pk: int):  # pragma: no cover
         video = form.save(commit=False)
         video.project = project
         video.save()
-        messages.success(request, 'Video added.')
+        messages.success(request, _('Video added.'))
         return redirect(project)
     return render(
         request, 'tracker/video_form.html', {'form': form, 'project': project, 'mode': 'create'}
@@ -1792,7 +1793,7 @@ def video_update(request, pk: int):  # pragma: no cover
         video = form.save(commit=False)
         video.project = video.project
         video.save()
-        messages.success(request, 'Video updated.')
+        messages.success(request, _('Video updated.'))
         return redirect(video.project)
     return render(
         request,
@@ -1805,13 +1806,13 @@ def video_update(request, pk: int):  # pragma: no cover
 def video_delete(request, pk: int):  # pragma: no cover
     video = _get_owned_video(request.user, pk)
     if video.sessions.exists() or video.session_links.exists():
-        messages.error(request, 'This video is still linked to one or more sessions.')
+        messages.error(request, _('This video is still linked to one or more sessions.'))
         return redirect(video.project)
     form = DeleteConfirmForm(request.POST or None)
     if request.method == 'POST' and form.is_valid():
         project = video.project
         video.delete()
-        messages.success(request, 'Video deleted.')
+        messages.success(request, _('Video deleted.'))
         return redirect(project)
     return render(
         request,
@@ -1836,7 +1837,7 @@ def session_create(request, pk: int):  # pragma: no cover
             session.save(update_fields=['title'])
         form.save_variable_values(session)
         _sync_session_videos(session, form.cleaned_data['additional_videos'])
-        messages.success(request, 'Session created.')
+        messages.success(request, _('Session created.'))
         return redirect(session)
     return render(
         request, 'tracker/session_form.html', {'form': form, 'project': project, 'mode': 'create'}
@@ -1851,7 +1852,7 @@ def session_update(request, pk: int):  # pragma: no cover
         session = form.save()
         form.save_variable_values(session)
         _sync_session_videos(session, form.cleaned_data['additional_videos'])
-        messages.success(request, 'Session updated.')
+        messages.success(request, _('Session updated.'))
         return redirect(session)
     return render(
         request,
@@ -1871,7 +1872,7 @@ def session_delete(request, pk: int):  # pragma: no cover
     if request.method == 'POST' and form.is_valid():
         project = session.project
         session.delete()
-        messages.success(request, 'Session deleted.')
+        messages.success(request, _('Session deleted.'))
         return redirect(project)
     return render(
         request,
@@ -1896,7 +1897,7 @@ def session_import_json(request, pk: int):  # pragma: no cover
                 session, payload, clear_existing=form.cleaned_data['clear_existing']
             )
         except (UnicodeDecodeError, json.JSONDecodeError):
-            messages.error(request, 'The uploaded file is not valid JSON.')
+            messages.error(request, _('The uploaded file is not valid JSON.'))
         except ValueError as exc:
             messages.error(request, str(exc))
         else:
@@ -1928,7 +1929,7 @@ def session_workflow_action(request, pk: int):
     try:
         payload = json.loads(request.body.decode('utf-8')) if request.body else request.POST.dict()
     except json.JSONDecodeError as exc:
-        return JsonResponse({'error': f'Invalid JSON: {exc}'}, status=400)
+        return JsonResponse({'error': f_('Invalid JSON: %(error)s') % {'error': exc}}, status=400)
     action = payload.get('action')
     review_notes = (payload.get('review_notes') or session.review_notes or '').strip()
     status_map = {
@@ -1939,7 +1940,7 @@ def session_workflow_action(request, pk: int):
         'reopen': ObservationSession.STATUS_DRAFT,
     }
     if action not in status_map:
-        return JsonResponse({'error': 'Invalid workflow action.'}, status=400)
+        return JsonResponse({'error': _('Invalid workflow action.')}, status=400)
     session.workflow_status = status_map[action]
     session.review_notes = review_notes
     now = timezone.now()
@@ -2058,21 +2059,21 @@ def event_create_api(request, pk: int):
     try:
         payload = json.loads(request.body.decode('utf-8'))
     except json.JSONDecodeError as exc:
-        return JsonResponse({'error': f'Invalid JSON: {exc}'}, status=400)
+        return JsonResponse({'error': f_('Invalid JSON: %(error)s') % {'error': exc}}, status=400)
 
     behavior = get_object_or_404(Behavior, pk=payload.get('behavior_id'), project=session.project)
     timestamp_seconds = _decimal(payload.get('timestamp_seconds'), default='0')
     modifier_ids = payload.get('modifier_ids') or []
     subject_ids = payload.get('subject_ids') or []
     if not isinstance(modifier_ids, list):
-        return JsonResponse({'error': 'modifier_ids must be a list.'}, status=400)
+        return JsonResponse({'error': _('modifier_ids must be a list.')}, status=400)
     if not isinstance(subject_ids, list):
-        return JsonResponse({'error': 'subject_ids must be a list.'}, status=400)
+        return JsonResponse({'error': _('subject_ids must be a list.')}, status=400)
     try:
         normalized_modifier_ids = [int(value) for value in modifier_ids]
         normalized_subject_ids = [int(value) for value in subject_ids]
     except (TypeError, ValueError):
-        return JsonResponse({'error': 'Invalid modifier_ids or subject_ids.'}, status=400)
+        return JsonResponse({'error': _('Invalid modifier_ids or subject_ids.')}, status=400)
     modifiers = list(
         Modifier.objects.filter(project=session.project, pk__in=normalized_modifier_ids)
     )
@@ -2082,9 +2083,9 @@ def event_create_api(request, pk: int):
         ).prefetch_related('groups')
     )
     if {modifier.pk for modifier in modifiers} != set(normalized_modifier_ids):
-        return JsonResponse({'error': 'One or more modifiers are invalid.'}, status=400)
+        return JsonResponse({'error': _('One or more modifiers are invalid.')}, status=400)
     if {subject.pk for subject in subjects} != set(normalized_subject_ids):
-        return JsonResponse({'error': 'One or more subjects are invalid.'}, status=400)
+        return JsonResponse({'error': _('One or more subjects are invalid.')}, status=400)
 
     event = ObservationEvent.objects.create(
         session=session,
@@ -2124,7 +2125,7 @@ def event_update_api(request, pk: int):
     try:
         payload = json.loads(request.body.decode('utf-8'))
     except json.JSONDecodeError as exc:
-        return JsonResponse({'error': f'Invalid JSON: {exc}'}, status=400)
+        return JsonResponse({'error': f_('Invalid JSON: %(error)s') % {'error': exc}}, status=400)
 
     behavior = get_object_or_404(
         Behavior, pk=payload.get('behavior_id', event.behavior_id), project=session.project
@@ -2139,14 +2140,14 @@ def event_update_api(request, pk: int):
         or ([event.subject_id] if event.subject_id else []),
     )
     if not isinstance(modifier_ids, list):
-        return JsonResponse({'error': 'modifier_ids must be a list.'}, status=400)
+        return JsonResponse({'error': _('modifier_ids must be a list.')}, status=400)
     if not isinstance(subject_ids, list):
-        return JsonResponse({'error': 'subject_ids must be a list.'}, status=400)
+        return JsonResponse({'error': _('subject_ids must be a list.')}, status=400)
     try:
         normalized_modifier_ids = [int(value) for value in modifier_ids]
         normalized_subject_ids = [int(value) for value in subject_ids]
     except (TypeError, ValueError):
-        return JsonResponse({'error': 'Invalid modifier_ids or subject_ids.'}, status=400)
+        return JsonResponse({'error': _('Invalid modifier_ids or subject_ids.')}, status=400)
     modifiers = list(
         Modifier.objects.filter(project=session.project, pk__in=normalized_modifier_ids)
     )
@@ -2156,15 +2157,15 @@ def event_update_api(request, pk: int):
         ).prefetch_related('groups')
     )
     if {modifier.pk for modifier in modifiers} != set(normalized_modifier_ids):
-        return JsonResponse({'error': 'One or more modifiers are invalid.'}, status=400)
+        return JsonResponse({'error': _('One or more modifiers are invalid.')}, status=400)
     if {subject.pk for subject in subjects} != set(normalized_subject_ids):
-        return JsonResponse({'error': 'One or more subjects are invalid.'}, status=400)
+        return JsonResponse({'error': _('One or more subjects are invalid.')}, status=400)
 
     explicit_kind = payload.get('event_kind', event.event_kind)
     if behavior.mode == Behavior.MODE_POINT:
         explicit_kind = ObservationEvent.KIND_POINT
     elif explicit_kind not in {ObservationEvent.KIND_START, ObservationEvent.KIND_STOP}:
-        return JsonResponse({'error': 'Invalid event_kind for a state behavior.'}, status=400)
+        return JsonResponse({'error': _('Invalid event_kind for a state behavior.')}, status=400)
 
     event.behavior = behavior
     event.event_kind = explicit_kind
@@ -2205,7 +2206,7 @@ def event_delete_api(request, pk: int):
     if event.session.project_id not in set(
         accessible_projects_qs(request.user).values_list('id', flat=True)
     ):
-        raise Http404('Event not found.')
+        raise Http404(_('Event not found.'))
     session = get_accessible_session(request.user, event.session_id)
     _require_editable_session(session)
     payload = serialize_event(event)
@@ -2230,7 +2231,7 @@ def annotation_create_api(request, pk: int):
     try:
         payload = json.loads(request.body.decode('utf-8'))
     except json.JSONDecodeError as exc:
-        return JsonResponse({'error': f'JSON invalide: {exc}'}, status=400)
+        return JsonResponse({'error': f_('Invalid JSON: %(error)s') % {'error': exc}}, status=400)
     annotation = SessionAnnotation.objects.create(
         session=session,
         timestamp_seconds=_decimal(payload.get('timestamp_seconds'), default='0'),
@@ -2262,7 +2263,7 @@ def annotation_update_api(request, pk: int):
     try:
         payload = json.loads(request.body.decode('utf-8'))
     except json.JSONDecodeError as exc:
-        return JsonResponse({'error': f'JSON invalide: {exc}'}, status=400)
+        return JsonResponse({'error': f_('Invalid JSON: %(error)s') % {'error': exc}}, status=400)
     annotation.timestamp_seconds = _decimal(
         payload.get('timestamp_seconds', annotation.timestamp_seconds), default='0'
     )
@@ -2291,7 +2292,7 @@ def annotation_delete_api(request, pk: int):
     if annotation.session.project_id not in set(
         accessible_projects_qs(request.user).values_list('id', flat=True)
     ):
-        raise Http404('Annotation not found.')
+        raise Http404(_('Annotation not found.'))
     _require_editable_session(annotation.session)
     payload = serialize_annotation(annotation)
     session = annotation.session

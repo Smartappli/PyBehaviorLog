@@ -1,9 +1,10 @@
 {% extends 'base.html' %}
-{% block title %}Log in{% endblock %}
+{% load i18n %}
+{% block title %}{% trans 'Log in' %}{% endblock %}
 {% block content %}
 <article class="auth-card">
-    <h1>Log in</h1>
-    <form method="post">{% csrf_token %}{{ form.as_p }}<button type="submit">Log in</button></form>
-    <p class="muted">No account yet? <a href="{% url 'signup' %}">Create one</a>.</p>
+    <h1>{% trans 'Log in' %}</h1>
+    <form method="post">{% csrf_token %}{{ form.as_p }}<button type="submit">{% trans 'Log in' %}</button></form>
+    <p class="muted">{% trans 'No account yet?' %} <a href="{% url 'signup' %}">{% trans 'Create one' %}</a>.</p>
 </article>
 {% endblock %}

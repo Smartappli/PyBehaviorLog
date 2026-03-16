@@ -1,3 +1,4 @@
 {% extends 'base.html' %}
-{% block title %}Import session JSON{% endblock %}
-{% block content %}<article class="auth-card wide-card"><h1>Import session JSON</h1><p>Session: <a href="{{ session.get_absolute_url }}">{{ session.title }}</a></p><form method="post" enctype="multipart/form-data">{% csrf_token %}{{ form.as_p }}<div class="action-stack"><button type="submit">Import</button><a href="{{ session.get_absolute_url }}" role="button" class="secondary">Back</a></div></form></article>{% endblock %}
+{% load i18n %}
+{% block title %}{% trans 'Import session JSON' %}{% endblock %}
+{% block content %}<article class="auth-card wide-card"><h1>{% trans 'Import session JSON' %}</h1><p>{% trans 'Session' %}: <a href="{{ session.get_absolute_url }}">{{ session.title }}</a></p><form method="post" enctype="multipart/form-data">{% csrf_token %}{{ form.as_p }}<div class="action-stack"><button type="submit">{% trans 'Import' %}</button><a href="{{ session.get_absolute_url }}" role="button" class="secondary">{% trans 'Back' %}</a></div></form></article>{% endblock %}

@@ -1,14 +1,16 @@
 {% extends 'base.html' %}
+{% load i18n %}
 
-{% block title %}My PyBehaviorLog projects{% endblock %}
+{% block title %}{% trans 'My PyBehaviorLog projects' %}{% endblock %}
 
 {% block content %}
+{% trans 'No description yet.' as no_description %}
 <header class="page-header">
     <div>
-        <h1>My PyBehaviorLog projects</h1>
-        <p>Version 0.8 adds subject groups, observation templates, review workflow, audit trail, subject-level analytics, and richer BORIS-inspired interoperability.</p>
+        <h1>{% trans 'My PyBehaviorLog projects' %}</h1>
+        <p>{% trans 'Version 0.8 adds subject groups, observation templates, review workflow, audit trail, subject-level analytics, and richer BORIS-inspired interoperability.' %}</p>
     </div>
-    <a href="{% url 'tracker:project_create' %}" role="button">New project</a>
+    <a href="{% url 'tracker:project_create' %}" role="button">{% trans 'New project' %}</a>
 </header>
 
 <section class="card-grid">
@@ -17,30 +19,30 @@
             <div class="project-card-top">
                 <h3><a href="{{ project.get_absolute_url }}">{{ project.name }}</a></h3>
                 {% if project.owner_id == user.id %}
-                    <span class="pill">owner</span>
+                    <span class="pill">{% trans 'owner' %}</span>
                 {% else %}
-                    <span class="pill">collaborator</span>
+                    <span class="pill">{% trans 'collaborator' %}</span>
                 {% endif %}
             </div>
-            <p>{{ project.description|default:'No description yet.' }}</p>
-            <p class="muted">Owner: {{ project.owner.username }}</p>
+            <p>{{ project.description|default:no_description }}</p>
+            <p class="muted">{% trans 'Owner' %}: {{ project.owner.username }}</p>
             <div class="stats-row">
-                <span>{{ project.categories.count }} categories</span>
-                <span>{{ project.modifiers.count }} modifiers</span>
-                <span>{{ project.subjects.count }} subjects</span>
-                <span>{{ project.behaviors.count }} behaviors</span>
-                <span>{{ project.sessions.count }} sessions</span>
+                <span>{{ project.categories.count }} {% trans 'categories' %}</span>
+                <span>{{ project.modifiers.count }} {% trans 'modifiers' %}</span>
+                <span>{{ project.subjects.count }} {% trans 'subjects' %}</span>
+                <span>{{ project.behaviors.count }} {% trans 'behaviors' %}</span>
+                <span>{{ project.sessions.count }} {% trans 'sessions' %}</span>
             </div>
             <div class="action-stack compact">
-                <a href="{{ project.get_absolute_url }}" role="button" class="secondary">Open</a>
-                <a href="{% url 'tracker:project_analytics' project.pk %}" role="button" class="outline">Analytics</a>
-                <a href="{% url 'tracker:project_export_ethogram' project.pk %}" role="button" class="outline">Ethogram JSON</a>
+                <a href="{{ project.get_absolute_url }}" role="button" class="secondary">{% trans 'Open' %}</a>
+                <a href="{% url 'tracker:project_analytics' project.pk %}" role="button" class="outline">{% trans 'Analytics' %}</a>
+                <a href="{% url 'tracker:project_export_ethogram' project.pk %}" role="button" class="outline">{% trans 'Ethogram JSON' %}</a>
             </div>
         </article>
     {% empty %}
         <article>
-            <h3>No projects yet</h3>
-            <p>Create your first project to start coding behavior from video or live observation sessions.</p>
+            <h3>{% trans 'No projects yet' %}</h3>
+            <p>{% trans 'Create your first project to start coding behavior from video or live observation sessions.' %}</p>
         </article>
     {% endfor %}
 </section>

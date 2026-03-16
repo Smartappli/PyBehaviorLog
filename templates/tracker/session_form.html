@@ -1,11 +1,17 @@
 {% extends 'base.html' %}
-{% block title %}{% if mode == 'update' %}Edit session{% else %}New session{% endif %}{% endblock %}
+{% load i18n %}
+{% block title %}{% if mode == 'update' %}{% trans 'Edit session' %}{% else %}{% trans 'New session' %}{% endif %}{% endblock %}
 {% block content %}
 <article class="auth-card wide-card">
     <header>
-        <h1>{% if mode == 'update' %}Edit session{% else %}Create a session{% endif %}</h1>
-        <p>Project: <a href="{{ project.get_absolute_url }}">{{ project.name }}</a></p>
+        <h1>{% if mode == 'update' %}{% trans 'Edit session' %}{% else %}{% trans 'Create a session' %}{% endif %}</h1>
+        <p>{% trans 'Project' %}: <a href="{{ project.get_absolute_url }}">{{ project.name }}</a></p>
     </header>
-    <form method="post">{% csrf_token %}{{ form.as_p }}<div class="action-stack"><button type="submit">{% if mode == 'update' %}Update session{% else %}Create session{% endif %}</button><a href="{{ project.get_absolute_url }}" role="button" class="secondary">Back</a></div></form>
+    <form method="post">{% csrf_token %}{{ form.as_p }}
+        <div class="action-stack">
+            <button type="submit">{% if mode == 'update' %}{% trans 'Update session' %}{% else %}{% trans 'Create session' %}{% endif %}</button>
+            <a href="{{ project.get_absolute_url }}" role="button" class="secondary">{% trans 'Back' %}</a>
+        </div>
+    </form>
 </article>
 {% endblock %}
