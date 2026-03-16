@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.9.4
+
+- Restored Django runtime target to 6.0.3.
+- Audited and stabilized review queue/export behavior and batch segment assignment paths.
+- Hardened production security defaults (non-default `DJANGO_SECRET_KEY`, required `ALLOWED_HOSTS`, optional TLS/HSTS controls).
+- Updated dependency constraints to newer maintained versions (Django, Granian, Argon2, psycopg, redis, Ruff).
+- Kept Granian as the default ASGI runtime across docs and metadata.
+
 ## 0.9.3
 
 - Refined review queue filtering logic into a shared helper for maintainability.

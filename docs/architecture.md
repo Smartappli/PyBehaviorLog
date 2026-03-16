@@ -41,7 +41,7 @@ Authentication sessions are stored in the database (`django.contrib.sessions.bac
 ## Security defaults
 
 - Argon2 is the first password hasher.
-- Django 6 CSP middleware is enabled.
+- Django CSP middleware is enabled.
 - CSRF cookies and session cookies are hardened.
 - `X-Frame-Options` is set to `DENY`.
 - `SECURE_PROXY_SSL_HEADER` is configured for reverse proxy deployments.

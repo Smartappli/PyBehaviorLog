@@ -454,11 +454,14 @@ class ViewTests(TestCase):
         self.assertNotContains(queue_response, 'Intro segment')
 
         export_response = reviewer_client.get(
-            reverse('tracker:review_queue_export_segment_analytics_csv')
+            reverse('tracker:review_queue_export_segment_analytics_csv'),
+            {'filter': 'all', 'status': 'done', 'assignee': 'me', 'q': 'Core'},
         )
         self.assertEqual(export_response.status_code, 200)
         self.assertEqual(export_response['Content-Type'], 'text/csv; charset=utf-8')
-        self.assertIn('Core segment', export_response.content.decode('utf-8'))
+        csv_payload = export_response.content.decode('utf-8')
+        self.assertIn('Core segment', csv_payload)
+        self.assertNotIn('Intro segment', csv_payload)
 
     def test_session_export_json_contains_segments(self):
         session = self.project.sessions.create(title='Segment export', observer=self.user, session_kind='live')
