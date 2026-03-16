@@ -60,7 +60,7 @@ class ViewTests(TestCase):
 
         export_response = self.client.get(reverse('tracker:session_export_json', args=[session.pk]))
         self.assertEqual(export_response.status_code, 200)
-        self.assertIn('pybehaviorlog-v7-session', export_response.content.decode('utf-8'))
+        self.assertIn('pybehaviorlog-0.8-session', export_response.content.decode('utf-8'))
 
     def test_event_update_and_delete_api(self):
         session = self.project.sessions.create(

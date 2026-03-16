@@ -1,8 +1,8 @@
-# PyBehaviorLog V0.7
+# PyBehaviorLog 0.8
 
 PyBehaviorLog is an ASGI-first behavioral observation platform built with Django 6.0.3. It is designed for research teams who need video-assisted coding, live observations, structured ethograms, review workflows, and exportable analytics without being locked into a desktop-only workflow.
 
-## What is in this version
+## What is in this 0.8 archive
 
 This version extends the earlier CowLog/BORIS-inspired foundations with:
 
@@ -13,7 +13,7 @@ This version extends the earlier CowLog/BORIS-inspired foundations with:
 - annotations, review states, and audit trail entries
 - JSON, CSV, TSV, XLSX, and BORIS-like export formats
 - project-level analytics, transition summaries, and subject-based statistics
-- multilingual interface infrastructure using Django's full language list
+- multilingual interface support limited to English, Arabic, Chinese, Spanish, French, and Russian
 - ASGI deployment with Granian
 - PostgreSQL 18 + Redis 8 container stack
 - Argon2 password hashing
@@ -72,9 +72,9 @@ coverage report --fail-under=80
 
 ## Language support
 
-PyBehaviorLog now exposes Django's full built-in `LANGUAGES` list in the interface selector. This gives the project immediate compatibility with every locale shipped by the installed Django version.
+PyBehaviorLog exposes a focused `LANGUAGES` list in the interface selector limited to the project languages requested for deployment: English, Arabic, Chinese, Spanish, French, and Russian.
 
-The application also uses Django's i18n infrastructure (`LocaleMiddleware`, language switching endpoint, locale paths, and translatable templates) so the interface can be translated incrementally without changing the architecture.
+The application uses Django's i18n infrastructure (`LocaleMiddleware`, the `set_language` endpoint, locale paths, and translatable templates) so translations can continue to evolve without changing the architecture.
 
 ## Repository quality controls
 

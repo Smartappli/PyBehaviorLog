@@ -12,8 +12,8 @@ import sys
 from pathlib import Path
 from urllib.parse import urlparse
 
-from django.conf import global_settings
 from django.utils.csp import CSP
+from django.utils.translation import gettext_lazy as _
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -103,7 +103,7 @@ def build_database_config() -> dict[str, object]:
     }
 
 
-SECRET_KEY = env('DJANGO_SECRET_KEY', 'django-insecure-pybehaviorlog-v7-change-me')
+SECRET_KEY = env('DJANGO_SECRET_KEY', 'django-insecure-pybehaviorlog-0-8-change-me')
 DEBUG = env_bool('DJANGO_DEBUG', True)
 ALLOWED_HOSTS = env_list('DJANGO_ALLOWED_HOSTS', '127.0.0.1,localhost')
 CSRF_TRUSTED_ORIGINS = env_list('DJANGO_CSRF_TRUSTED_ORIGINS')
@@ -171,10 +171,17 @@ AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
 
-# Django ships a maintained list of translated locales. Reusing that list keeps
-# the language selector aligned with the framework version installed.
+# Restrict the UI language selector to the project languages requested for
+# deployment while keeping Django's standard locale machinery.
 LANGUAGE_CODE = env('DJANGO_LANGUAGE_CODE', 'en')
-LANGUAGES = global_settings.LANGUAGES
+LANGUAGES = [
+    ('en', _('English')),
+    ('ar', _('Arabic')),
+    ('zh-hans', _('Chinese (Simplified)')),
+    ('es', _('Spanish')),
+    ('fr', _('French')),
+    ('ru', _('Russian')),
+]
 TIME_ZONE = env('DJANGO_TIME_ZONE', 'Europe/Brussels')
 USE_I18N = True
 USE_TZ = True

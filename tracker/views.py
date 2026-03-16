@@ -748,7 +748,7 @@ def build_project_statistics(project: Project) -> dict:
 
 def build_ethogram_payload(project: Project) -> dict:  # pragma: no cover
     return {
-        'schema': 'pybehaviorlog-v7-ethogram',
+        'schema': 'pybehaviorlog-0.8-ethogram',
         'project': {
             'name': project.name,
             'description': project.description,
@@ -827,7 +827,7 @@ def import_ethogram_payload(
         'cowlog-django-v3-ethogram',
         'cowlog-django-v4-ethogram',
         'cowlog-django-v5-ethogram',
-        'pybehaviorlog-v7-ethogram',
+        'pybehaviorlog-0.8-ethogram',
     }:
         raise ValueError('Unsupported JSON schema.')
 
@@ -1090,7 +1090,7 @@ def import_session_payload(
     if payload.get('schema') in {
         'cowlog-django-v5-session',
         'pybehaviorlog-v6-session',
-        'pybehaviorlog-v7-session',
+        'pybehaviorlog-0.8-session',
     }:
         event_items = payload.get('events', [])
         annotation_items = payload.get('annotations', [])
@@ -2363,7 +2363,7 @@ def session_export_tsv(request, pk: int):  # pragma: no cover
 def session_export_json(request, pk: int):
     session = get_accessible_session(request.user, pk)
     payload = {
-        'schema': 'pybehaviorlog-v7-session',
+        'schema': 'pybehaviorlog-0.8-session',
         'project': session.project.name,
         'session': session.title,
         'video': session.primary_label,
