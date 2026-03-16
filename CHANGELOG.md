@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.1
+
+- Added segment-level review queues and session review segments.
+- Added review queue dashboard and session-level segment CRUD screens.
+- Included review segments in 0.9.1 session exports/imports and project cloning.
+
 ## 0.9
 
 - Added import-as-new-project workflow from BORIS project JSON or PyBehaviorLog bundle ZIP/JSON.
