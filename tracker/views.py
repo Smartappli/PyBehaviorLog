@@ -128,7 +128,7 @@ def build_release_metadata() -> dict:
     """Return a small machine-readable release description for health and ops tooling."""
     return {
         'application': 'PyBehaviorLog',
-        'version': '0.9.2',
+        'version': '0.9.3',
         'django_target': '6.0.3',
         'python_minimum': '3.13',
         'asgi': True,
@@ -475,6 +475,58 @@ def build_review_queue(user) -> dict:
             'review': len(review),
         },
     }
+
+def _filter_review_segments(
+    rows: list[ObservationSegment],
+    *,
+    user,
+    project_filter: str = '',
+    status_filter: str = '',
+    assignee_filter: str = '',
+    reviewer_filter: str = '',
+    query_filter: str = '',
+) -> list[ObservationSegment]:
+    filtered = list(rows)
+    if project_filter.isdigit():
+        filtered = [item for item in filtered if item.session.project_id == int(project_filter)]
+
+    if status_filter == 'open':
+        filtered = [item for item in filtered if item.status != ObservationSegment.STATUS_DONE]
+    elif status_filter in {
+        ObservationSegment.STATUS_TODO,
+        ObservationSegment.STATUS_IN_PROGRESS,
+        ObservationSegment.STATUS_DONE,
+    }:
+        filtered = [item for item in filtered if item.status == status_filter]
+
+    if assignee_filter == 'me':
+        filtered = [item for item in filtered if item.assignee_id == user.id]
+    elif assignee_filter == 'unassigned':
+        filtered = [item for item in filtered if item.assignee_id is None]
+
+    if reviewer_filter == 'me':
+        filtered = [item for item in filtered if item.reviewer_id == user.id]
+    elif reviewer_filter == 'unassigned':
+        filtered = [item for item in filtered if item.reviewer_id is None]
+
+    query_normalized = query_filter.strip().lower()
+    if query_normalized:
+        filtered = [
+            item
+            for item in filtered
+            if query_normalized in item.title.lower()
+            or query_normalized in item.session.title.lower()
+            or query_normalized in item.session.project.name.lower()
+        ]
+
+    return filtered
+
+
+def _review_queue_project_choices(queue_rows: list[ObservationSegment]) -> list[Project]:
+    by_id: dict[int, Project] = {}
+    for item in queue_rows:
+        by_id[item.session.project_id] = item.session.project
+    return sorted(by_id.values(), key=lambda project: project.name.lower())
 
 
 def _get_owned_category(user, pk: int) -> BehaviorCategory:

@@ -1,4 +1,4 @@
-# PyBehaviorLog 0.9.2
+# PyBehaviorLog 0.9.3
 
 PyBehaviorLog is an ASGI-first behavioral observation platform built with Django 6.0.3. It is designed for research teams who need video-assisted coding, live observations, structured ethograms, review workflows, and exportable analytics without being locked into a desktop-only workflow.
 
@@ -57,8 +57,10 @@ source .venv/bin/activate
 pip install -r requirements.txt
 python manage.py migrate
 python manage.py createsuperuser
-python manage.py runserver
+granian --interface asgi --host 127.0.0.1 --port 8000 config.asgi:application
 ```
+
+For ASGI-parity in local development, use Granian (instead of the Django dev server) as shown above.
 
 ## Quick start with Docker
 

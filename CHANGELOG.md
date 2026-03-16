@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.9.3
+
+- Refined review queue filtering logic into a shared helper for maintainability.
+- Aligned review-segment CSV export with active queue filters used in the UI.
+- Bumped release metadata and docs to 0.9.3.
+- Documented Granian as the default ASGI command for local startup parity.
+
 ## 0.9.2
 
 - Added batch assignment for review segments directly from the session player.
