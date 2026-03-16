@@ -9,9 +9,12 @@
 <header class="page-header">
     <div>
         <h1>{% trans 'My PyBehaviorLog projects' %}</h1>
-        <p>{% trans 'Version 0.8.9 adds server-side undo and redo, richer BORIS-style spreadsheet imports, stronger image-sequence diagnostics, and a more certifiable coding workflow.' %}</p>
+        <p>{% trans 'Version 0.9 adds project lifecycle operations: import as a new project, project cloning, release metadata, and deployment-oriented health checks.' %}</p>
     </div>
-    <a href="{% url 'tracker:project_create' %}" role="button">{% trans 'New project' %}</a>
+    <div class="action-stack compact">
+        <a href="{% url 'tracker:project_create' %}" role="button">{% trans 'New project' %}</a>
+        <a href="{% url 'tracker:project_import_create' %}" role="button" class="secondary">{% trans 'Import as new project' %}</a>
+    </div>
 </header>
 
 <section class="card-grid">
@@ -38,6 +41,7 @@
                 <a href="{{ project.get_absolute_url }}" role="button" class="secondary">{% trans 'Open' %}</a>
                 <a href="{% url 'tracker:project_analytics' project.pk %}" role="button" class="outline">{% trans 'Analytics' %}</a>
                 <a href="{% url 'tracker:project_export_ethogram' project.pk %}" role="button" class="outline">{% trans 'Ethogram JSON' %}</a>
+                {% if project.owner_id == user.id %}<a href="{% url 'tracker:project_clone' project.pk %}" role="button" class="outline">{% trans 'Clone' %}</a>{% endif %}
             </div>
         </article>
     {% empty %}

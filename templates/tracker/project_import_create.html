@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% block title %}{% trans 'Import a new project' %}{% endblock %}
+{% block content %}
+<article class="auth-card wide-card">
+    <h1>{% trans 'Import as a new project' %}</h1>
+    <p class="muted">{% trans 'Create a brand new project directly from a BORIS project JSON or a PyBehaviorLog reproducibility bundle ZIP/JSON.' %}</p>
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <div class="action-stack">
+            <button type="submit">{% trans 'Create imported project' %}</button>
+            <a href="{% url 'tracker:home' %}" role="button" class="secondary">{% trans 'Back' %}</a>
+        </div>
+    </form>
+</article>
+{% endblock %}

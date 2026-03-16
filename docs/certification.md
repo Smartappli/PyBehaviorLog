@@ -1,6 +1,6 @@
-# Compatibility certification notes for PyBehaviorLog 0.8.9
+# Compatibility certification notes for PyBehaviorLog 0.9
 
-PyBehaviorLog 0.8.9 introduces a small built-in compatibility corpus and round-trip comparison helpers.
+PyBehaviorLog 0.9 introduces a small built-in compatibility corpus and round-trip comparison helpers.
 
 ## Included fixture families
 
@@ -14,7 +14,7 @@ These fixtures are intentionally compact. They are meant to verify the documente
 
 ## Round-trip strategy
 
-The 0.8.9 test suite validates compatibility with this workflow:
+The 0.9 test suite validates compatibility with this workflow:
 
 1. Import a BORIS or CowLog fixture.
 2. Persist the imported content in the Django data model.
@@ -38,7 +38,7 @@ This allows CI to focus on semantic equivalence instead of raw JSON shape differ
 
 ## Current scope
 
-0.8.9 improves confidence, but it is still not a blanket claim of universal compatibility with every historical BORIS or CowLog artifact.
+0.9 improves confidence, but it is still not a blanket claim of universal compatibility with every historical BORIS or CowLog artifact.
 
 What it does provide is a **repeatable, testable certification baseline** for the documented exchange families that the project already supports.
 
@@ -53,6 +53,16 @@ A future certification pass can extend the fixture corpus with:
 - gold files captured from real-world operator datasets
 
 
-## Additional notes for 0.8.9
+## Additional notes for 0.9
 
-Version 0.8.9 extends the compatibility and review toolchain with server-side undo/redo for event operations, broader BORIS-style spreadsheet imports, and richer handling of picture-based media paths and image sequences.
+Version 0.9 extends the compatibility and review toolchain with server-side undo/redo for event operations, broader BORIS-style spreadsheet imports, and richer handling of picture-based media paths and image sequences.
+
+
+## Operational additions in 0.9
+
+Version 0.9 adds a project lifecycle layer on top of the existing compatibility tooling:
+
+- project import as a **new project** from BORIS project JSON or PyBehaviorLog bundles
+- project cloning for parallel review, training, or branching workflows
+- deployment-oriented `/health/` and `/release.json` endpoints
+- management commands for bundle export and release reporting

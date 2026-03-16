@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% block title %}{% trans 'Clone project' %}{% endblock %}
+{% block content %}
+<article class="auth-card wide-card">
+    <h1>{% trans 'Clone project' %}</h1>
+    <p>{% trans 'Source project' %}: <a href="{{ project.get_absolute_url }}">{{ project.name }}</a></p>
+    <p class="muted">{% trans 'Cloning duplicates the project structure, ethogram, templates, keyboard profiles, and optionally the current sessions and video asset metadata.' %}</p>
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <div class="action-stack">
+            <button type="submit">{% trans 'Clone project' %}</button>
+            <a href="{{ project.get_absolute_url }}" role="button" class="secondary">{% trans 'Back' %}</a>
+        </div>
+    </form>
+</article>
+{% endblock %}
