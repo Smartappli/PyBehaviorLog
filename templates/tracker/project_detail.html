@@ -23,6 +23,7 @@
         {% endif %}
         {% if can_manage_members %}
             <a href="{% url 'tracker:project_import_ethogram' project.pk %}" role="button" class="secondary">{% trans 'Import ethogram' %}</a>
+            <a href="{% url 'tracker:project_import_boris_json' project.pk %}" role="button" class="secondary">{% trans 'Import BORIS project' %}</a>
             <a href="{% url 'tracker:project_update' project.pk %}" role="button" class="contrast">{% trans 'Settings' %}</a>
         {% endif %}
     </div>

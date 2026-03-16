@@ -1,8 +1,9 @@
 import json
-from zipfile import ZipFile
 from io import BytesIO
+from zipfile import ZipFile
 
 from django.contrib.auth import get_user_model
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase
 from django.urls import reverse
 
@@ -90,7 +91,7 @@ class ViewTests(TestCase):
 
         export_response = self.client.get(reverse('tracker:session_export_json', args=[session.pk]))
         self.assertEqual(export_response.status_code, 200)
-        self.assertIn('pybehaviorlog-0.8.3-session', export_response.content.decode('utf-8'))
+        self.assertIn('pybehaviorlog-0.8.4-session', export_response.content.decode('utf-8'))
 
     def test_event_update_and_delete_api(self):
         session = self.project.sessions.create(
@@ -206,3 +207,42 @@ class ViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context['agreement']['cohen_kappa'], 1.0)
         self.assertContains(response, '100', status_code=200)
+    def test_project_import_boris_json_view(self):
+        payload = {
+            'schema': 'boris-project-v1',
+            'ethogram': {'schema': 'pybehaviorlog-0.8.4-ethogram', 'categories': [], 'modifiers': [], 'subject_groups': [], 'subjects': [], 'variables': [], 'behaviors': [{'name': 'Imported behavior', 'description': '', 'key_binding': 'i', 'color': '#0f766e', 'mode': 'point', 'sort_order': 1, 'category': None}]},
+            'subject_groups': [{'name': 'Imported group', 'description': '', 'color': '#123456', 'sort_order': 1}],
+            'subjects': [{'name': 'Imported subject', 'description': '', 'key_binding': 's', 'color': '#654321', 'sort_order': 1, 'groups': ['Imported group']}],
+            'variables': [{'label': 'Weight', 'description': '', 'value_type': 'numeric', 'set_values': [], 'default_value': '0', 'sort_order': 1}],
+            'observation_templates': [{'name': 'Imported template', 'description': '', 'default_session_kind': 'live', 'behaviors': ['Imported behavior'], 'modifiers': [], 'subjects': ['Imported subject'], 'variable_definitions': ['Weight']}],
+            'sessions': [{'schema': 'boris-observation-v3', 'observations': [{'title': 'Imported session', 'events': [{'behavior': 'Imported behavior', 'time': 1.0, 'event_kind': 'point', 'subjects': ['Imported subject']}], 'annotations': []}]}],
+        }
+        upload = SimpleUploadedFile('project.json', json.dumps(payload).encode('utf-8'), content_type='application/json')
+        response = self.client.post(
+            reverse('tracker:project_import_boris_json', args=[self.project.pk]),
+            data={'file': upload, 'import_sessions': 'on', 'create_live_sessions': 'on'},
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(self.project.subjects.filter(name='Imported subject').exists())
+        self.assertTrue(self.project.observation_templates.filter(name='Imported template').exists())
+        self.assertTrue(self.project.sessions.filter(title='Imported session').exists())
+
+    def test_workflow_save_notes_action(self):
+        session = ObservationSession.objects.create(
+            project=self.project,
+            observer=self.user,
+            title='Review notes session',
+            session_kind='live',
+        )
+        reviewer_client = Client()
+        reviewer_client.login(username='reviewer', password='pass12345')
+        response = reviewer_client.post(
+            reverse('tracker:session_workflow_action', args=[session.pk]),
+            data=json.dumps({'action': 'save_notes', 'review_notes': 'Detailed review note'}),
+            content_type='application/json',
+        )
+        self.assertEqual(response.status_code, 200)
+        session.refresh_from_db()
+        self.assertEqual(session.review_notes, 'Detailed review note')
+
+

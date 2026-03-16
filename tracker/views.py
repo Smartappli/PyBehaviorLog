@@ -17,8 +17,8 @@ from django.db.models import Prefetch, Q
 from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
-from django.utils.translation import gettext as _
 from django.utils.text import slugify
+from django.utils.translation import gettext as _
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_POST
 from openpyxl import Workbook
@@ -33,6 +33,7 @@ from .forms import (
     ModifierForm,
     ObservationSessionForm,
     ObservationTemplateForm,
+    ProjectBORISImportForm,
     ProjectForm,
     ProjectMembershipForm,
     ProjectSettingsForm,
@@ -594,10 +595,13 @@ def build_audit_rows(session: ObservationSession) -> list[dict]:
     return [
         {
             'action': item.action,
+            'action_label': item.get_action_display(),
             'target_type': item.target_type,
+            'target_type_label': item.get_target_type_display(),
             'target_id': item.target_id,
             'actor': item.actor.username if item.actor else '',
             'summary': item.summary,
+            'payload': item.payload,
             'created_at': item.created_at.isoformat(),
         }
         for item in session.audit_logs.all()
@@ -851,7 +855,7 @@ def build_agreement_analysis(
     reference = reference[:bucket_count]
     comparison = comparison[:bucket_count]
     labels = sorted(set(reference) | set(comparison))
-    matches = sum(1 for left, right in zip(reference, comparison) if left == right)
+    matches = sum(1 for left, right in zip(reference, comparison, strict=False) if left == right)
     p0 = matches / bucket_count
     ref_counts = {label: reference.count(label) for label in labels}
     cmp_counts = {label: comparison.count(label) for label in labels}
@@ -860,7 +864,7 @@ def build_agreement_analysis(
     if pe < 1:
         kappa = round((p0 - pe) / (1 - pe), 4)
     confusion: dict[tuple[str, str], int] = defaultdict(int)
-    for left, right in zip(reference, comparison):
+    for left, right in zip(reference, comparison, strict=False):
         confusion[(left, right)] += 1
     confusion_rows = [
         {'reference_label': left, 'comparison_label': right, 'count': count}
@@ -958,8 +962,8 @@ def build_reproducibility_bundle(project: Project) -> dict[str, bytes]:
         session_meta.append({'id': session.pk, 'title': session.title, 'filename': filename})
 
     manifest = {
-        'schema': 'pybehaviorlog-0.8.3-bundle',
-        'version': '0.8.3',
+        'schema': 'pybehaviorlog-0.8.4-bundle',
+        'version': '0.8.4',
         'project': {
             'name': project.name,
             'description': project.description,
@@ -975,9 +979,263 @@ def build_reproducibility_bundle(project: Project) -> dict[str, bytes]:
     return files
 
 
+
+
+def load_project_import_payload(uploaded_file) -> tuple[dict, dict[str, dict]]:
+    """Load a JSON project payload from either a JSON file or a ZIP bundle."""
+    raw_bytes = uploaded_file.read()
+    buffer = io.BytesIO(raw_bytes)
+    bundled_sessions: dict[str, dict] = {}
+    if zipfile.is_zipfile(buffer):
+        with zipfile.ZipFile(buffer) as archive:
+            names = archive.namelist()
+            candidate = 'boris_project.json' if 'boris_project.json' in names else None
+            if candidate is None:
+                candidate = next(
+                    (
+                        name
+                        for name in names
+                        if name.endswith('.json') and ('project' in name or 'bundle' in name)
+                    ),
+                    None,
+                )
+            if candidate is None:
+                raise ValueError(_('The uploaded archive does not contain a project JSON file.'))
+            payload = json.loads(archive.read(candidate).decode('utf-8'))
+            for name in names:
+                if name.startswith('sessions/') and name.endswith('.json'):
+                    bundled_sessions[name] = json.loads(archive.read(name).decode('utf-8'))
+            return payload, bundled_sessions
+    try:
+        return json.loads(raw_bytes.decode('utf-8')), bundled_sessions
+    except UnicodeDecodeError as exc:
+        raise ValueError(_('The uploaded file is not valid UTF-8 JSON.')) from exc
+
+
+@transaction.atomic
+def import_project_payload(
+    project: Project,
+    payload: dict,
+    actor,
+    import_sessions: bool = True,
+    create_live_sessions: bool = True,
+    bundled_sessions: dict[str, dict] | None = None,
+) -> dict[str, int]:
+    """Import a richer BORIS-like project payload into an existing project."""
+    bundled_sessions = bundled_sessions or {}
+    schema = payload.get('schema')
+    if schema not in {
+        'boris-project-v1',
+        'pybehaviorlog-0.8.3-bundle',
+        'pybehaviorlog-0.8.4-bundle',
+    }:
+        raise ValueError(_('Unsupported project payload format.'))
+
+    ethogram_payload = payload.get('ethogram') or payload
+    categories_created, modifiers_created, behaviors_created = import_ethogram_payload(
+        project,
+        {
+            **ethogram_payload,
+            'schema': ethogram_payload.get('schema', 'pybehaviorlog-0.8.4-ethogram'),
+        },
+        replace_existing=False,
+    )
+
+    subject_group_map = {group.name: group for group in project.subject_groups.all()}
+    subject_map = {subject.name: subject for subject in project.subjects.all()}
+    variable_map = {item.label: item for item in project.variable_definitions.all()}
+    behavior_map = {item.name: item for item in project.behaviors.all()}
+    modifier_map = {item.name: item for item in project.modifiers.all()}
+
+    subject_group_count = 0
+    subject_count = 0
+    variable_count = 0
+    template_count = 0
+    session_count = 0
+    imported_event_count = 0
+    imported_annotation_count = 0
+
+    for item in payload.get('subject_groups', []):
+        group, created = SubjectGroup.objects.update_or_create(
+            project=project,
+            name=item['name'],
+            defaults={
+                'description': item.get('description', ''),
+                'color': item.get('color', '#7c3aed'),
+                'sort_order': int(item.get('sort_order', 0)),
+            },
+        )
+        subject_group_map[group.name] = group
+        subject_group_count += int(created)
+
+    for item in payload.get('subjects', []):
+        subject, created = Subject.objects.update_or_create(
+            project=project,
+            name=item['name'],
+            defaults={
+                'description': item.get('description', ''),
+                'key_binding': (item.get('key_binding') or '')[:1],
+                'color': item.get('color', '#9333ea'),
+                'sort_order': int(item.get('sort_order', 0)),
+            },
+        )
+        subject.groups.set(
+            [
+                subject_group_map[name]
+                for name in item.get('groups', [])
+                if name in subject_group_map
+            ]
+        )
+        subject_map[subject.name] = subject
+        subject_count += int(created)
+
+    for item in payload.get('variables', []):
+        definition, created = IndependentVariableDefinition.objects.update_or_create(
+            project=project,
+            label=item['label'],
+            defaults={
+                'description': item.get('description', ''),
+                'value_type': item.get(
+                    'value_type', IndependentVariableDefinition.TYPE_TEXT
+                ),
+                'set_values': (
+                    ', '.join(item.get('set_values', []))
+                    if isinstance(item.get('set_values'), list)
+                    else item.get('set_values', '')
+                ),
+                'default_value': str(item.get('default_value', '')),
+                'sort_order': int(item.get('sort_order', 0)),
+            },
+        )
+        variable_map[definition.label] = definition
+        variable_count += int(created)
+
+    for item in payload.get('observation_templates', []):
+        template, created = ObservationTemplate.objects.update_or_create(
+            project=project,
+            name=item['name'],
+            defaults={
+                'description': item.get('description', ''),
+                'default_session_kind': item.get(
+                    'default_session_kind', ObservationSession.KIND_MEDIA
+                ),
+            },
+        )
+        template.behaviors.set(
+            [
+                behavior_map[name]
+                for name in item.get('behaviors', [])
+                if name in behavior_map
+            ]
+        )
+        template.modifiers.set(
+            [
+                modifier_map[name]
+                for name in item.get('modifiers', [])
+                if name in modifier_map
+            ]
+        )
+        template.subjects.set(
+            [subject_map[name] for name in item.get('subjects', []) if name in subject_map]
+        )
+        template.variable_definitions.set(
+            [
+                variable_map[name]
+                for name in item.get('variable_definitions', [])
+                if name in variable_map
+            ]
+        )
+        template_count += int(created)
+
+    if import_sessions:
+        for index, session_payload in enumerate(payload.get('sessions', []), start=1):
+            observation = (session_payload.get('observations') or [{}])[0]
+            title = (
+                observation.get('title')
+                or session_payload.get('session')
+                or _('Imported session %(index)s') % {'index': index}
+            )
+            primary_label = observation.get('primary_video') or observation.get('media') or ''
+            synced_titles = observation.get('synced_videos') or (
+                [primary_label] if primary_label else []
+            )
+            existing_video = (
+                project.videos.filter(title=primary_label).first() if primary_label else None
+            )
+            if existing_video is None and not create_live_sessions and primary_label:
+                continue
+            session_kind = (
+                ObservationSession.KIND_MEDIA
+                if existing_video
+                else ObservationSession.KIND_LIVE
+            )
+            notes_parts = [
+                item
+                for item in [
+                    observation.get('note'),
+                    session_payload.get('review_notes'),
+                ]
+                if item
+            ]
+            if synced_titles:
+                notes_parts.append(
+                    _('Imported media titles: %(titles)s')
+                    % {'titles': ', '.join(dict.fromkeys(synced_titles))}
+                )
+            session, _created = ObservationSession.objects.update_or_create(
+                project=project,
+                title=title,
+                defaults={
+                    'observer': actor,
+                    'video': existing_video,
+                    'session_kind': session_kind,
+                    'description': session_payload.get('description', ''),
+                    'notes': '\n'.join(notes_parts).strip(),
+                    'review_notes': session_payload.get('review_notes', ''),
+                    'workflow_status': session_payload.get(
+                        'workflow_status', ObservationSession.STATUS_DRAFT
+                    ),
+                },
+            )
+            matched_videos = list(project.videos.filter(title__in=synced_titles))
+            if matched_videos:
+                _sync_session_videos(session, matched_videos)
+            event_count, annotation_count = import_session_payload(
+                session, session_payload, clear_existing=True
+            )
+            _log_audit(
+                session,
+                actor=actor,
+                action=ObservationAuditLog.ACTION_IMPORT,
+                target_type=ObservationAuditLog.TARGET_IMPORT,
+                target_id=session.id,
+                summary=f'Imported project session {session.title}.',
+                payload={
+                    'source_schema': schema,
+                    'event_count': event_count,
+                    'annotation_count': annotation_count,
+                },
+            )
+            session_count += 1
+            imported_event_count += event_count
+            imported_annotation_count += annotation_count
+
+    return {
+        'categories_created': categories_created,
+        'modifiers_created': modifiers_created,
+        'behaviors_created': behaviors_created,
+        'subject_groups_created': subject_group_count,
+        'subjects_created': subject_count,
+        'variables_created': variable_count,
+        'templates_created': template_count,
+        'sessions_imported': session_count,
+        'events_imported': imported_event_count,
+        'annotations_imported': imported_annotation_count,
+    }
+
 def build_ethogram_payload(project: Project) -> dict:  # pragma: no cover
     return {
-        'schema': 'pybehaviorlog-0.8.3-ethogram',
+        'schema': 'pybehaviorlog-0.8.4-ethogram',
         'project': {
             'name': project.name,
             'description': project.description,
@@ -1058,6 +1316,7 @@ def import_ethogram_payload(
         'cowlog-django-v5-ethogram',
         'pybehaviorlog-0.8-ethogram',
         'pybehaviorlog-0.8.3-ethogram',
+        'pybehaviorlog-0.8.4-ethogram',
     }:
         raise ValueError('Unsupported JSON schema.')
 
@@ -1322,6 +1581,7 @@ def import_session_payload(
         'pybehaviorlog-v6-session',
         'pybehaviorlog-0.8-session',
         'pybehaviorlog-0.8.3-session',
+        'pybehaviorlog-0.8.4-session',
     }:
         event_items = payload.get('events', [])
         annotation_items = payload.get('annotations', [])
@@ -1724,6 +1984,51 @@ def project_import_ethogram(request, pk: int):  # pragma: no cover
     return render(request, 'tracker/ethogram_import.html', {'form': form, 'project': project})
 
 
+
+
+@login_required
+def project_import_boris_json(request, pk: int):  # pragma: no cover
+    project = get_owned_project(request.user, pk)
+    form = ProjectBORISImportForm(request.POST or None, request.FILES or None)
+    if request.method == 'POST' and form.is_valid():
+        uploaded = form.cleaned_data['file']
+        import_sessions = form.cleaned_data['import_sessions']
+        create_live_sessions = form.cleaned_data['create_live_sessions']
+        try:
+            payload, bundled_sessions = load_project_import_payload(uploaded)
+            summary = import_project_payload(
+                project,
+                payload,
+                actor=request.user,
+                import_sessions=import_sessions,
+                create_live_sessions=create_live_sessions,
+                bundled_sessions=bundled_sessions,
+            )
+        except (json.JSONDecodeError, ValueError) as exc:
+            messages.error(request, str(exc))
+        else:
+            messages.success(
+                request,
+                _(
+                    'Project import complete. Categories: %(categories)s, modifiers: %(modifiers)s, behaviors: %(behaviors)s, subject groups: %(subject_groups)s, subjects: %(subjects)s, variables: %(variables)s, templates: %(templates)s, sessions: %(sessions)s.'
+                )
+                % {
+                    'categories': summary['categories_created'],
+                    'modifiers': summary['modifiers_created'],
+                    'behaviors': summary['behaviors_created'],
+                    'subject_groups': summary['subject_groups_created'],
+                    'subjects': summary['subjects_created'],
+                    'variables': summary['variables_created'],
+                    'templates': summary['templates_created'],
+                    'sessions': summary['sessions_imported'],
+                },
+            )
+            return redirect(project)
+    return render(
+        request,
+        'tracker/project_boris_import.html',
+        {'form': form, 'project': project},
+    )
 
 
 @login_required
@@ -2388,6 +2693,7 @@ def session_workflow_action(request, pk: int):
         'lock': ObservationSession.STATUS_LOCKED,
         'unlock': ObservationSession.STATUS_DRAFT,
         'reopen': ObservationSession.STATUS_DRAFT,
+        'save_notes': None,
     }
     if action not in status_map:
         return JsonResponse({'error': _('Invalid workflow action.')}, status=400)
@@ -2397,6 +2703,23 @@ def session_workflow_action(request, pk: int):
     else:
         if not session.project.can_review(request.user):
             return JsonResponse({'error': _('You need reviewer permissions to change workflow status.')}, status=403)
+    if action == 'save_notes':
+        session.review_notes = review_notes
+        session.save(update_fields=['review_notes'])
+        _log_audit(
+            session,
+            actor=request.user,
+            action=ObservationAuditLog.ACTION_UPDATE,
+            target_type=ObservationAuditLog.TARGET_SESSION,
+            target_id=session.id,
+            summary='Review notes updated.',
+            payload={'review_notes': review_notes},
+        )
+        return JsonResponse({
+            'ok': True,
+            'workflow_status': session.workflow_status,
+            'review_notes': session.review_notes,
+        })
     session.workflow_status = status_map[action]
     session.review_notes = review_notes
     now = timezone.now()
@@ -2504,6 +2827,7 @@ def session_events_json(request, pk: int):
             'interval_rows': build_interval_rows(session),
             'integrity_report': build_integrity_report(session),
             'workflow_status': session.workflow_status,
+            'review_notes': session.review_notes,
             'synced_videos': [
                 {
                     'id': link.video_id,
@@ -2830,7 +3154,7 @@ def session_export_tsv(request, pk: int):  # pragma: no cover
 def session_export_json(request, pk: int):
     session = get_accessible_session(request.user, pk)
     payload = {
-        'schema': 'pybehaviorlog-0.8.3-session',
+        'schema': 'pybehaviorlog-0.8.4-session',
         'project': session.project.name,
         'session': session.title,
         'video': session.primary_label,

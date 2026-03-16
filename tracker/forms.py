@@ -77,14 +77,39 @@ class KeyboardProfileForm(forms.ModelForm):
 
 
 class EthogramImportForm(forms.Form):
+
     file = forms.FileField(
         label=_('File'),
-        help_text=_('JSON export from PyBehaviorLog 0.8 and earlier supported versions or BORIS-like JSON.')
+        help_text=_(
+            'JSON export from PyBehaviorLog 0.8 and earlier supported versions or BORIS-like JSON.'
+        ),
     )
     replace_existing = forms.BooleanField(
         required=False,
         label=_('Replace all existing ethogram entities'),
         help_text=_('Blocked when the project already contains sessions or events.'),
+    )
+
+
+class ProjectBORISImportForm(forms.Form):
+    file = forms.FileField(
+        label=_('File'),
+        help_text=_(
+            'BORIS project JSON or PyBehaviorLog project bundle JSON. Sessions and project entities can be merged into the current project.'
+        ),
+    )
+    import_sessions = forms.BooleanField(
+        required=False,
+        initial=True,
+        label=_('Import observation sessions'),
+    )
+    create_live_sessions = forms.BooleanField(
+        required=False,
+        initial=True,
+        label=_('Create live sessions when referenced media files are not available'),
+        help_text=_(
+            'Imported BORIS observations keep their media titles in the notes even when no media file can be attached automatically.'
+        ),
     )
 
 

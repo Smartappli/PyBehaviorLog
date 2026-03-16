@@ -20,6 +20,11 @@ urlpatterns = [
         'projects/<int:pk>/export/boris-json/', views.project_export_boris_json, name='project_export_boris_json'
     ),
     path(
+        'projects/<int:pk>/import/boris-project/',
+        views.project_import_boris_json,
+        name='project_import_boris_json',
+    ),
+    path(
         'projects/<int:pk>/ethogram/export/',
         views.project_export_ethogram,
         name='project_export_ethogram',

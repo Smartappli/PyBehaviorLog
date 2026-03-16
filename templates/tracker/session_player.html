@@ -125,11 +125,31 @@
         <article>
             <div class="section-headline">
                 <h3>{% trans 'Global timeline' %}</h3>
-                <div class="panel-inline">
+                <span class="muted">{% trans 'Select a bucket to inspect it. Shift-click a second bucket to create a review range.' %}</span>
+            </div>
+            <div class="timeline-toolbar">
+                <div>
                     <label for="timeline-zoom">{% trans 'Zoom' %}</label>
                     <input id="timeline-zoom" type="range" min="1" max="5" step="0.5" value="1.5">
                 </div>
+                <div>
+                    <label for="timeline-behavior-filter">{% trans 'Focus behavior' %}</label>
+                    <select id="timeline-behavior-filter">
+                        <option value="">{% trans 'All behaviors' %}</option>
+                        {% for behavior in behaviors %}
+                            <option value="{{ behavior.name|escape }}">{{ behavior.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label for="timeline-track-search">{% trans 'Track search' %}</label>
+                    <input id="timeline-track-search" type="text" placeholder="{% trans 'Filter tracks' %}">
+                </div>
+                <div class="mini-actions align-end">
+                    <button type="button" id="timeline-clear-selection-btn" class="secondary">{% trans 'Clear selection' %}</button>
+                </div>
             </div>
+            <div id="timeline-selection-output" class="integrity-box compact-box"></div>
             <div id="timeline-grid" class="timeline-grid"></div>
         </article>
 
@@ -193,16 +213,41 @@
         <article>
             <div class="section-headline">
                 <h3>{% trans 'Workflow and audit' %}</h3>
-                {% if can_review_session or can_code_session %}
-                <div class="mini-actions">
+                <span class="pill">{{ session.get_workflow_status_display }}</span>
+            </div>
+            {% if can_review_session or can_code_session %}
+            <div class="stacked-form review-panel">
+                <label for="review-notes-input">{% trans 'Review notes' %}</label>
+                <textarea id="review-notes-input" rows="4" {% if not can_review_session %}disabled{% endif %}>{{ session.review_notes }}</textarea>
+                <div class="mini-actions wrap-controls">
                     {% if can_code_session %}<button type="button" id="workflow-submit-btn" class="secondary">{% trans 'Submit for review' %}</button>{% endif %}
                     {% if can_review_session %}
+                        <button type="button" id="workflow-save-notes-btn" class="secondary">{% trans 'Save notes' %}</button>
                         <button type="button" id="workflow-validate-btn" class="secondary">{% trans 'Validate' %}</button>
                         <button type="button" id="workflow-lock-btn" class="secondary">{% trans 'Lock' %}</button>
                         <button type="button" id="workflow-unlock-btn" class="secondary">{% trans 'Unlock' %}</button>
+                        <button type="button" id="workflow-reopen-btn" class="secondary">{% trans 'Reopen' %}</button>
                     {% endif %}
                 </div>
-                {% endif %}
+            </div>
+            {% endif %}
+            <div class="timeline-toolbar audit-toolbar">
+                <div>
+                    <label for="audit-action-filter">{% trans 'Audit action' %}</label>
+                    <select id="audit-action-filter">
+                        <option value="">{% trans 'All actions' %}</option>
+                        <option value="create">{% trans 'Create' %}</option>
+                        <option value="update">{% trans 'Update' %}</option>
+                        <option value="delete">{% trans 'Delete' %}</option>
+                        <option value="status">{% trans 'Status change' %}</option>
+                        <option value="import">{% trans 'Import' %}</option>
+                        <option value="export">{% trans 'Export' %}</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="audit-search-input">{% trans 'Search audit' %}</label>
+                    <input id="audit-search-input" type="text" placeholder="{% trans 'Actor or summary' %}">
+                </div>
             </div>
             <div id="audit-output" class="integrity-box"></div>
         </article>
@@ -259,13 +304,22 @@ const clearModifiersBtn = document.getElementById('clear-modifiers-btn');
 const refreshEventsBtn = document.getElementById('refresh-events-btn');
 const addAnnotationBtn = document.getElementById('add-annotation-btn');
 const workflowSubmitBtn = document.getElementById('workflow-submit-btn');
+const workflowSaveNotesBtn = document.getElementById('workflow-save-notes-btn');
 const workflowValidateBtn = document.getElementById('workflow-validate-btn');
 const workflowLockBtn = document.getElementById('workflow-lock-btn');
 const workflowUnlockBtn = document.getElementById('workflow-unlock-btn');
+const workflowReopenBtn = document.getElementById('workflow-reopen-btn');
+const reviewNotesInput = document.getElementById('review-notes-input');
+const auditActionFilter = document.getElementById('audit-action-filter');
+const auditSearchInput = document.getElementById('audit-search-input');
 const liveStartBtn = document.getElementById('live-start-btn');
 const livePauseBtn = document.getElementById('live-pause-btn');
 const liveResetBtn = document.getElementById('live-reset-btn');
 const timelineZoomInput = document.getElementById('timeline-zoom');
+const timelineBehaviorFilter = document.getElementById('timeline-behavior-filter');
+const timelineTrackSearch = document.getElementById('timeline-track-search');
+const timelineSelectionOutput = document.getElementById('timeline-selection-output');
+const timelineClearSelectionBtn = document.getElementById('timeline-clear-selection-btn');
 
 function getCookie(name) {
     return document.cookie.split('; ').find((row) => row.startsWith(`${name}=`))?.split('=')[1] || '';
@@ -297,6 +351,13 @@ const jsI18n = {
     timeSeconds: "{% trans 'Time (seconds)' %}",
     title: "{% trans 'Title' %}",
     note: "{% trans 'Note' %}",
+    noTimelineSelection: "{% trans 'No timeline bucket selected yet.' %}",
+    selectedBucket: "{% trans 'Selected bucket' %}",
+    selectedRange: "{% trans 'Selected range' %}",
+    jumpToStart: "{% trans 'Jump to start' %}",
+    jumpToEnd: "{% trans 'Jump to end' %}",
+    currentBucket: "{% trans 'Current bucket' %}",
+    allActions: "{% trans 'All actions' %}",
 };
 
 let stateStatus = JSON.parse(document.getElementById('state-status-data').textContent);
@@ -310,6 +371,7 @@ let activeSubjectIds = new Set();
 let auditRows = [];
 let syncing = false;
 let timelineZoom = Number(timelineZoomInput?.value || 1.5);
+let timelineSelection = [];
 let liveClockSeconds = 0;
 let liveTimerRunning = false;
 let liveTimerHandle = null;
@@ -329,6 +391,8 @@ function currentTimeValue() {
 
 function updateTimeDisplay() {
     videoTime.textContent = formatSeconds(currentTimeValue());
+    renderTimeline();
+    renderTracks();
 }
 
 function seekAll(seconds) {
@@ -433,24 +497,101 @@ function renderStats(rows, summary) {
         </tr>`).join('');
 }
 
+function filteredTrackRows() {
+    const selectedBehavior = (timelineBehaviorFilter?.value || '').trim().toLowerCase();
+    const searchValue = (timelineTrackSearch?.value || '').trim().toLowerCase();
+    return trackRows.filter((row) => {
+        const matchesBehavior = !selectedBehavior || row.name.toLowerCase() === selectedBehavior;
+        const matchesSearch = !searchValue || row.name.toLowerCase().includes(searchValue) || (row.category || '').toLowerCase().includes(searchValue);
+        return matchesBehavior && matchesSearch;
+    });
+}
+
+function updateTimelineSelection(bucket, extendSelection = false) {
+    if (!bucket) {
+        timelineSelection = [];
+    } else if (!timelineSelection.length || !extendSelection) {
+        timelineSelection = [bucket];
+    } else {
+        timelineSelection = [timelineSelection[0], bucket].sort((left, right) => left.start_seconds - right.start_seconds);
+    }
+    renderTimelineSelection();
+    renderTimeline();
+}
+
+function renderTimelineSelection() {
+    if (!timelineSelection.length) {
+        timelineSelectionOutput.innerHTML = `<p class="muted">${jsI18n.noTimelineSelection}</p>`;
+        return;
+    }
+    const [first, second] = timelineSelection;
+    if (!second) {
+        timelineSelectionOutput.innerHTML = `
+            <div class="selection-summary">
+                <strong>${jsI18n.selectedBucket}</strong>
+                <span>${formatSeconds(first.start_seconds)} → ${formatSeconds(first.end_seconds)}</span>
+                <span>${first.event_count} ${jsI18n.events}</span>
+                <span>${first.annotation_count} ${jsI18n.annotations}</span>
+                <button type="button" class="secondary jump-button" data-seconds="${first.start_seconds}">${jsI18n.jumpToStart}</button>
+            </div>
+            <div class="muted">${Object.entries(first.labels || {}).map(([name, count]) => `${name} (${count})`).join(' · ') || jsI18n.noTimelineSelection}</div>`;
+        return;
+    }
+    const rangeStart = first.start_seconds;
+    const rangeEnd = second.end_seconds;
+    const inRange = timelineBuckets.filter((bucket) => bucket.start_seconds >= rangeStart && bucket.end_seconds <= rangeEnd);
+    const totalEvents = inRange.reduce((sum, bucket) => sum + bucket.event_count, 0);
+    const totalAnnotations = inRange.reduce((sum, bucket) => sum + bucket.annotation_count, 0);
+    timelineSelectionOutput.innerHTML = `
+        <div class="selection-summary">
+            <strong>${jsI18n.selectedRange}</strong>
+            <span>${formatSeconds(rangeStart)} → ${formatSeconds(rangeEnd)}</span>
+            <span>${totalEvents} ${jsI18n.events}</span>
+            <span>${totalAnnotations} ${jsI18n.annotations}</span>
+            <button type="button" class="secondary jump-button" data-seconds="${rangeStart}">${jsI18n.jumpToStart}</button>
+            <button type="button" class="secondary jump-button" data-seconds="${rangeEnd}">${jsI18n.jumpToEnd}</button>
+        </div>`;
+}
+
 function renderTimeline() {
     const bucketWidth = Math.max(56, 48 * timelineZoom);
+    const current = currentTimeValue();
+    const selectedBehavior = (timelineBehaviorFilter?.value || '').trim();
     timelineGrid.innerHTML = timelineBuckets.map((bucket) => {
         const height = Math.max(10, bucket.event_count * 8);
+        const isCurrent = current >= bucket.start_seconds && current < bucket.end_seconds;
+        const selected = timelineSelection.some((item) => item.index === bucket.index);
+        const matchesBehavior = !selectedBehavior || Object.keys(bucket.labels || {}).includes(selectedBehavior);
         const label = Object.entries(bucket.labels).map(([name, count]) => `${name} (${count})`).join(' · ');
         return `
-            <button type="button" class="timeline-bucket jump-button" style="width:${bucketWidth}px" data-seconds="${bucket.start_seconds}" title="${label}">
+            <button
+                type="button"
+                class="timeline-bucket jump-button ${isCurrent ? 'is-current-bucket' : ''} ${selected ? 'is-selected-bucket' : ''} ${matchesBehavior ? '' : 'is-muted-bucket'}"
+                style="width:${bucketWidth}px"
+                data-seconds="${bucket.start_seconds}"
+                data-bucket-index="${bucket.index}"
+                title="${label}"
+            >
                 <div class="timeline-bar" style="height:${height}px"></div>
                 <span class="timeline-count">${bucket.event_count}</span>
                 <span class="timeline-label">${Math.round(bucket.start_seconds)}s</span>
             </button>`;
     }).join('');
+    timelineGrid.querySelectorAll('[data-bucket-index]').forEach((button) => {
+        button.addEventListener('click', (clickEvent) => {
+            clickEvent.preventDefault();
+            const bucket = timelineBuckets.find((item) => item.index === Number(button.dataset.bucketIndex));
+            updateTimelineSelection(bucket, clickEvent.shiftKey);
+            seekAll(Number(button.dataset.seconds));
+        });
+    });
 }
 
 function renderTracks() {
-    const duration = Math.max(currentTimeValue(), ...trackRows.flatMap((row) => [row.total_duration_seconds, ...row.points, ...row.segments.map((seg) => seg.end_seconds)]), 1);
+    const rows = filteredTrackRows();
+    const duration = Math.max(currentTimeValue(), ...rows.flatMap((row) => [row.total_duration_seconds, ...row.points, ...row.segments.map((seg) => seg.end_seconds)]), 1);
     const laneWidth = Math.max(640, duration * 24 * timelineZoom);
-    trackContainer.innerHTML = trackRows.map((row) => {
+    trackContainer.innerHTML = rows.map((row) => {
         const segments = row.segments.map((segment) => {
             const left = (segment.start_seconds / duration) * 100;
             const width = Math.max(((segment.end_seconds - segment.start_seconds) / duration) * 100, 0.6);
@@ -460,12 +601,43 @@ function renderTracks() {
             const left = (point / duration) * 100;
             return `<button type="button" class="track-point jump-button" data-seconds="${point}" style="left:${left}%; background:${row.color};" title="${row.name} @ ${point.toFixed(3)} s"></button>`;
         }).join('');
+        const currentMarkerLeft = (currentTimeValue() / duration) * 100;
         return `
             <div class="track-row">
                 <div class="track-label"><span class="behavior-badge" style="background:${row.color};"></span>${row.name}<span class="pill">${row.mode}</span></div>
-                <div class="track-lane" style="min-width:${laneWidth}px">${segments}${points}</div>
+                <div class="track-lane" style="min-width:${laneWidth}px">${segments}${points}<div class="track-current-marker" style="left:${currentMarkerLeft}%;"></div></div>
             </div>`;
-    }).join('');
+    }).join('') || `<p class="muted">${jsI18n.noTimelineSelection}</p>`;
+}
+
+function renderAudit() {
+    const actionFilter = (auditActionFilter?.value || '').trim();
+    const searchValue = (auditSearchInput?.value || '').trim().toLowerCase();
+    const rows = auditRows.filter((row) => {
+        const matchesAction = !actionFilter || row.action === actionFilter;
+        const haystack = `${row.actor || ''} ${row.summary || ''} ${row.target_type_label || ''}`.toLowerCase();
+        const matchesSearch = !searchValue || haystack.includes(searchValue);
+        return matchesAction && matchesSearch;
+    });
+    if (!rows.length) {
+        auditOutput.innerHTML = `<p class="muted">${jsI18n.noAuditEntries}</p>`;
+        return;
+    }
+    auditOutput.innerHTML = `
+        <div class="table-wrapper compact-table-wrapper">
+            <table>
+                <thead><tr><th>Time</th><th>${jsI18n.title}</th><th>Actor</th><th>Summary</th></tr></thead>
+                <tbody>
+                    ${rows.slice(0, 24).map((row) => `
+                        <tr>
+                            <td>${new Date(row.created_at).toLocaleString()}</td>
+                            <td>${row.action_label} · ${row.target_type_label}</td>
+                            <td>${row.actor || ''}</td>
+                            <td>${row.summary}</td>
+                        </tr>`).join('')}
+                </tbody>
+            </table>
+        </div>`;
 }
 
 function renderIntegrity() {
@@ -525,7 +697,11 @@ async function fetchSessionState() {
     integrityReport = data.integrity_report;
     intervalRows = data.interval_rows;
     auditRows = data.audit_rows || [];
+    if (reviewNotesInput && typeof data.review_notes !== 'undefined') {
+        reviewNotesInput.value = data.review_notes || '';
+    }
     renderStats(data.stats.rows, data.stats);
+    renderTimelineSelection();
     renderTimeline();
     renderTracks();
     renderIntegrity();
@@ -534,14 +710,6 @@ async function fetchSessionState() {
     renderEvents(data.events);
     renderAnnotations(data.annotations);
     renderAudit();
-}
-
-function renderAudit() {
-    if (!auditRows.length) {
-        auditOutput.innerHTML = `<p class="muted">${jsI18n.noAuditEntries}</p>`;
-        return;
-    }
-    auditOutput.innerHTML = `<ul class="integrity-list">${auditRows.slice(0, 12).map((row) => `<li><strong>${row.action}</strong> ${row.summary} <span class="muted">${row.actor || ''}</span></li>`).join('')}</ul>`;
 }
 
 async function sendJSON(url, payload) {
@@ -633,6 +801,11 @@ liveStartBtn?.addEventListener('click', startLiveTimer);
 livePauseBtn?.addEventListener('click', pauseLiveTimer);
 liveResetBtn?.addEventListener('click', resetLiveTimer);
 timelineZoomInput?.addEventListener('input', () => { timelineZoom = Number(timelineZoomInput.value); renderTimeline(); renderTracks(); });
+timelineBehaviorFilter?.addEventListener('change', () => { renderTimeline(); renderTracks(); });
+timelineTrackSearch?.addEventListener('input', () => { renderTracks(); });
+timelineClearSelectionBtn?.addEventListener('click', () => updateTimelineSelection(null));
+auditActionFilter?.addEventListener('change', renderAudit);
+auditSearchInput?.addEventListener('input', renderAudit);
 
 addAnnotationBtn?.addEventListener('click', async () => {
     const title = prompt(jsI18n.annotationTitle, jsI18n.defaultAnnotationTitle);
@@ -649,10 +822,12 @@ addAnnotationBtn?.addEventListener('click', async () => {
     } catch (error) { alert(error.message); }
 });
 
-workflowSubmitBtn?.addEventListener('click', async () => { try { await sendJSON(`{% url 'tracker:session_workflow_action' session.pk %}`, {action: 'submit'}); await fetchSessionState(); } catch (error) { alert(error.message); } });
-workflowValidateBtn?.addEventListener('click', async () => { try { await sendJSON(`{% url 'tracker:session_workflow_action' session.pk %}`, {action: 'validate'}); await fetchSessionState(); } catch (error) { alert(error.message); } });
-workflowLockBtn?.addEventListener('click', async () => { try { await sendJSON(`{% url 'tracker:session_workflow_action' session.pk %}`, {action: 'lock'}); await fetchSessionState(); } catch (error) { alert(error.message); } });
-workflowUnlockBtn?.addEventListener('click', async () => { try { await sendJSON(`{% url 'tracker:session_workflow_action' session.pk %}`, {action: 'unlock'}); await fetchSessionState(); } catch (error) { alert(error.message); } });
+workflowSubmitBtn?.addEventListener('click', async () => { try { await sendJSON(`{% url 'tracker:session_workflow_action' session.pk %}`, {action: 'submit', review_notes: reviewNotesInput?.value || ''}); await fetchSessionState(); } catch (error) { alert(error.message); } });
+workflowSaveNotesBtn?.addEventListener('click', async () => { try { await sendJSON(`{% url 'tracker:session_workflow_action' session.pk %}`, {action: 'save_notes', review_notes: reviewNotesInput?.value || ''}); await fetchSessionState(); } catch (error) { alert(error.message); } });
+workflowValidateBtn?.addEventListener('click', async () => { try { await sendJSON(`{% url 'tracker:session_workflow_action' session.pk %}`, {action: 'validate', review_notes: reviewNotesInput?.value || ''}); await fetchSessionState(); } catch (error) { alert(error.message); } });
+workflowLockBtn?.addEventListener('click', async () => { try { await sendJSON(`{% url 'tracker:session_workflow_action' session.pk %}`, {action: 'lock', review_notes: reviewNotesInput?.value || ''}); await fetchSessionState(); } catch (error) { alert(error.message); } });
+workflowUnlockBtn?.addEventListener('click', async () => { try { await sendJSON(`{% url 'tracker:session_workflow_action' session.pk %}`, {action: 'unlock', review_notes: reviewNotesInput?.value || ''}); await fetchSessionState(); } catch (error) { alert(error.message); } });
+workflowReopenBtn?.addEventListener('click', async () => { try { await sendJSON(`{% url 'tracker:session_workflow_action' session.pk %}`, {action: 'reopen', review_notes: reviewNotesInput?.value || ''}); await fetchSessionState(); } catch (error) { alert(error.message); } });
 
 document.addEventListener('click', async (event) => {
     const jumpButton = event.target.closest('.jump-button');
@@ -743,6 +918,7 @@ document.addEventListener('keydown', async (event) => {
 
 renderSubjectStates();
 renderModifierStates();
+renderTimelineSelection();
 renderTimeline();
 renderTracks();
 renderIntegrity();

@@ -9,8 +9,10 @@ from tracker.models import (
     Modifier,
     ObservationEvent,
     ObservationSession,
+    ObservationTemplate,
     Project,
     Subject,
+    SubjectGroup,
 )
 from tracker.views import (
     build_agreement_analysis,
@@ -25,6 +27,7 @@ from tracker.views import (
     build_subject_statistics,
     build_transition_rows,
     import_ethogram_payload,
+    import_project_payload,
     import_session_payload,
     resolve_event_kind,
 )
@@ -102,7 +105,7 @@ class HelperTests(TestCase):
 
     def test_build_project_statistics_and_payloads(self):
         payload = build_ethogram_payload(self.project)
-        self.assertEqual(payload['schema'], 'pybehaviorlog-0.8.3-ethogram')
+        self.assertEqual(payload['schema'], 'pybehaviorlog-0.8.4-ethogram')
         imported_categories, _, imported_behaviors = import_ethogram_payload(
             self.project, payload, replace_existing=False
         )
@@ -124,7 +127,7 @@ class HelperTests(TestCase):
 
     def test_import_session_payload_v83(self):
         payload = {
-            'schema': 'pybehaviorlog-0.8.3-session',
+            'schema': 'pybehaviorlog-0.8.4-session',
             'workflow_status': 'validated',
             'review_notes': 'Checked',
             'events': [
@@ -193,3 +196,47 @@ class HelperTests(TestCase):
         agreement = build_agreement_analysis(self.session, other_session)
         self.assertEqual(agreement['percent_agreement'], 100.0)
         self.assertGreaterEqual(agreement['bucket_count'], 1)
+    def test_import_project_payload_with_templates_and_sessions(self):
+        payload = {
+            'schema': 'boris-project-v1',
+            'ethogram': build_ethogram_payload(self.project),
+            'subject_groups': [
+                {'name': 'Adults', 'description': 'Adult cattle', 'color': '#123456', 'sort_order': 1}
+            ],
+            'subjects': [
+                {'name': 'Cow 2', 'description': 'Imported subject', 'key_binding': 'v', 'color': '#654321', 'sort_order': 2, 'groups': ['Adults']}
+            ],
+            'variables': [
+                {'label': 'Temperature', 'description': 'Ambient', 'value_type': 'numeric', 'set_values': [], 'default_value': '12', 'sort_order': 1}
+            ],
+            'observation_templates': [
+                {'name': 'Imported template', 'description': 'A template', 'default_session_kind': 'live', 'behaviors': ['Eat'], 'modifiers': ['Near'], 'subjects': ['Cow 1', 'Cow 2'], 'variable_definitions': ['Temperature']}
+            ],
+            'sessions': [
+                {
+                    'schema': 'boris-observation-v3',
+                    'workflow_status': 'draft',
+                    'review_notes': 'Imported via project helper',
+                    'variables': {'Temperature': '17'},
+                    'observations': [
+                        {
+                            'title': 'Imported BORIS session',
+                            'primary_video': 'No file yet',
+                            'synced_videos': ['No file yet'],
+                            'events': [{'behavior': 'Eat', 'event_kind': 'point', 'time': 1.25, 'subjects': ['Cow 2'], 'modifiers': ['Near'], 'comment': 'Imported event'}],
+                            'annotations': [{'time': 2.0, 'title': 'Marker', 'note': 'Imported annotation', 'color': '#ff0000'}],
+                        }
+                    ],
+                }
+            ],
+        }
+        summary = import_project_payload(self.project, payload, actor=self.user)
+        self.assertEqual(summary['templates_created'], 1)
+        self.assertEqual(summary['sessions_imported'], 1)
+        self.assertTrue(SubjectGroup.objects.filter(project=self.project, name='Adults').exists())
+        self.assertTrue(ObservationTemplate.objects.filter(project=self.project, name='Imported template').exists())
+        imported_session = ObservationSession.objects.get(project=self.project, title='Imported BORIS session')
+        self.assertEqual(imported_session.events.count(), 1)
+        self.assertEqual(imported_session.annotations.count(), 1)
+
+

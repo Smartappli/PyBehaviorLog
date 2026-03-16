@@ -5,6 +5,7 @@ exclude = [
   "migrations",
   "media",
   "staticfiles",
+  ".venv",
 ]
 
 [tool.ruff.lint]
