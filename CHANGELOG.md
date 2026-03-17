@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.9.5
+
+- Unified export schema/version markers to 0.9.5 across session JSON, bundle manifest, compatibility report, SQL header and CowLog header.
+- Preserved backward import compatibility for 0.9.1 schemas while adding acceptance for 0.9.5 schemas.
+- Carried forward v0.9.3 review queue filtering/export consistency and batch assignment behavior.
+
+## 0.9.4
+
+- Restored Django runtime target to 6.0.3.
+- Audited and stabilized review queue/export behavior and batch segment assignment paths.
+- Hardened production security defaults (non-default `DJANGO_SECRET_KEY`, required `ALLOWED_HOSTS`, optional TLS/HSTS controls).
+- Updated dependency constraints to newer maintained versions (Django, Granian, Argon2, psycopg, redis, Ruff).
+- Kept Granian as the default ASGI runtime across docs and metadata.
+
+## 0.9.3
+
+- Refined review queue filtering logic into a shared helper for maintainability.
+- Aligned review-segment CSV export with active queue filters used in the UI.
+- Bumped release metadata and docs to 0.9.3.
+- Documented Granian as the default ASGI command for local startup parity.
+
+## 0.9.2
+
+- Added batch assignment for review segments directly from the session player.
+- Added finer review queue filters (project, status, assignee, reviewer, and text search).
+- Added CSV analytics export for review segments from the review queue.
+
 ## 0.9.1
 
 - Added segment-level review queues and session review segments.

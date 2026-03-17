@@ -128,7 +128,7 @@ def build_release_metadata() -> dict:
     """Return a small machine-readable release description for health and ops tooling."""
     return {
         'application': 'PyBehaviorLog',
-        'version': '0.9.1',
+        'version': '0.9.5',
         'django_target': '6.0.3',
         'python_minimum': '3.13',
         'asgi': True,
@@ -475,6 +475,58 @@ def build_review_queue(user) -> dict:
             'review': len(review),
         },
     }
+
+def _filter_review_segments(
+    rows: list[ObservationSegment],
+    *,
+    user,
+    project_filter: str = '',
+    status_filter: str = '',
+    assignee_filter: str = '',
+    reviewer_filter: str = '',
+    query_filter: str = '',
+) -> list[ObservationSegment]:
+    filtered = list(rows)
+    if project_filter.isdigit():
+        filtered = [item for item in filtered if item.session.project_id == int(project_filter)]
+
+    if status_filter == 'open':
+        filtered = [item for item in filtered if item.status != ObservationSegment.STATUS_DONE]
+    elif status_filter in {
+        ObservationSegment.STATUS_TODO,
+        ObservationSegment.STATUS_IN_PROGRESS,
+        ObservationSegment.STATUS_DONE,
+    }:
+        filtered = [item for item in filtered if item.status == status_filter]
+
+    if assignee_filter == 'me':
+        filtered = [item for item in filtered if item.assignee_id == user.id]
+    elif assignee_filter == 'unassigned':
+        filtered = [item for item in filtered if item.assignee_id is None]
+
+    if reviewer_filter == 'me':
+        filtered = [item for item in filtered if item.reviewer_id == user.id]
+    elif reviewer_filter == 'unassigned':
+        filtered = [item for item in filtered if item.reviewer_id is None]
+
+    query_normalized = query_filter.strip().lower()
+    if query_normalized:
+        filtered = [
+            item
+            for item in filtered
+            if query_normalized in item.title.lower()
+            or query_normalized in item.session.title.lower()
+            or query_normalized in item.session.project.name.lower()
+        ]
+
+    return filtered
+
+
+def _review_queue_project_choices(queue_rows: list[ObservationSegment]) -> list[Project]:
+    by_id: dict[int, Project] = {}
+    for item in queue_rows:
+        by_id[item.session.project_id] = item.session.project
+    return sorted(by_id.values(), key=lambda project: project.name.lower())
 
 
 def _get_owned_category(user, pk: int) -> BehaviorCategory:
@@ -1738,8 +1790,8 @@ def build_reproducibility_bundle(project: Project) -> dict[str, bytes]:
         )
 
     manifest = {
-        'schema': 'pybehaviorlog-0.9.1-bundle',
-        'version': '0.9.1',
+        'schema': 'pybehaviorlog-0.9.5-bundle',
+        'version': '0.9.5',
         'project': {
             'name': project.name,
             'description': project.description,
@@ -2314,8 +2366,8 @@ def build_session_compatibility_report(session: ObservationSession) -> dict:
     modifier_event_count = sum(1 for event in ordered_events if event.modifiers.exists())
     multi_subject_event_count = sum(1 for event in ordered_events if event.subjects.count() > 1)
     report = {
-        'schema': 'pybehaviorlog-0.9.1-session-compatibility-report',
-        'version': '0.9.1',
+        'schema': 'pybehaviorlog-0.9.5-session-compatibility-report',
+        'version': '0.9.5',
         'session': session.title,
         'boris': {
             'documented_exports': [
@@ -2369,8 +2421,8 @@ def build_session_compatibility_report(session: ObservationSession) -> dict:
 def build_project_compatibility_report(project: Project) -> dict:
     """Summarize project-level exchange coverage for BORIS and CowLog."""
     return {
-        'schema': 'pybehaviorlog-0.9.1-project-compatibility-report',
-        'version': '0.9.1',
+        'schema': 'pybehaviorlog-0.9.5-project-compatibility-report',
+        'version': '0.9.5',
         'project': project.name,
         'counts': {
             'sessions': project.sessions.count(),
@@ -2599,6 +2651,7 @@ def import_project_payload(
         'pybehaviorlog-0.8.3-bundle',
         'pybehaviorlog-0.9-bundle',
         'pybehaviorlog-0.9.1-bundle',
+        'pybehaviorlog-0.9.5-bundle',
     }:
         raise ValueError(_('Unsupported project payload format.'))
 
@@ -2607,7 +2660,7 @@ def import_project_payload(
         project,
         {
             **ethogram_payload,
-            'schema': ethogram_payload.get('schema', 'pybehaviorlog-0.9.1-ethogram'),
+            'schema': ethogram_payload.get('schema', 'pybehaviorlog-0.9.5-ethogram'),
         },
         replace_existing=False,
     )
@@ -2818,7 +2871,7 @@ def import_project_payload(
 
 def build_ethogram_payload(project: Project) -> dict:  # pragma: no cover
     return {
-        'schema': 'pybehaviorlog-0.9.1-ethogram',
+        'schema': 'pybehaviorlog-0.9.5-ethogram',
         'project': {
             'name': project.name,
             'description': project.description,
@@ -2901,6 +2954,7 @@ def import_ethogram_payload(
         'pybehaviorlog-0.8.3-ethogram',
         'pybehaviorlog-0.9-ethogram',
         'pybehaviorlog-0.9.1-ethogram',
+        'pybehaviorlog-0.9.5-ethogram',
         'boris-project-v1',
         'boris-project-v2',
         'boris-project-v3',
@@ -3205,6 +3259,7 @@ def import_session_payload(
         'pybehaviorlog-0.8.3-session',
         'pybehaviorlog-0.9-session',
         'pybehaviorlog-0.9.1-session',
+        'pybehaviorlog-0.9.5-session',
         'cowlog-results-v1',
         'boris-tabular-csv-v1',
         'boris-tabular-tsv-v1',
@@ -4752,7 +4807,24 @@ def session_player(request, pk: int):  # pragma: no cover
 def review_queue(request):  # pragma: no cover
     queue = build_review_queue(request.user)
     filter_name = request.GET.get('filter', 'assigned')
-    rows = queue.get(filter_name, queue['assigned'] if request.user.is_authenticated else [])
+    rows = list(queue.get(filter_name, queue['assigned'] if request.user.is_authenticated else []))
+    project_filter = request.GET.get('project', '').strip()
+    status_filter = request.GET.get('status', '').strip()
+    assignee_filter = request.GET.get('assignee', '').strip()
+    reviewer_filter = request.GET.get('reviewer', '').strip()
+    query_filter = request.GET.get('q', '').strip()
+
+    rows = _filter_review_segments(
+        rows,
+        user=request.user,
+        project_filter=project_filter,
+        status_filter=status_filter,
+        assignee_filter=assignee_filter,
+        reviewer_filter=reviewer_filter,
+        query_filter=query_filter,
+    )
+
+    projects = _review_queue_project_choices(queue['all'])
     return render(
         request,
         'tracker/review_queue.html',
@@ -4760,9 +4832,149 @@ def review_queue(request):  # pragma: no cover
             'queue': queue,
             'rows': rows,
             'active_filter': filter_name,
+            'status_filter': status_filter,
+            'project_filter': project_filter,
+            'assignee_filter': assignee_filter,
+            'reviewer_filter': reviewer_filter,
+            'query_filter': query_filter,
+            'projects': projects,
             'release': build_release_metadata(),
         },
     )
+
+
+@login_required
+@require_GET
+def review_queue_export_segment_analytics_csv(request):
+    queue = build_review_queue(request.user)
+    filter_name = request.GET.get('filter', 'all').strip() or 'all'
+    project_filter = request.GET.get('project', '').strip()
+    status_filter = request.GET.get('status', '').strip()
+    assignee_filter = request.GET.get('assignee', '').strip()
+    reviewer_filter = request.GET.get('reviewer', '').strip()
+    query_filter = request.GET.get('q', '').strip()
+    rows = list(queue.get(filter_name, queue['all']))
+    segments = _filter_review_segments(
+        rows,
+        user=request.user,
+        project_filter=project_filter,
+        status_filter=status_filter,
+        assignee_filter=assignee_filter,
+        reviewer_filter=reviewer_filter,
+        query_filter=query_filter,
+    )
+    response = HttpResponse(content_type='text/csv; charset=utf-8')
+    response['Content-Disposition'] = 'attachment; filename="review_segment_analytics.csv"'
+    writer = csv.writer(response)
+    writer.writerow(
+        [
+            'project',
+            'session',
+            'segment',
+            'status',
+            'start_seconds',
+            'end_seconds',
+            'duration_seconds',
+            'assignee',
+            'reviewer',
+            'notes',
+        ]
+    )
+    for item in segments:
+        writer.writerow(
+            [
+                item.session.project.name,
+                item.session.title,
+                item.title,
+                item.status,
+                item.start_seconds,
+                item.end_seconds,
+                item.duration_seconds,
+                item.assignee.username if item.assignee else '',
+                item.reviewer.username if item.reviewer else '',
+                item.notes,
+            ]
+        )
+    return response
+
+
+@login_required
+@require_POST
+def segment_batch_assign(request, pk: int):  # pragma: no cover
+    session = get_accessible_session(request.user, pk)
+    _require_project_reviewer(request.user, session.project)
+    segment_ids = [value for value in request.POST.getlist('segment_ids') if value.isdigit()]
+    if not segment_ids:
+        messages.error(request, _('Select at least one review segment.'))
+        return redirect(session)
+
+    segments = list(session.segments.filter(pk__in=segment_ids))
+    if not segments:
+        messages.error(request, _('No matching review segments found.'))
+        return redirect(session)
+
+    member_ids = set(session.project.memberships.values_list('user_id', flat=True)) | {session.project.owner_id}
+
+    assignee_value = request.POST.get('assignee')
+    reviewer_value = request.POST.get('reviewer')
+    status_value = request.POST.get('status')
+
+    if assignee_value and (not assignee_value.isdigit() or int(assignee_value) not in member_ids):
+        messages.error(request, _('Invalid assignee.'))
+        return redirect(session)
+    if reviewer_value and (not reviewer_value.isdigit() or int(reviewer_value) not in member_ids):
+        messages.error(request, _('Invalid reviewer.'))
+        return redirect(session)
+    if status_value and status_value not in {
+        ObservationSegment.STATUS_TODO,
+        ObservationSegment.STATUS_IN_PROGRESS,
+        ObservationSegment.STATUS_DONE,
+    }:
+        messages.error(request, _('Invalid segment status.'))
+        return redirect(session)
+
+    assignee_id = int(assignee_value) if assignee_value else None
+    reviewer_id = int(reviewer_value) if reviewer_value else None
+    update_assignee = request.POST.get('set_assignee') == '1'
+    update_reviewer = request.POST.get('set_reviewer') == '1'
+    update_status = request.POST.get('set_status') == '1'
+
+    updated_count = 0
+    for item in segments:
+        changed = False
+        if update_assignee and item.assignee_id != assignee_id:
+            item.assignee_id = assignee_id
+            changed = True
+        if update_reviewer and item.reviewer_id != reviewer_id:
+            item.reviewer_id = reviewer_id
+            changed = True
+        if update_status and item.status != status_value:
+            item.status = status_value
+            changed = True
+        if changed:
+            item.save(update_fields=['assignee', 'reviewer', 'status', 'updated_at'])
+            updated_count += 1
+
+    if updated_count:
+        _log_audit(
+            session,
+            actor=request.user,
+            action=ObservationAuditLog.ACTION_UPDATE,
+            target_type=ObservationAuditLog.TARGET_SESSION,
+            target_id=session.id,
+            summary=f'Batch-updated {updated_count} review segments.',
+            payload={
+                'segment_ids': [item.id for item in segments],
+                'updated_count': updated_count,
+                'set_assignee': update_assignee,
+                'set_reviewer': update_reviewer,
+                'set_status': update_status,
+            },
+        )
+        messages.success(request, _('Review segments updated.'))
+    else:
+        messages.info(request, _('No segment values changed.'))
+    return redirect(session)
 
 
 @login_required
@@ -5279,7 +5491,7 @@ def session_export_sql(request, pk: int):  # pragma: no cover
     """Export session events as SQL INSERT statements for downstream analysis."""
     session = get_accessible_session(request.user, pk)
     lines = [
-        '-- PyBehaviorLog 0.9.1 SQL export',
+        '-- PyBehaviorLog 0.9.5 SQL export',
         'BEGIN;',
         'CREATE TABLE IF NOT EXISTS pybehaviorlog_event_export (project text, session text, primary_video text, synced_videos text, observer text, category text, behavior text, behavior_mode text, event_kind text, timestamp_seconds numeric(10,3), subjects text, modifiers text, comment text, created_at text);',
     ]
@@ -5316,7 +5528,7 @@ def session_export_cowlog_txt(request, pk: int):  # pragma: no cover
     response['Content-Disposition'] = (
         f'attachment; filename="session_{session.pk}_cowlog_compatible.txt"'
     )
-    response.write('# PyBehaviorLog 0.9.1 CowLog-compatible export\n')
+    response.write('# PyBehaviorLog 0.9.5 CowLog-compatible export\n')
     response.write(f'# session\t{session.title}\n')
     response.write(f'# project\t{session.project.name}\n')
     response.write(f'# primary_video\t{session.primary_label}\n')
@@ -5443,7 +5655,7 @@ def session_export_tsv(request, pk: int):  # pragma: no cover
 def session_export_json(request, pk: int):
     session = get_accessible_session(request.user, pk)
     payload = {
-        'schema': 'pybehaviorlog-0.9.1-session',
+        'schema': 'pybehaviorlog-0.9.5-session',
         'project': session.project.name,
         'session': session.title,
         'video': session.primary_label,

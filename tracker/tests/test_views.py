@@ -92,7 +92,7 @@ class ViewTests(TestCase):
 
         export_response = self.client.get(reverse('tracker:session_export_json', args=[session.pk]))
         self.assertEqual(export_response.status_code, 200)
-        self.assertIn('pybehaviorlog-0.9.1-session', export_response.content.decode('utf-8'))
+        self.assertIn('pybehaviorlog-0.9.5-session', export_response.content.decode('utf-8'))
 
     def test_event_update_and_delete_api(self):
         session = self.project.sessions.create(
@@ -242,7 +242,7 @@ class ViewTests(TestCase):
     def test_project_import_boris_json_view(self):
         payload = {
             'schema': 'boris-project-v3',
-            'ethogram': {'schema': 'pybehaviorlog-0.9.1-ethogram', 'categories': [], 'modifiers': [], 'subject_groups': [], 'subjects': [], 'variables': [], 'behaviors': [{'name': 'Imported behavior', 'description': '', 'key_binding': 'i', 'color': '#0f766e', 'mode': 'point', 'sort_order': 1, 'category': None}]},
+            'ethogram': {'schema': 'pybehaviorlog-0.9.5-ethogram', 'categories': [], 'modifiers': [], 'subject_groups': [], 'subjects': [], 'variables': [], 'behaviors': [{'name': 'Imported behavior', 'description': '', 'key_binding': 'i', 'color': '#0f766e', 'mode': 'point', 'sort_order': 1, 'category': None}]},
             'subject_groups': [{'name': 'Imported group', 'description': '', 'color': '#123456', 'sort_order': 1}],
             'subjects': [{'name': 'Imported subject', 'description': '', 'key_binding': 's', 'color': '#654321', 'sort_order': 1, 'groups': ['Imported group']}],
             'variables': [{'label': 'Weight', 'description': '', 'value_type': 'numeric', 'set_values': [], 'default_value': '0', 'sort_order': 1}],
@@ -318,7 +318,7 @@ class ViewTests(TestCase):
         payload = {
             'schema': 'boris-project-v2',
             'ethogram': {
-                'schema': 'pybehaviorlog-0.9.1-ethogram',
+                'schema': 'pybehaviorlog-0.9.5-ethogram',
                 'categories': {'General': {'color': '#111111', 'sort_order': 1}},
                 'modifiers': {'Near': {'description': 'proximity', 'key': 'n', 'sort_order': 1}},
                 'behaviors': {'Imported code': {'description': '', 'key': 'i', 'color': '#0f766e', 'mode': 'point', 'sort_order': 1, 'category': {'name': 'General'}}},
@@ -398,6 +398,70 @@ class ViewTests(TestCase):
         self.assertEqual(update_response.status_code, 302)
         segment.refresh_from_db()
         self.assertEqual(segment.status, ObservationSegment.STATUS_DONE)
+
+    def test_segment_batch_assign_and_review_queue_filters_and_export(self):
+        session = self.project.sessions.create(title='Batch session', observer=self.user, session_kind='live')
+        first = ObservationSegment.objects.create(
+            session=session,
+            title='Intro segment',
+            start_seconds='0',
+            end_seconds='5',
+            status=ObservationSegment.STATUS_TODO,
+            assignee=self.user,
+            reviewer=self.reviewer,
+        )
+        second = ObservationSegment.objects.create(
+            session=session,
+            title='Core segment',
+            start_seconds='5',
+            end_seconds='15',
+            status=ObservationSegment.STATUS_IN_PROGRESS,
+            assignee=None,
+            reviewer=self.reviewer,
+        )
+
+        reviewer_client = Client()
+        reviewer_client.login(username='reviewer', password='pass12345')
+        batch_response = reviewer_client.post(
+            reverse('tracker:segment_batch_assign', args=[session.pk]),
+            data={
+                'segment_ids': [first.pk, second.pk],
+                'set_assignee': '1',
+                'assignee': self.reviewer.pk,
+                'set_status': '1',
+                'status': ObservationSegment.STATUS_DONE,
+            },
+        )
+        self.assertEqual(batch_response.status_code, 302)
+        first.refresh_from_db()
+        second.refresh_from_db()
+        self.assertEqual(first.assignee_id, self.reviewer.pk)
+        self.assertEqual(second.assignee_id, self.reviewer.pk)
+        self.assertEqual(first.status, ObservationSegment.STATUS_DONE)
+        self.assertEqual(second.status, ObservationSegment.STATUS_DONE)
+
+        queue_response = reviewer_client.get(
+            reverse('tracker:review_queue'),
+            {
+                'filter': 'all',
+                'status': 'done',
+                'assignee': 'me',
+                'q': 'Core',
+            },
+        )
+        self.assertEqual(queue_response.status_code, 200)
+        self.assertContains(queue_response, 'Core segment')
+        self.assertNotContains(queue_response, 'Intro segment')
+
+        export_response = reviewer_client.get(
+            reverse('tracker:review_queue_export_segment_analytics_csv'),
+            {'filter': 'all', 'status': 'done', 'assignee': 'me', 'q': 'Core'},
+        )
+        self.assertEqual(export_response.status_code, 200)
+        self.assertEqual(export_response['Content-Type'], 'text/csv; charset=utf-8')
+        csv_payload = export_response.content.decode('utf-8')
+        self.assertIn('Core segment', csv_payload)
+        self.assertNotIn('Intro segment', csv_payload)
 
     def test_session_export_json_contains_segments(self):
         session = self.project.sessions.create(title='Segment export', observer=self.user, session_kind='live')

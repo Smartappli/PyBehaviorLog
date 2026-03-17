@@ -1,8 +1,8 @@
-# PyBehaviorLog 0.9.1
+# PyBehaviorLog 0.9.5
 
 PyBehaviorLog is an ASGI-first behavioral observation platform built with Django 6.0.3. It is designed for research teams who need video-assisted coding, live observations, structured ethograms, review workflows, and exportable analytics without being locked into a desktop-only workflow.
 
-## What is in this 0.9.1 archive
+## What is in this 0.9.5 archive
 
 This version extends the earlier CowLog/BORIS-inspired foundations with:
 
@@ -23,7 +23,7 @@ This version extends the earlier CowLog/BORIS-inspired foundations with:
 - PostgreSQL 18 + Redis 8 container stack
 - Argon2 password hashing
 - database-backed sessions
-- Django 6 built-in CSP middleware support
+- Django CSP middleware support
 - unit tests, coverage gate, pre-commit, and GitHub Actions CI
 - built-in BORIS/CowLog round-trip certification fixtures and comparison helpers
 - BORIS-style CSV/TSV/XLSX session imports
@@ -57,8 +57,10 @@ source .venv/bin/activate
 pip install -r requirements.txt
 python manage.py migrate
 python manage.py createsuperuser
-python manage.py runserver
+granian --interface asgi --host 127.0.0.1 --port 8000 config.asgi:application
 ```
+
+For ASGI-parity in local development, use Granian (instead of the Django dev server) as shown above.
 
 ## Quick start with Docker
 
@@ -120,8 +122,32 @@ This repository is marked as **AGPL-3.0-only**.
 - Management commands: `export_project_bundle` and `release_report`.
 
 
-## New in 0.9.1
+## New in 0.9.2
 
 - Added segment-level review queues and assignee/reviewer workflow.
 - Added session review segments with CRUD screens and queue dashboard.
 - Included review segments in JSON and BORIS-like session exports/imports.
+- Added batch assignment of review segments from the session player.
+- Added finer review queue filtering by project, status, assignee/reviewer, and search text.
+- Added CSV export for review-segment analytics from the review queue.
+
+## New in 0.9.3
+
+- Refined review queue filtering internals for consistency between UI and CSV export.
+- Export now honors the same active queue and filter parameters as the dashboard.
+- Minor release polish and metadata/documentation update to 0.9.3.
+
+
+## New in 0.9.4
+
+- Full pass on review-queue/batch-assignment code paths with consistency fixes for filtered exports.
+- Hardened security defaults for production (`DJANGO_SECRET_KEY`, `ALLOWED_HOSTS`, TLS/HSTS flags).
+- Refreshed runtime/development dependencies to newer maintained versions.
+- Confirmed Granian remains the default ASGI server for local and deployment workflows.
+
+
+## New in 0.9.5
+
+- Unified PyBehaviorLog export schema/version markers on 0.9.5 (session JSON, bundle manifest, compatibility reports, SQL/CowLog headers).
+- Kept backward-compatible import support for 0.9.1 schemas while adding explicit 0.9.5 schema acceptance.
+- Maintained review-queue filtered CSV export and batch segment assignment workflows from 0.9.3/0.9.4.
