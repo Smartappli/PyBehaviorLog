@@ -34,10 +34,6 @@ This version extends the earlier CowLog/BORIS-inspired foundations with:
 - more faithful BORIS-style tabular imports with start/stop intervals, annotation rows, and broader header aliases
 - deeper image-sequence diagnostics for picture-based observations and relative-path exports
 
-## Design direction
-
-The user interface deliberately avoids the glossy "generic AI dashboard" style. The visual system uses a field notebook / research console theme: warm paper tones, restrained contrast, dense but readable information blocks, and controls that feel closer to an observation workstation than to a marketing template.
-
 ## Runtime stack
 
 - Python 3.13+
