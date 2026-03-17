@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.5
+
+- Unified export schema/version markers to 0.9.5 across session JSON, bundle manifest, compatibility report, SQL header and CowLog header.
+- Preserved backward import compatibility for 0.9.1 schemas while adding acceptance for 0.9.5 schemas.
+- Carried forward v0.9.3 review queue filtering/export consistency and batch assignment behavior.
+
 ## 0.9.4
 
 - Restored Django runtime target to 6.0.3.
