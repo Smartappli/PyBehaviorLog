@@ -3,7 +3,7 @@
 [![CI](https://github.com/Smartappli/PyBehaviorLog/actions/workflows/ci.yml/badge.svg)](https://github.com/Smartappli/PyBehaviorLog/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/Smartappli/PyBehaviorLog/actions/workflows/codeql.yml/badge.svg)](https://github.com/Smartappli/PyBehaviorLog/actions/workflows/codeql.yml)
 [![Dependabot Updates](https://github.com/Smartappli/PyBehaviorLog/actions/workflows/dependabot/dependabot-updates/badge.svg)](https://github.com/Smartappli/PyBehaviorLog/actions/workflows/dependabot/dependabot-updates)
-[![Release Drafter](https://github.com/PyBehaviorLog/PyBehaviorLog/actions/workflows/release-drafter.yml/badge.svg)](https://github.com/PyBehaviorLog/PyBehaviorLog/actions/workflows/release-drafter.yml)
+[![Release Drafter](https://github.com/Smartappli/PyBehaviorLog/actions/workflows/release-drafter.yml/badge.svg)](https://github.com/Smartappli/PyBehaviorLog/actions/workflows/release-drafter.yml)
 
 PyBehaviorLog is an ASGI-first behavioral observation platform built with Django 6.0.3. It is designed for research teams who need video-assisted coding, live observations, structured ethograms, review workflows, and exportable analytics without being locked into a desktop-only workflow.
 
