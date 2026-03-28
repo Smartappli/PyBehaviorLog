@@ -148,7 +148,6 @@ class ModelTests(TestCase):
         )
         self.assertIn('status', str(log))
 
-
     def test_observation_segment_duration(self):
         session = ObservationSession.objects.create(
             project=self.project,

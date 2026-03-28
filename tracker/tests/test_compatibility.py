@@ -77,7 +77,6 @@ class CompatibilityTests(TestCase):
         self.assertEqual(event.behavior.name, 'Eat')
         self.assertEqual(event.modifiers_display, 'Near')
 
-
     def test_load_session_import_payload_supports_state_intervals_from_tabular_rows(self):
         upload = SimpleUploadedFile(
             'boris_rows.csv',
@@ -181,7 +180,9 @@ class CompatibilityTests(TestCase):
             event_kind=ObservationEvent.KIND_POINT,
             timestamp_seconds=Decimal('1.000'),
         )
-        response = self.client.get(reverse('tracker:session_export_cowlog_txt', args=[self.session.pk]))
+        response = self.client.get(
+            reverse('tracker:session_export_cowlog_txt', args=[self.session.pk])
+        )
         self.assertEqual(response.status_code, 200)
         self.assertIn('CowLog-compatible', response.content.decode('utf-8'))
         response = self.client.get(
@@ -189,7 +190,9 @@ class CompatibilityTests(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertIn('# observation id:', response.content.decode('utf-8'))
-        response = self.client.get(reverse('tracker:session_export_textgrid', args=[self.session.pk]))
+        response = self.client.get(
+            reverse('tracker:session_export_textgrid', args=[self.session.pk])
+        )
         self.assertEqual(response.status_code, 200)
         self.assertIn('TextGrid', response.content.decode('utf-8'))
         response = self.client.get(

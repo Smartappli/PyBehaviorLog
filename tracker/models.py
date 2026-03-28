@@ -256,7 +256,9 @@ class IndependentVariableDefinition(models.Model):
     label = models.CharField(max_length=120)
     description = models.CharField(max_length=255, blank=True)
     value_type = models.CharField(max_length=20, choices=TYPE_CHOICES, default=TYPE_TEXT)
-    set_values = models.TextField(blank=True, help_text=_('Comma-separated values for list fields.'))
+    set_values = models.TextField(
+        blank=True, help_text=_('Comma-separated values for list fields.')
+    )
     default_value = models.CharField(max_length=255, blank=True)
     sort_order = models.PositiveIntegerField(default=0)
 
@@ -561,7 +563,6 @@ class ObservationSegment(models.Model):
     @property
     def duration_seconds(self) -> float:
         return round(float(self.end_seconds - self.start_seconds), 3)
-
 
 
 class ObservationEvent(models.Model):

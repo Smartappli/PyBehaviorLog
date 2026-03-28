@@ -127,12 +127,9 @@ class KeyboardProfileForm(forms.ModelForm):
 
 
 class EthogramImportForm(forms.Form):
-
     file = forms.FileField(
         label=_('File'),
-        help_text=_(
-            'JSON export from PyBehaviorLog 0.9.1 or BORIS-compatible JSON.'
-        ),
+        help_text=_('JSON export from PyBehaviorLog 0.9.1 or BORIS-compatible JSON.'),
     )
     replace_existing = forms.BooleanField(
         required=False,
@@ -164,7 +161,12 @@ class ProjectBORISImportForm(forms.Form):
 
 
 class SessionImportForm(forms.Form):
-    file = forms.FileField(label=_('File'), help_text=_('PyBehaviorLog 0.9.1 JSON, BORIS observation JSON, spreadsheet-like session tables, or CowLog plain-text coding results.'))
+    file = forms.FileField(
+        label=_('File'),
+        help_text=_(
+            'PyBehaviorLog 0.9.1 JSON, BORIS observation JSON, spreadsheet-like session tables, or CowLog plain-text coding results.'
+        ),
+    )
     clear_existing = forms.BooleanField(
         required=False,
         label=_('Delete existing events and annotations before import'),
@@ -187,7 +189,12 @@ class ModifierForm(forms.ModelForm):
             'description': forms.TextInput(),
             'key_binding': forms.TextInput(attrs={'maxlength': 1}),
         }
-        labels = {'name': _('Name'), 'description': _('Description'), 'key_binding': _('Key binding'), 'sort_order': _('Sort order')}
+        labels = {
+            'name': _('Name'),
+            'description': _('Description'),
+            'key_binding': _('Key binding'),
+            'sort_order': _('Sort order'),
+        }
 
     def clean_key_binding(self):
         return self.cleaned_data['key_binding'].upper()
@@ -201,7 +208,12 @@ class SubjectGroupForm(forms.ModelForm):
             'description': forms.TextInput(),
             'color': forms.TextInput(attrs={'type': 'color'}),
         }
-        labels = {'name': _('Name'), 'description': _('Description'), 'color': _('Color'), 'sort_order': _('Sort order')}
+        labels = {
+            'name': _('Name'),
+            'description': _('Description'),
+            'color': _('Color'),
+            'sort_order': _('Sort order'),
+        }
 
 
 class SubjectForm(forms.ModelForm):
@@ -214,7 +226,14 @@ class SubjectForm(forms.ModelForm):
             'color': forms.TextInput(attrs={'type': 'color'}),
             'groups': forms.CheckboxSelectMultiple(),
         }
-        labels = {'name': _('Name'), 'description': _('Description'), 'groups': _('Groups'), 'key_binding': _('Key binding'), 'color': _('Color'), 'sort_order': _('Sort order')}
+        labels = {
+            'name': _('Name'),
+            'description': _('Description'),
+            'groups': _('Groups'),
+            'key_binding': _('Key binding'),
+            'color': _('Color'),
+            'sort_order': _('Sort order'),
+        }
 
     def __init__(self, *args, project=None, **kwargs):
         super().__init__(*args, **kwargs)
@@ -236,7 +255,14 @@ class IndependentVariableDefinitionForm(forms.ModelForm):
             'set_values': forms.Textarea(attrs={'rows': 3}),
             'default_value': forms.TextInput(),
         }
-        labels = {'label': _('Label'), 'description': _('Description'), 'value_type': _('Value type'), 'set_values': _('Allowed values'), 'default_value': _('Default value'), 'sort_order': _('Sort order')}
+        labels = {
+            'label': _('Label'),
+            'description': _('Description'),
+            'value_type': _('Value type'),
+            'set_values': _('Allowed values'),
+            'default_value': _('Default value'),
+            'sort_order': _('Sort order'),
+        }
 
 
 class BehaviorForm(forms.ModelForm):
@@ -248,7 +274,15 @@ class BehaviorForm(forms.ModelForm):
             'key_binding': forms.TextInput(attrs={'maxlength': 1}),
             'color': forms.TextInput(attrs={'type': 'color'}),
         }
-        labels = {'category': _('Category'), 'name': _('Name'), 'description': _('Description'), 'key_binding': _('Key binding'), 'color': _('Color'), 'mode': _('Mode'), 'sort_order': _('Sort order')}
+        labels = {
+            'category': _('Category'),
+            'name': _('Name'),
+            'description': _('Description'),
+            'key_binding': _('Key binding'),
+            'color': _('Color'),
+            'mode': _('Mode'),
+            'sort_order': _('Sort order'),
+        }
 
     def __init__(self, *args, project=None, **kwargs):
         super().__init__(*args, **kwargs)
@@ -279,7 +313,15 @@ class ObservationTemplateForm(forms.ModelForm):
             'subjects': forms.CheckboxSelectMultiple(),
             'variable_definitions': forms.CheckboxSelectMultiple(),
         }
-        labels = {'name': _('Name'), 'description': _('Description'), 'default_session_kind': _('Default session kind'), 'behaviors': _('Behaviors'), 'modifiers': _('Modifiers'), 'subjects': _('Subjects'), 'variable_definitions': _('Independent variables')}
+        labels = {
+            'name': _('Name'),
+            'description': _('Description'),
+            'default_session_kind': _('Default session kind'),
+            'behaviors': _('Behaviors'),
+            'modifiers': _('Modifiers'),
+            'subjects': _('Subjects'),
+            'variable_definitions': _('Independent variables'),
+        }
 
     def __init__(self, *args, project=None, **kwargs):
         super().__init__(*args, **kwargs)
@@ -308,11 +350,18 @@ class VideoAssetForm(forms.ModelForm):
             self.fields['file'].required = False
 
 
-
 class ObservationSegmentForm(forms.ModelForm):
     class Meta:
         model = ObservationSegment
-        fields = ['title', 'start_seconds', 'end_seconds', 'status', 'assignee', 'reviewer', 'notes']
+        fields = [
+            'title',
+            'start_seconds',
+            'end_seconds',
+            'status',
+            'assignee',
+            'reviewer',
+            'notes',
+        ]
         widgets = {'notes': forms.Textarea(attrs={'rows': 3})}
         labels = {
             'title': _('Title'),
@@ -328,7 +377,9 @@ class ObservationSegmentForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         queryset = User.objects.order_by('username')
         if project is not None:
-            member_ids = list(project.memberships.values_list('user_id', flat=True)) + [project.owner_id]
+            member_ids = list(project.memberships.values_list('user_id', flat=True)) + [
+                project.owner_id
+            ]
             queryset = queryset.filter(pk__in=member_ids).distinct()
         self.fields['assignee'].queryset = queryset
         self.fields['reviewer'].queryset = queryset
@@ -338,7 +389,9 @@ class ObservationSegmentForm(forms.ModelForm):
         start = cleaned.get('start_seconds')
         end = cleaned.get('end_seconds')
         if start is not None and end is not None and end < start:
-            self.add_error('end_seconds', _('End time must be greater than or equal to start time.'))
+            self.add_error(
+                'end_seconds', _('End time must be greater than or equal to start time.')
+            )
         return cleaned
 
 
@@ -438,9 +491,9 @@ class ObservationSessionForm(forms.ModelForm):
                     definition.value_type == IndependentVariableDefinition.TYPE_SET
                     and definition.set_values
                 ):
-                    help_text = (
-                        help_text + ' ' if help_text else ''
-                    ) + _('Allowed values: %(values)s') % {'values': definition.set_values}
+                    help_text = (help_text + ' ' if help_text else '') + _(
+                        'Allowed values: %(values)s'
+                    ) % {'values': definition.set_values}
                 field.help_text = help_text
                 self.fields[field_name] = field
                 initial_value = definition.default_value

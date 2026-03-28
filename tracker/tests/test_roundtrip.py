@@ -33,7 +33,9 @@ class RoundTripCertificationTests(TestCase):
     def _base_project(self):
         project = Project.objects.create(owner=self.user, name='Fixture Project')
         Behavior.objects.create(project=project, name='Eat', key_binding='E')
-        Behavior.objects.create(project=project, name='Stand', key_binding='S', mode=Behavior.MODE_STATE)
+        Behavior.objects.create(
+            project=project, name='Stand', key_binding='S', mode=Behavior.MODE_STATE
+        )
         Modifier.objects.create(project=project, name='Near', key_binding='N')
         Subject.objects.create(project=project, name='Cow 1', key_binding='C')
         IndependentVariableDefinition.objects.create(
@@ -50,7 +52,9 @@ class RoundTripCertificationTests(TestCase):
             observer=self.user,
             title='Fixture Observation',
         )
-        payload = json.loads((FIXTURES / 'boris_observation_roundtrip.json').read_text(encoding='utf-8'))
+        payload = json.loads(
+            (FIXTURES / 'boris_observation_roundtrip.json').read_text(encoding='utf-8')
+        )
         upload = SimpleUploadedFile(
             'boris_observation_roundtrip.json',
             json.dumps(payload).encode('utf-8'),
@@ -71,7 +75,9 @@ class RoundTripCertificationTests(TestCase):
             title='CowLog Fixture',
         )
         raw_text = (FIXTURES / 'cowlog_results_roundtrip.txt').read_text(encoding='utf-8')
-        upload = SimpleUploadedFile('cowlog_results_roundtrip.txt', raw_text.encode('utf-8'), content_type='text/plain')
+        upload = SimpleUploadedFile(
+            'cowlog_results_roundtrip.txt', raw_text.encode('utf-8'), content_type='text/plain'
+        )
         imported_payload, report = load_session_import_payload(upload, session)
         self.assertEqual(report['detected_format'], 'cowlog-results-v1')
         import_session_payload(session, imported_payload, clear_existing=True)
@@ -82,7 +88,9 @@ class RoundTripCertificationTests(TestCase):
                     'time': event.timestamp_seconds,
                     'behavior': event.behavior.name,
                     'event_kind': event.event_kind,
-                    'modifiers': [item.name for item in event.modifiers.order_by('sort_order', 'name')],
+                    'modifiers': [
+                        item.name for item in event.modifiers.order_by('sort_order', 'name')
+                    ],
                     'subjects': [item.name for item in event.all_subjects_ordered],
                     'comment': event.comment,
                 }
@@ -95,7 +103,9 @@ class RoundTripCertificationTests(TestCase):
 
     def test_boris_project_fixture_roundtrip(self):
         project = Project.objects.create(owner=self.user, name='Imported Project')
-        payload = json.loads((FIXTURES / 'boris_project_roundtrip.json').read_text(encoding='utf-8'))
+        payload = json.loads(
+            (FIXTURES / 'boris_project_roundtrip.json').read_text(encoding='utf-8')
+        )
         counts = import_project_payload(project, payload, actor=self.user, import_sessions=True)
         self.assertGreaterEqual(counts['sessions_imported'], 1)
         exported_payload = build_project_boris_payload(project)
@@ -109,7 +119,9 @@ class RoundTripCertificationTests(TestCase):
         }
         right = {
             'schema': 'boris-observation-v3',
-            'observations': [{'events': [{'time': 1.0, 'behavior': 'Drink', 'event_kind': 'point'}]}],
+            'observations': [
+                {'events': [{'time': 1.0, 'behavior': 'Drink', 'event_kind': 'point'}]}
+            ],
         }
         report = build_roundtrip_report(left, right, family='session')
         self.assertFalse(report['equivalent'])

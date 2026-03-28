@@ -7,7 +7,7 @@ from tracker.views import build_reproducibility_bundle
 
 
 class Command(BaseCommand):
-    help = "Export a PyBehaviorLog reproducibility bundle for a project."
+    help = 'Export a PyBehaviorLog reproducibility bundle for a project.'
 
     def add_arguments(self, parser):
         parser.add_argument('project_id', type=int)

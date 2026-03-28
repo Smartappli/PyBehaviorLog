@@ -476,6 +476,7 @@ def build_review_queue(user) -> dict:
         },
     }
 
+
 def _filter_review_segments(
     rows: list[ObservationSegment],
     *,
@@ -4913,7 +4914,9 @@ def segment_batch_assign(request, pk: int):  # pragma: no cover
         messages.error(request, _('No matching review segments found.'))
         return redirect(session)
 
-    member_ids = set(session.project.memberships.values_list('user_id', flat=True)) | {session.project.owner_id}
+    member_ids = set(session.project.memberships.values_list('user_id', flat=True)) | {
+        session.project.owner_id
+    }
 
     assignee_value = request.POST.get('assignee')
     reviewer_value = request.POST.get('reviewer')
