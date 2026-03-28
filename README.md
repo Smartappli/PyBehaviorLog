@@ -1,5 +1,9 @@
 # PyBehaviorLog 0.9.5
 
+[![CI](https://github.com/PyBehaviorLog/PyBehaviorLog/actions/workflows/ci.yml/badge.svg)](https://github.com/PyBehaviorLog/PyBehaviorLog/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/PyBehaviorLog/PyBehaviorLog/actions/workflows/codeql.yml/badge.svg)](https://github.com/PyBehaviorLog/PyBehaviorLog/actions/workflows/codeql.yml)
+[![Release Drafter](https://github.com/PyBehaviorLog/PyBehaviorLog/actions/workflows/release-drafter.yml/badge.svg)](https://github.com/PyBehaviorLog/PyBehaviorLog/actions/workflows/release-drafter.yml)
+
 PyBehaviorLog is an ASGI-first behavioral observation platform built with Django 6.0.3. It is designed for research teams who need video-assisted coding, live observations, structured ethograms, review workflows, and exportable analytics without being locked into a desktop-only workflow.
 
 ## What is in this version
