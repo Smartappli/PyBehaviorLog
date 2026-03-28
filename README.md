@@ -4,6 +4,7 @@
 [![CodeQL](https://github.com/Smartappli/PyBehaviorLog/actions/workflows/codeql.yml/badge.svg)](https://github.com/Smartappli/PyBehaviorLog/actions/workflows/codeql.yml)
 [![Dependabot Updates](https://github.com/Smartappli/PyBehaviorLog/actions/workflows/dependabot/dependabot-updates/badge.svg)](https://github.com/Smartappli/PyBehaviorLog/actions/workflows/dependabot/dependabot-updates)
 [![Release Drafter](https://github.com/Smartappli/PyBehaviorLog/actions/workflows/release-drafter.yml/badge.svg)](https://github.com/Smartappli/PyBehaviorLog/actions/workflows/release-drafter.yml)
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=Smartappli_PyBehaviorLog&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=Smartappli_PyBehaviorLog)
 
 PyBehaviorLog is an ASGI-first behavioral observation platform built with Django 6.0.3. It is designed for research teams who need video-assisted coding, live observations, structured ethograms, review workflows, and exportable analytics without being locked into a desktop-only workflow.
 
