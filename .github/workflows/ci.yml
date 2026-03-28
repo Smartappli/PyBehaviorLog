@@ -22,20 +22,26 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
-          cache: pip
 
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements-dev.txt
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
 
       - name: Run Django system checks
-        run: python manage.py check
+        run: uv run --no-project --with-requirements requirements-dev.txt python manage.py check
 
       - name: Run pre-commit
-        run: pre-commit run --all-files
+        run: uv run --no-project --with-requirements requirements-dev.txt pre-commit run --all-files
+
+      - name: Analyze dependency licenses
+        run: uv run --no-project --with-requirements requirements-dev.txt --with pip-licenses pip-licenses --format=markdown --with-authors --with-urls --output-file licenses-report.md
+
+      - name: Upload license report
+        uses: actions/upload-artifact@v4
+        with:
+          name: licenses-report-${{ matrix.os }}-py${{ matrix.python-version }}
+          path: licenses-report.md
 
       - name: Run unit tests with coverage
         run: |
-          coverage run manage.py test
-          coverage report --fail-under=80
+          uv run --no-project --with-requirements requirements-dev.txt coverage run manage.py test
+          uv run --no-project --with-requirements requirements-dev.txt coverage report --fail-under=80

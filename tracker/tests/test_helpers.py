@@ -214,7 +214,9 @@ class HelperTests(TestCase):
         SessionVideoLink.objects.create(session=self.session, video=video, sort_order=0)
         boris_payload = build_boris_like_payload(self.session)
         media = build_media_analysis(self.session)
-        self.assertTrue(boris_payload['observations'][0]['media_paths'][0].startswith('videos/clip'))
+        self.assertTrue(
+            boris_payload['observations'][0]['media_paths'][0].startswith('videos/clip')
+        )
         self.assertTrue(boris_payload['observations'][0]['media_paths'][0].endswith('.wav'))
         self.assertTrue(media[0]['relative_path'].startswith('videos/clip'))
         self.assertTrue(media[0]['relative_path'].endswith('.wav'))
@@ -244,16 +246,43 @@ class HelperTests(TestCase):
             'schema': 'boris-project-v3',
             'ethogram': build_ethogram_payload(self.project),
             'subject_groups': [
-                {'name': 'Adults', 'description': 'Adult cattle', 'color': '#123456', 'sort_order': 1}
+                {
+                    'name': 'Adults',
+                    'description': 'Adult cattle',
+                    'color': '#123456',
+                    'sort_order': 1,
+                }
             ],
             'subjects': [
-                {'name': 'Cow 2', 'description': 'Imported subject', 'key_binding': 'v', 'color': '#654321', 'sort_order': 2, 'groups': ['Adults']}
+                {
+                    'name': 'Cow 2',
+                    'description': 'Imported subject',
+                    'key_binding': 'v',
+                    'color': '#654321',
+                    'sort_order': 2,
+                    'groups': ['Adults'],
+                }
             ],
             'variables': [
-                {'label': 'Temperature', 'description': 'Ambient', 'value_type': 'numeric', 'set_values': [], 'default_value': '12', 'sort_order': 1}
+                {
+                    'label': 'Temperature',
+                    'description': 'Ambient',
+                    'value_type': 'numeric',
+                    'set_values': [],
+                    'default_value': '12',
+                    'sort_order': 1,
+                }
             ],
             'observation_templates': [
-                {'name': 'Imported template', 'description': 'A template', 'default_session_kind': 'live', 'behaviors': ['Eat'], 'modifiers': ['Near'], 'subjects': ['Cow 1', 'Cow 2'], 'variable_definitions': ['Temperature']}
+                {
+                    'name': 'Imported template',
+                    'description': 'A template',
+                    'default_session_kind': 'live',
+                    'behaviors': ['Eat'],
+                    'modifiers': ['Near'],
+                    'subjects': ['Cow 1', 'Cow 2'],
+                    'variable_definitions': ['Temperature'],
+                }
             ],
             'sessions': [
                 {
@@ -266,8 +295,24 @@ class HelperTests(TestCase):
                             'title': 'Imported BORIS session',
                             'primary_video': 'No file yet',
                             'synced_videos': ['No file yet'],
-                            'events': [{'behavior': 'Eat', 'event_kind': 'point', 'time': 1.25, 'subjects': ['Cow 2'], 'modifiers': ['Near'], 'comment': 'Imported event'}],
-                            'annotations': [{'time': 2.0, 'title': 'Marker', 'note': 'Imported annotation', 'color': '#ff0000'}],
+                            'events': [
+                                {
+                                    'behavior': 'Eat',
+                                    'event_kind': 'point',
+                                    'time': 1.25,
+                                    'subjects': ['Cow 2'],
+                                    'modifiers': ['Near'],
+                                    'comment': 'Imported event',
+                                }
+                            ],
+                            'annotations': [
+                                {
+                                    'time': 2.0,
+                                    'title': 'Marker',
+                                    'note': 'Imported annotation',
+                                    'color': '#ff0000',
+                                }
+                            ],
                         }
                     ],
                 }
@@ -277,9 +322,13 @@ class HelperTests(TestCase):
         self.assertEqual(summary['templates_created'], 1)
         self.assertEqual(summary['sessions_imported'], 1)
         self.assertTrue(SubjectGroup.objects.filter(project=self.project, name='Adults').exists())
-        self.assertTrue(ObservationTemplate.objects.filter(project=self.project, name='Imported template').exists())
-        imported_session = ObservationSession.objects.get(project=self.project, title='Imported BORIS session')
+        self.assertTrue(
+            ObservationTemplate.objects.filter(
+                project=self.project, name='Imported template'
+            ).exists()
+        )
+        imported_session = ObservationSession.objects.get(
+            project=self.project, title='Imported BORIS session'
+        )
         self.assertEqual(imported_session.events.count(), 1)
         self.assertEqual(imported_session.annotations.count(), 1)
-
-

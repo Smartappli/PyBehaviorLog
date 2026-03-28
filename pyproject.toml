@@ -9,8 +9,17 @@ exclude = [
 ]
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "B", "UP"]
-ignore = ["E501"]
+select = ["E", "W", "F", "I", "B", "UP", "RUF", "SIM", "C4"]
+ignore = [
+  "E501",
+  # Django model/form Meta inner classes use mutable class attributes intentionally.
+  "RUF012",
+  # Existing code patterns intentionally trade strictness for readability in this project.
+  "RUF005",
+  "RUF010",
+  "RUF046",
+  "C416",
+]
 
 [tool.ruff.format]
 quote-style = "single"

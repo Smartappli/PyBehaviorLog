@@ -130,13 +130,20 @@ class ObservationSessionAdmin(admin.ModelAdmin):
     inlines = [SessionVideoInline, VariableValueInline]
 
 
-
-
 @admin.register(ObservationSegment)
 class ObservationSegmentAdmin(admin.ModelAdmin):
-    list_display = ('session', 'title', 'start_seconds', 'end_seconds', 'status', 'assignee', 'reviewer')
+    list_display = (
+        'session',
+        'title',
+        'start_seconds',
+        'end_seconds',
+        'status',
+        'assignee',
+        'reviewer',
+    )
     list_filter = ('session__project', 'status')
     search_fields = ('session__title', 'title', 'notes', 'assignee__username', 'reviewer__username')
+
 
 @admin.register(ObservationEvent)
 class ObservationEventAdmin(admin.ModelAdmin):

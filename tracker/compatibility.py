@@ -74,8 +74,6 @@ def _resolve_annotation_items(payload: dict[str, Any]) -> list[dict[str, Any]]:
     return []
 
 
-
-
 def _resolve_segment_items(payload: dict[str, Any]) -> list[dict[str, Any]]:
     if payload.get('schema', '').startswith('pybehaviorlog-'):
         return [item for item in payload.get('segments', []) if isinstance(item, dict)]
@@ -103,13 +101,19 @@ def normalize_session_payload(payload: dict[str, Any]) -> dict[str, Any]:
         event_kind = str(item.get('event_kind') or item.get('type') or 'point').lower()
         events.append(
             {
-                'time': _normalize_time(item.get('time') or item.get('timestamp_seconds') or item.get('start')),
+                'time': _normalize_time(
+                    item.get('time') or item.get('timestamp_seconds') or item.get('start')
+                ),
                 'behavior': str(behavior),
                 'event_kind': event_kind,
                 'modifiers': _string_list(item.get('modifiers')),
                 'subjects': _string_list(item.get('subjects') or item.get('subject')),
-                'comment': str(item.get('comment') or item.get('comment_start') or item.get('image_path') or ''),
-                'frame_index': int(item.get('frame_index') or item.get('frame') or 0) if str(item.get('frame_index') or item.get('frame') or '').strip() else None,
+                'comment': str(
+                    item.get('comment') or item.get('comment_start') or item.get('image_path') or ''
+                ),
+                'frame_index': int(item.get('frame_index') or item.get('frame') or 0)
+                if str(item.get('frame_index') or item.get('frame') or '').strip()
+                else None,
             }
         )
     events.sort(key=lambda item: (item['time'], item['behavior'], item['event_kind']))
@@ -124,12 +128,14 @@ def normalize_session_payload(payload: dict[str, Any]) -> dict[str, Any]:
     annotations.sort(key=lambda item: (item['time'], item['text']))
     segments = []
     for item in _resolve_segment_items(payload):
-        segments.append({
-            'title': str(item.get('title') or ''),
-            'start': _normalize_time(item.get('start_seconds') or item.get('start')),
-            'end': _normalize_time(item.get('end_seconds') or item.get('end')),
-            'status': str(item.get('status') or ''),
-        })
+        segments.append(
+            {
+                'title': str(item.get('title') or ''),
+                'start': _normalize_time(item.get('start_seconds') or item.get('start')),
+                'end': _normalize_time(item.get('end_seconds') or item.get('end')),
+                'status': str(item.get('status') or ''),
+            }
+        )
     segments.sort(key=lambda item: (item['start'], item['end'], item['title']))
     variables = payload.get('variables') or payload.get('independent_variables') or {}
     if not isinstance(variables, dict):
@@ -139,7 +145,9 @@ def normalize_session_payload(payload: dict[str, Any]) -> dict[str, Any]:
         'events': events,
         'annotations': annotations,
         'variables': {str(key): str(value) for key, value in sorted(variables.items())},
-        'media_paths': sorted(_string_list(payload.get('media_paths') or payload.get('image_paths'))),
+        'media_paths': sorted(
+            _string_list(payload.get('media_paths') or payload.get('image_paths'))
+        ),
         'segments': segments,
     }
 
@@ -169,6 +177,7 @@ def compare_session_payloads(expected: dict[str, Any], actual: dict[str, Any]) -
 
 def normalize_project_payload(payload: dict[str, Any]) -> dict[str, Any]:
     """Normalize project-like payloads for BORIS/PyBehaviorLog round-trip comparisons."""
+
     def _item_names(value: Any, *, key: str = 'name', fallback: str = 'label') -> list[str]:
         results = []
         if isinstance(value, dict):
@@ -200,7 +209,9 @@ def normalize_project_payload(payload: dict[str, Any]) -> dict[str, Any]:
         if isinstance(observations, list):
             for observation in observations:
                 if isinstance(observation, dict):
-                    session_titles.append(str(observation.get('title') or observation.get('description') or ''))
+                    session_titles.append(
+                        str(observation.get('title') or observation.get('description') or '')
+                    )
     return {
         'schema_family': str(payload.get('schema') or 'unknown'),
         'categories': _item_names(payload.get('categories')),
@@ -208,7 +219,11 @@ def normalize_project_payload(payload: dict[str, Any]) -> dict[str, Any]:
         'modifiers': _item_names(payload.get('modifiers')),
         'subject_groups': _item_names(payload.get('subject_groups')),
         'subjects': _item_names(payload.get('subjects')),
-        'variables': _item_names(payload.get('variables') or payload.get('independent_variables'), key='label', fallback='name'),
+        'variables': _item_names(
+            payload.get('variables') or payload.get('independent_variables'),
+            key='label',
+            fallback='name',
+        ),
         'templates': _item_names(payload.get('observation_templates')),
         'sessions': sorted(item for item in session_titles if item),
     }
@@ -219,7 +234,16 @@ def compare_project_payloads(expected: dict[str, Any], actual: dict[str, Any]) -
     actual_normalized = normalize_project_payload(actual)
     mismatches = [
         key
-        for key in ('categories', 'behaviors', 'modifiers', 'subject_groups', 'subjects', 'variables', 'templates', 'sessions')
+        for key in (
+            'categories',
+            'behaviors',
+            'modifiers',
+            'subject_groups',
+            'subjects',
+            'variables',
+            'templates',
+            'sessions',
+        )
         if expected_normalized[key] != actual_normalized[key]
     ]
     return {
@@ -230,7 +254,9 @@ def compare_project_payloads(expected: dict[str, Any], actual: dict[str, Any]) -
     }
 
 
-def build_roundtrip_report(expected: dict[str, Any], actual: dict[str, Any], family: str) -> dict[str, Any]:
+def build_roundtrip_report(
+    expected: dict[str, Any], actual: dict[str, Any], family: str
+) -> dict[str, Any]:
     """Build a machine-readable round-trip report for CI and fixture certification."""
     comparator = compare_project_payloads if family == 'project' else compare_session_payloads
     comparison = comparator(expected, actual)

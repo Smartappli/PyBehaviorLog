@@ -15,9 +15,13 @@ class InternationalizationTests(TestCase):
             email='linguist@example.com',
             password='password123',
         )
-        self.project = Project.objects.create(owner=self.user, name='Ethology', description='Project')
+        self.project = Project.objects.create(
+            owner=self.user, name='Ethology', description='Project'
+        )
 
-    def _request_for_language(self, language: str, viewname: str, args=None, authenticated: bool = False):
+    def _request_for_language(
+        self, language: str, viewname: str, args=None, authenticated: bool = False
+    ):
         client = Client()
         if authenticated:
             client.login(username='linguist', password='password123')
