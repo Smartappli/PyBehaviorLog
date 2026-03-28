@@ -1,6 +1,6 @@
 # PyBehaviorLog 0.9.5
 
-[![CI](https://github.com/PyBehaviorLog/PyBehaviorLog/actions/workflows/ci.yml/badge.svg)](https://github.com/PyBehaviorLog/PyBehaviorLog/actions/workflows/ci.yml)
+[![CI](https://github.com/Smartappli/PyBehaviorLog/actions/workflows/ci.yml/badge.svg)](https://github.com/Smartappli/PyBehaviorLog/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/PyBehaviorLog/PyBehaviorLog/actions/workflows/codeql.yml/badge.svg)](https://github.com/PyBehaviorLog/PyBehaviorLog/actions/workflows/codeql.yml)
 [![Release Drafter](https://github.com/PyBehaviorLog/PyBehaviorLog/actions/workflows/release-drafter.yml/badge.svg)](https://github.com/PyBehaviorLog/PyBehaviorLog/actions/workflows/release-drafter.yml)
 
