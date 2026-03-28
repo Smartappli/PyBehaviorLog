@@ -32,6 +32,18 @@ jobs:
       - name: Run pre-commit
         run: uv run --no-project --with-requirements requirements-dev.txt pre-commit run --all-files
 
+      - name: Analyze dependency licenses
+        run: |
+          uv run --no-project --with-requirements requirements-dev.txt --with pip-licenses \
+            pip-licenses --format=markdown --with-authors --with-urls \
+            --output-file licenses-report.md
+
+      - name: Upload license report
+        uses: actions/upload-artifact@v4
+        with:
+          name: licenses-report-${{ matrix.os }}-py${{ matrix.python-version }}
+          path: licenses-report.md
+
       - name: Run unit tests with coverage
         run: |
           uv run --no-project --with-requirements requirements-dev.txt coverage run manage.py test
