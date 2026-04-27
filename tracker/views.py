@@ -630,9 +630,7 @@ def _decimal(
                 minutes = Decimal(parts[1])
                 seconds = Decimal(parts[2].replace(',', '.'))
                 frames = Decimal(parts[3])
-                fps = _decimal(frame_rate, default='25') if frame_rate is not None else Decimal('25')
-                if fps <= 0:
-                    fps = Decimal('25')
+                fps = _normalize_frame_rate_token(frame_rate)
                 return (
                     (hours * Decimal('3600'))
                     + (minutes * Decimal('60'))
@@ -686,6 +684,19 @@ def _append_note_line(existing: str | None, line: str, *, max_length: int = 2000
         return '\n'.join(lines)[:max_length]
     lines.append(candidate)
     return '\n'.join(lines)[:max_length]
+
+
+def _normalize_frame_rate_token(value: str | float | Decimal | None) -> Decimal:
+    """Return a positive frame rate value parsed from tokens like '29.97 fps'."""
+    if value is None:
+        return Decimal('25')
+    if isinstance(value, Decimal):
+        return value if value > 0 else Decimal('25')
+    match = re.search(r'[-+]?\d+(?:[.,]\d+)?', str(value))
+    if not match:
+        return Decimal('25')
+    parsed = _decimal(match.group(0), default='25')
+    return parsed if parsed > 0 else Decimal('25')
 
 
 def _resolve_storage_path(video: VideoAsset | None) -> Path | None:
@@ -2109,15 +2120,17 @@ def parse_cowlog_results_text(session: ObservationSession, raw_text: str) -> tup
         if line.startswith('#'):
             metadata_line = line[1:].strip()
             if metadata_line:
-                metadata_parts = [
-                    part.strip()
-                    for part in (
-                        metadata_line.split('	')
-                        if '	' in metadata_line
-                        else metadata_line.split()
-                    )
-                    if part.strip()
-                ]
+                if '	' in metadata_line:
+                    raw_metadata_parts = metadata_line.split('	')
+                else:
+                    try:
+                        raw_metadata_parts = shlex.split(metadata_line)
+                    except ValueError:
+                        raw_metadata_parts = metadata_line.split()
+                metadata_parts = [part.strip() for part in raw_metadata_parts if part.strip()]
+                if len(metadata_parts) == 1 and ':' in metadata_parts[0]:
+                    key, value = metadata_parts[0].split(':', 1)
+                    metadata_parts = [key.strip(), value.strip()]
                 if metadata_parts and metadata_parts[0].casefold() in {'note', 'annotation'}:
                     annotation_time = (
                         _decimal(metadata_parts[1], default='NaN')
@@ -2428,6 +2441,10 @@ def parse_tabular_session_file(
         or filename.endswith('.tsv')
         else ','
     )
+    if delimiter == ',' and filename.endswith('.csv'):
+        first_line = text_payload.splitlines()[0] if text_payload.splitlines() else ''
+        if ';' in first_line and first_line.count(';') >= first_line.count(','):
+            delimiter = ';'
     reader = csv.DictReader(io.StringIO(text_payload), delimiter=delimiter)
     if not reader.fieldnames:
         raise ValueError(_('The uploaded tabular file does not contain a header row.'))
@@ -2484,7 +2501,7 @@ def load_session_import_payload(uploaded_file, session: ObservationSession) -> t
         payload, parsed_report = parse_cowlog_results_text(session, text_payload)
         report.update(parsed_report)
         return payload, report
-    if ',' in first_line or '	' in first_line:
+    if ',' in first_line or ';' in first_line or '	' in first_line:
         payload, parsed_report = parse_tabular_session_file(session, uploaded_file, raw_bytes)
         report.update(parsed_report)
         return payload, report
@@ -3594,6 +3611,27 @@ def import_session_payload(
             value = str(metadata_items.get(key, '')).strip()
             if value:
                 metadata_notes.append(f'{key}: {value}')
+        fps_metadata = None
+        for key in ('fps', 'frame_rate', 'framerate'):
+            value = str(metadata_items.get(key, '')).strip()
+            if value:
+                fps_metadata = value
+                break
+        if fps_metadata:
+            fps_definition = next(
+                (
+                    definition
+                    for label, definition in variable_map.items()
+                    if label.casefold().replace(' ', '_') in {'fps', 'frame_rate', 'framerate'}
+                ),
+                None,
+            )
+            if fps_definition is not None:
+                ObservationVariableValue.objects.update_or_create(
+                    session=session,
+                    definition=fps_definition,
+                    defaults={'value': fps_metadata},
+                )
         if metadata_notes:
             session.notes = _append_note_line(
                 session.notes,
@@ -5781,7 +5819,19 @@ def session_export_cowlog_txt(request, pk: int):  # pragma: no cover
     response.write('# PyBehaviorLog 0.9.5 CowLog-compatible export\n')
     response.write(f'# session\t{session.title}\n')
     response.write(f'# project\t{session.project.name}\n')
+    response.write(f'# observer\t{session.observer.username if session.observer else ""}\n')
     response.write(f'# primary_video\t{session.primary_label}\n')
+    fps_value = (
+        ObservationVariableValue.objects.filter(
+            session=session,
+            definition__label__iregex=r'^(fps|frame[_ ]?rate|framerate)$',
+        )
+        .order_by('definition__sort_order', 'definition__label')
+        .values_list('value', flat=True)
+        .first()
+    )
+    if fps_value:
+        response.write(f'# fps\t{fps_value}\n')
     report = build_session_compatibility_report(session)
     for warning in report['cowlog']['warnings']:
         response.write(f'# warning\t{warning}\n')

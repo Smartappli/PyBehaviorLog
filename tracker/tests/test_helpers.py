@@ -178,12 +178,18 @@ class HelperTests(TestCase):
         self.assertEqual(annotation_count, 0)
 
     def test_import_session_payload_applies_cowlog_metadata_to_notes(self):
+        fps_definition = IndependentVariableDefinition.objects.create(
+            project=self.project,
+            label='fps',
+            value_type=IndependentVariableDefinition.TYPE_NUMERIC,
+        )
         payload = {
             'schema': 'cowlog-results-v2',
             'metadata': {
                 'session': 'Imported header session',
                 'project': 'Imported header project',
                 'primary_video': 'clip.mp4',
+                'fps': '29.97 fps',
             },
             'events': [{'behavior': 'Eat', 'event_kind': 'point', 'time': 1.5}],
             'annotations': [],
@@ -196,6 +202,11 @@ class HelperTests(TestCase):
         self.assertIn('project: Imported header project', self.session.notes)
         self.assertIn('primary_video: clip.mp4', self.session.notes)
         self.assertEqual(self.session.notes.count('Imported CowLog metadata:'), 1)
+        fps_value = ObservationVariableValue.objects.get(
+            session=self.session,
+            definition=fps_definition,
+        )
+        self.assertEqual(fps_value.value, '29.97 fps')
 
     def test_import_session_payload_accepts_mapping_event_rows(self):
         payload = {
