@@ -6,11 +6,13 @@ from django.test import TestCase
 
 from tracker.models import (
     Behavior,
+    IndependentVariableDefinition,
     KeyboardProfile,
     Modifier,
     ObservationEvent,
     ObservationSession,
     ObservationTemplate,
+    ObservationVariableValue,
     Project,
     SessionVideoLink,
     Subject,
@@ -162,6 +164,103 @@ class HelperTests(TestCase):
         event = self.session.events.get()
         self.assertEqual(event.subjects_display, 'Cow 1')
         self.assertEqual(self.session.workflow_status, 'validated')
+
+    def test_import_session_payload_accepts_newer_cowlog_schema(self):
+        payload = {
+            'schema': 'cowlog-results-v2',
+            'events': [{'behavior': 'Eat', 'event_kind': 'point', 'time': 1.5}],
+            'annotations': [],
+        }
+        event_count, annotation_count = import_session_payload(
+            self.session, payload, clear_existing=True
+        )
+        self.assertEqual(event_count, 1)
+        self.assertEqual(annotation_count, 0)
+
+    def test_import_session_payload_applies_cowlog_metadata_to_notes(self):
+        payload = {
+            'schema': 'cowlog-results-v2',
+            'metadata': {
+                'session': 'Imported header session',
+                'project': 'Imported header project',
+                'primary_video': 'clip.mp4',
+            },
+            'events': [{'behavior': 'Eat', 'event_kind': 'point', 'time': 1.5}],
+            'annotations': [],
+        }
+        import_session_payload(self.session, payload, clear_existing=True)
+        import_session_payload(self.session, payload, clear_existing=True)
+        self.session.refresh_from_db()
+        self.assertIn('Imported CowLog metadata:', self.session.notes)
+        self.assertIn('session: Imported header session', self.session.notes)
+        self.assertIn('project: Imported header project', self.session.notes)
+        self.assertIn('primary_video: clip.mp4', self.session.notes)
+        self.assertEqual(self.session.notes.count('Imported CowLog metadata:'), 1)
+
+    def test_import_session_payload_accepts_mapping_event_rows(self):
+        payload = {
+            'schema': 'boris-observation-v4',
+            'events': {
+                'evt-1': {'behavior': 'Eat', 'event_kind': 'point', 'time': 1.5},
+                'evt-2': {'behavior': 'Stand', 'event_kind': 'start', 'time': 2.0},
+            },
+            'annotations': {
+                'ann-1': {'time': 2.2, 'title': 'Marker', 'note': 'mapping annotation'},
+            },
+            'segments': {
+                'seg-1': {'title': 'Segment 1', 'start_seconds': 0.0, 'end_seconds': 3.0},
+            },
+        }
+        event_count, annotation_count = import_session_payload(
+            self.session, payload, clear_existing=True
+        )
+        self.assertEqual(event_count, 2)
+        self.assertEqual(annotation_count, 1)
+        self.assertEqual(self.session.events.count(), 2)
+        self.assertEqual(self.session.annotations.count(), 1)
+
+    def test_import_session_payload_merges_multiple_boris_observations(self):
+        definition = IndependentVariableDefinition.objects.create(
+            project=self.project,
+            label='Temperature',
+            value_type=IndependentVariableDefinition.TYPE_NUMERIC,
+        )
+        payload = {
+            'schema': 'boris-observation-v4',
+            'observations': [
+                {
+                    'title': 'Obs A',
+                    'media_paths': ['videos/a.mp4'],
+                    'events': [{'behavior': 'Eat', 'event_kind': 'point', 'time': 1.0}],
+                    'annotations': [{'time': 1.2, 'title': 'A', 'note': 'first'}],
+                    'variables': {'Temperature': '18'},
+                },
+                {
+                    'title': 'Obs B',
+                    'media_paths': ['videos/b.mp4'],
+                    'events': [{'behavior': 'Stand', 'event_kind': 'start', 'time': 2.0}],
+                    'annotations': [{'time': 2.4, 'title': 'B', 'note': 'second'}],
+                    'independent_variables': {'Temperature': '19'},
+                },
+            ],
+        }
+        event_count, annotation_count = import_session_payload(
+            self.session, payload, clear_existing=True
+        )
+        self.assertEqual(event_count, 2)
+        self.assertEqual(annotation_count, 2)
+        import_session_payload(self.session, payload, clear_existing=True)
+        self.assertTrue(self.session.events.filter(comment__contains='BORIS observation').exists())
+        self.assertTrue(self.session.annotations.filter(title__startswith='[Obs').exists())
+        self.session.refresh_from_db()
+        self.assertIn('Imported BORIS observations: Obs A, Obs B', self.session.notes)
+        self.assertIn('Imported BORIS media labels: videos/a.mp4, videos/b.mp4', self.session.notes)
+        self.assertEqual(self.session.notes.count('Imported BORIS observations:'), 1)
+        self.assertEqual(self.session.notes.count('Imported BORIS media labels:'), 1)
+        stored_value = ObservationVariableValue.objects.get(
+            session=self.session, definition=definition
+        )
+        self.assertEqual(stored_value.value, '19')
 
     def test_keyboard_profile_payload_and_reproducibility_bundle(self):
         profile = KeyboardProfile.objects.create(
@@ -332,3 +431,27 @@ class HelperTests(TestCase):
         )
         self.assertEqual(imported_session.events.count(), 1)
         self.assertEqual(imported_session.annotations.count(), 1)
+
+    def test_import_project_payload_accepts_newer_boris_schema(self):
+        payload = {
+            'schema': 'boris-project-v4',
+            'ethogram': build_ethogram_payload(self.project),
+            'sessions': [],
+        }
+        summary = import_project_payload(
+            self.project, payload, actor=self.user, import_sessions=False
+        )
+        self.assertIn('categories_created', summary)
+
+    def test_import_ethogram_payload_accepts_newer_boris_observation_schema(self):
+        payload = {
+            'schema': 'boris-observation-v4',
+            'categories': [{'name': 'Core', 'color': '#222222', 'sort_order': 1}],
+            'behaviors': [{'name': 'Graze', 'key_binding': 'g', 'mode': Behavior.MODE_POINT}],
+        }
+        categories, modifiers, behaviors = import_ethogram_payload(
+            self.project, payload, replace_existing=False
+        )
+        self.assertEqual(categories, 1)
+        self.assertEqual(modifiers, 0)
+        self.assertEqual(behaviors, 1)
