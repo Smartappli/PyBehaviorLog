@@ -6,6 +6,7 @@ import io
 import json
 import math
 import re
+import shlex
 import wave
 import zipfile
 from collections import defaultdict
@@ -588,9 +589,58 @@ def _log_audit(
     )
 
 
-def _decimal(value, default: str = '0') -> Decimal:
+def _decimal(
+    value,
+    default: str = '0',
+    *,
+    frame_rate: str | float | Decimal | None = None,
+) -> Decimal:
+    if isinstance(value, Decimal):
+        return value
+    token = str(value).strip() if value is not None else ''
+    if not token:
+        return Decimal(default)
+    if re.fullmatch(r'\d{1,3}:\d{1,2}:\d{1,2};\d{1,3}', token):
+        token = token.replace(';', ':')
+    iso_match = re.fullmatch(
+        r'(?i)pt(?:(?P<hours>\d+)h)?(?:(?P<minutes>\d+)m)?(?:(?P<seconds>\d+(?:[.,]\d+)?)s)?',
+        token,
+    )
+    if iso_match and any(iso_match.groupdict().values()):
+        hours = Decimal(iso_match.group('hours') or '0')
+        minutes = Decimal(iso_match.group('minutes') or '0')
+        seconds = Decimal((iso_match.group('seconds') or '0').replace(',', '.'))
+        return (hours * Decimal('3600')) + (minutes * Decimal('60')) + seconds
+    if ':' in token:
+        parts = [part.strip() for part in token.split(':')]
+        if len(parts) in {2, 3, 4} and all(part for part in parts):
+            try:
+                if len(parts) == 2:
+                    hours = Decimal('0')
+                    minutes = Decimal(parts[0])
+                    seconds = Decimal(parts[1].replace(',', '.'))
+                    return (hours * Decimal('3600')) + (minutes * Decimal('60')) + seconds
+                if len(parts) == 3:
+                    hours = Decimal(parts[0])
+                    minutes = Decimal(parts[1])
+                    seconds = Decimal(parts[2].replace(',', '.'))
+                    return (hours * Decimal('3600')) + (minutes * Decimal('60')) + seconds
+                # HH:MM:SS:FF (BORIS-style frame timecode; default 25 fps)
+                hours = Decimal(parts[0])
+                minutes = Decimal(parts[1])
+                seconds = Decimal(parts[2].replace(',', '.'))
+                frames = Decimal(parts[3])
+                fps = _normalize_frame_rate_token(frame_rate)
+                return (
+                    (hours * Decimal('3600'))
+                    + (minutes * Decimal('60'))
+                    + seconds
+                    + (frames / fps)
+                )
+            except (InvalidOperation, TypeError, ValueError):
+                pass
     try:
-        return Decimal(str(value))
+        return Decimal(token.replace(',', '.'))
     except (InvalidOperation, TypeError, ValueError):
         return Decimal(default)
 
@@ -621,6 +671,32 @@ def _relative_media_path(video: VideoAsset | None) -> str | None:
         return None
     name = str(video.file.name or '').replace('\\', '/')
     return name or None
+
+
+def _append_note_line(existing: str | None, line: str, *, max_length: int = 2000) -> str:
+    """Append one note line while avoiding duplicate entries."""
+    current = (existing or '').strip()
+    candidate = (line or '').strip()
+    if not candidate:
+        return current[:max_length]
+    lines = [item.strip() for item in current.splitlines() if item.strip()]
+    if candidate in lines:
+        return '\n'.join(lines)[:max_length]
+    lines.append(candidate)
+    return '\n'.join(lines)[:max_length]
+
+
+def _normalize_frame_rate_token(value: str | float | Decimal | None) -> Decimal:
+    """Return a positive frame rate value parsed from tokens like '29.97 fps'."""
+    if value is None:
+        return Decimal('25')
+    if isinstance(value, Decimal):
+        return value if value > 0 else Decimal('25')
+    match = re.search(r'[-+]?\d+(?:[.,]\d+)?', str(value))
+    if not match:
+        return Decimal('25')
+    parsed = _decimal(match.group(0), default='25')
+    return parsed if parsed > 0 else Decimal('25')
 
 
 def _resolve_storage_path(video: VideoAsset | None) -> Path | None:
@@ -2033,22 +2109,81 @@ def parse_cowlog_results_text(session: ObservationSession, raw_text: str) -> tup
     lines_processed = 0
     warnings: list[str] = []
     events: list[dict] = []
+    annotations: list[dict] = []
+    metadata: dict[str, str] = {}
+    detected_frame_rate: str | None = None
     state_marker_used = False
     for line_number, raw_line in enumerate(raw_text.splitlines(), start=1):
         line = raw_line.strip()
-        if not line or line.startswith('#'):
+        if not line or line.startswith(';'):
             continue
-        parts = [
-            part.strip()
-            for part in (line.split('	') if '	' in line else line.split())
-            if part.strip()
-        ]
+        if line.startswith('#'):
+            metadata_line = line[1:].strip()
+            if metadata_line:
+                if '	' in metadata_line:
+                    raw_metadata_parts = metadata_line.split('	')
+                else:
+                    try:
+                        raw_metadata_parts = shlex.split(metadata_line)
+                    except ValueError:
+                        raw_metadata_parts = metadata_line.split()
+                metadata_parts = [part.strip() for part in raw_metadata_parts if part.strip()]
+                if len(metadata_parts) == 1 and ':' in metadata_parts[0]:
+                    key, value = metadata_parts[0].split(':', 1)
+                    metadata_parts = [key.strip(), value.strip()]
+                if metadata_parts and metadata_parts[0].casefold() in {'note', 'annotation'}:
+                    annotation_time = (
+                        _decimal(metadata_parts[1], default='NaN')
+                        if len(metadata_parts) > 1
+                        else Decimal('NaN')
+                    )
+                    if not annotation_time.is_nan():
+                        title = (
+                            metadata_parts[2]
+                            if len(metadata_parts) > 2
+                            else _('Imported note')
+                        )
+                        note = (
+                            ' '.join(metadata_parts[3:])
+                            if len(metadata_parts) > 3
+                            else (
+                                metadata_parts[2]
+                                if len(metadata_parts) > 2
+                                else _('Imported from CowLog metadata')
+                            )
+                        )
+                        annotations.append(
+                            {
+                                'time': float(annotation_time),
+                                'title': title,
+                                'note': note,
+                                'color': '#f59e0b',
+                            }
+                        )
+                elif metadata_parts and len(metadata_parts) > 1:
+                    metadata_key = _normalize_import_header(metadata_parts[0])
+                    if metadata_key:
+                        metadata_value = ' '.join(metadata_parts[1:])
+                        metadata[metadata_key] = metadata_value
+                        if metadata_key in {'fps', 'frame_rate', 'framerate'}:
+                            detected_frame_rate = metadata_value
+            continue
+        if '	' in line:
+            raw_parts = line.split('	')
+        elif ';' in line and line.count(';') >= 2:
+            raw_parts = line.split(';')
+        else:
+            try:
+                raw_parts = shlex.split(line)
+            except ValueError:
+                raw_parts = line.split()
+        parts = [part.strip() for part in raw_parts if part and part.strip()]
         if len(parts) < 2:
             continue
-        try:
-            timestamp = float(parts[0].replace(',', '.'))
-        except ValueError:
+        timestamp_decimal = _decimal(parts[0], default='NaN', frame_rate=detected_frame_rate)
+        if timestamp_decimal.is_nan():
             continue
+        timestamp = float(timestamp_decimal)
         lines_processed += 1
         tokens = parts[1:]
         behavior = behavior_lookup.get(tokens[0].casefold())
@@ -2063,8 +2198,9 @@ def parse_cowlog_results_text(session: ObservationSession, raw_text: str) -> tup
         subject_names: list[str] = []
         for token in tokens[1:]:
             lowered = token.casefold()
-            if lowered in {'point', 'start', 'stop'}:
-                event_kind = lowered
+            resolved_kind = _resolve_event_kind_token(lowered)
+            if resolved_kind is not None:
+                event_kind = resolved_kind
                 state_marker_used = True
                 continue
             modifier = modifier_lookup.get(lowered)
@@ -2094,12 +2230,16 @@ def parse_cowlog_results_text(session: ObservationSession, raw_text: str) -> tup
     payload = {
         'schema': 'cowlog-results-v1',
         'events': events,
-        'annotations': [],
+        'annotations': annotations,
+        'metadata': metadata,
     }
     report = {
         'detected_format': 'cowlog-results-v1',
         'line_count': lines_processed,
         'event_count': len(events),
+        'annotation_count': len(annotations),
+        'metadata_keys': sorted(metadata.keys()),
+        'frame_rate': detected_frame_rate,
         'warnings': warnings,
         'state_marker_used': state_marker_used,
     }
@@ -2134,6 +2274,8 @@ def parse_tabular_session_rows(
         stop_token = (
             row.get('stop') or row.get('end') or row.get('stop_time') or row.get('end_time')
         )
+        duration_token = row.get('duration') or row.get('duration_seconds') or row.get('delta')
+        frame_rate_token = row.get('fps') or row.get('frame_rate') or row.get('framerate')
         behavior_token = (
             row.get('behavior')
             or row.get('code')
@@ -2147,10 +2289,10 @@ def parse_tabular_session_rows(
             and note_token not in {None, ''}
             and time_token not in {None, ''}
         ):
-            try:
-                note_time = float(str(time_token).replace(',', '.'))
-            except ValueError:
+            note_time_decimal = _decimal(time_token, default='NaN', frame_rate=frame_rate_token)
+            if note_time_decimal.is_nan():
                 continue
+            note_time = float(note_time_decimal)
             annotations.append(
                 {
                     'time': note_time,
@@ -2162,20 +2304,27 @@ def parse_tabular_session_rows(
             continue
         if time_token in {None, ''} or behavior_token in {None, ''}:
             continue
-        try:
-            timestamp = float(str(time_token).replace(',', '.'))
-        except ValueError:
+        timestamp_decimal = _decimal(time_token, default='NaN', frame_rate=frame_rate_token)
+        if timestamp_decimal.is_nan():
             warnings.append(
                 _('Row %(row)s: invalid time value “%(value)s”.')
                 % {'row': index, 'value': time_token}
             )
             continue
+        timestamp = float(timestamp_decimal)
         stop_seconds = None
         if stop_token not in {None, ''}:
-            try:
-                stop_seconds = float(str(stop_token).replace(',', '.'))
-            except ValueError:
+            stop_seconds_decimal = _decimal(stop_token, default='NaN', frame_rate=frame_rate_token)
+            if stop_seconds_decimal.is_nan():
                 stop_seconds = None
+            else:
+                stop_seconds = float(stop_seconds_decimal)
+        elif duration_token not in {None, ''}:
+            duration_decimal = _decimal(
+                duration_token, default='NaN', frame_rate=frame_rate_token
+            )
+            if not duration_decimal.is_nan() and duration_decimal >= 0:
+                stop_seconds = float(timestamp_decimal + duration_decimal)
         behavior = behavior_lookup.get(str(behavior_token).casefold())
         if behavior is None:
             warnings.append(
@@ -2292,6 +2441,10 @@ def parse_tabular_session_file(
         or filename.endswith('.tsv')
         else ','
     )
+    if delimiter == ',' and filename.endswith('.csv'):
+        first_line = text_payload.splitlines()[0] if text_payload.splitlines() else ''
+        if ';' in first_line and first_line.count(';') >= first_line.count(','):
+            delimiter = ';'
     reader = csv.DictReader(io.StringIO(text_payload), delimiter=delimiter)
     if not reader.fieldnames:
         raise ValueError(_('The uploaded tabular file does not contain a header row.'))
@@ -2348,7 +2501,7 @@ def load_session_import_payload(uploaded_file, session: ObservationSession) -> t
         payload, parsed_report = parse_cowlog_results_text(session, text_payload)
         report.update(parsed_report)
         return payload, report
-    if ',' in first_line or '	' in first_line:
+    if ',' in first_line or ';' in first_line or '	' in first_line:
         payload, parsed_report = parse_tabular_session_file(session, uploaded_file, raw_bytes)
         report.update(parsed_report)
         return payload, report
@@ -2506,6 +2659,21 @@ def _coerce_named_items(value, *, label_mode: bool = False) -> list[dict]:
     return items
 
 
+def _coerce_object_rows(value) -> list[dict]:
+    """Accept either a list or mapping of object rows and normalize to dict list."""
+    if isinstance(value, dict):
+        rows: list[dict] = []
+        for key, item in value.items():
+            if isinstance(item, dict):
+                normalized = dict(item)
+                normalized.setdefault('id', str(key))
+                rows.append(normalized)
+        return rows
+    if isinstance(value, list):
+        return [dict(item) for item in value if isinstance(item, dict)]
+    return []
+
+
 def _coerce_name_list(value) -> list[str]:
     """Convert list/dict/string inputs into a flat list of names for imports."""
     if value is None:
@@ -2563,17 +2731,67 @@ def _resolve_behavior_name(item: dict) -> str:
     )
 
 
+def _schema_matches(value: str | None, pattern: str) -> bool:
+    return bool(value and re.fullmatch(pattern, value))
+
+
+def _is_supported_session_schema(value: str | None) -> bool:
+    return any(
+        (
+            _schema_matches(value, r'cowlog-django-v\d+-session'),
+            _schema_matches(value, r'pybehaviorlog-0(?:\.\d+)*-session'),
+            _schema_matches(value, r'cowlog-results-v\d+'),
+            _schema_matches(value, r'boris-tabular-(?:csv|tsv|xlsx)-v\d+'),
+            _schema_matches(value, r'boris-tabular-spreadsheet-v\d+'),
+        )
+    )
+
+
+def _is_supported_observation_schema(value: str | None) -> bool:
+    return _schema_matches(value, r'boris-observation-v\d+')
+
+
+def _is_supported_project_schema(value: str | None) -> bool:
+    return any(
+        (
+            _schema_matches(value, r'boris-project-v\d+'),
+            _schema_matches(value, r'pybehaviorlog-0(?:\.\d+)*-bundle'),
+        )
+    )
+
+
+def _is_supported_ethogram_schema(value: str | None) -> bool:
+    return any(
+        (
+            _schema_matches(value, r'cowlog-django-v\d+-ethogram'),
+            _schema_matches(value, r'pybehaviorlog-0(?:\.\d+)*-ethogram'),
+            _schema_matches(value, r'boris-project-v\d+'),
+            _schema_matches(value, r'boris-observation-v\d+'),
+        )
+    )
+
+
 def _resolve_event_kind_token(value: str | None) -> str | None:
     token = (value or '').strip().lower().replace('_', ' ')
     mapping = {
         'point': ObservationEvent.KIND_POINT,
+        'p': ObservationEvent.KIND_POINT,
+        '.': ObservationEvent.KIND_POINT,
+        '0': ObservationEvent.KIND_POINT,
         'instant': ObservationEvent.KIND_POINT,
         'start': ObservationEvent.KIND_START,
+        's': ObservationEvent.KIND_START,
+        '+': ObservationEvent.KIND_START,
+        '1': ObservationEvent.KIND_START,
         'state start': ObservationEvent.KIND_START,
         'begin': ObservationEvent.KIND_START,
+        'on': ObservationEvent.KIND_START,
         'stop': ObservationEvent.KIND_STOP,
+        '-': ObservationEvent.KIND_STOP,
+        '2': ObservationEvent.KIND_STOP,
         'state stop': ObservationEvent.KIND_STOP,
         'end': ObservationEvent.KIND_STOP,
+        'off': ObservationEvent.KIND_STOP,
     }
     return mapping.get(token)
 
@@ -2645,15 +2863,7 @@ def import_project_payload(
     """Import a richer BORIS-like project payload into an existing project."""
     bundled_sessions = bundled_sessions or {}
     schema = payload.get('schema')
-    if schema not in {
-        'boris-project-v1',
-        'boris-project-v2',
-        'boris-project-v3',
-        'pybehaviorlog-0.8.3-bundle',
-        'pybehaviorlog-0.9-bundle',
-        'pybehaviorlog-0.9.1-bundle',
-        'pybehaviorlog-0.9.5-bundle',
-    }:
+    if not _is_supported_project_schema(schema):
         raise ValueError(_('Unsupported project payload format.'))
 
     ethogram_payload = payload.get('ethogram') or payload
@@ -2947,22 +3157,7 @@ def build_ethogram_payload(project: Project) -> dict:  # pragma: no cover
 def import_ethogram_payload(
     project: Project, payload: dict, replace_existing: bool = False
 ) -> tuple[int, int, int]:  # pragma: no cover
-    if payload.get('schema') not in {
-        'cowlog-django-v3-ethogram',
-        'cowlog-django-v4-ethogram',
-        'cowlog-django-v5-ethogram',
-        'pybehaviorlog-0.8-ethogram',
-        'pybehaviorlog-0.8.3-ethogram',
-        'pybehaviorlog-0.9-ethogram',
-        'pybehaviorlog-0.9.1-ethogram',
-        'pybehaviorlog-0.9.5-ethogram',
-        'boris-project-v1',
-        'boris-project-v2',
-        'boris-project-v3',
-        'boris-observation-v1',
-        'boris-observation-v2',
-        'boris-observation-v3',
-    }:
+    if not _is_supported_ethogram_schema(payload.get('schema')):
         raise ValueError('Unsupported JSON schema.')
 
     if replace_existing and (
@@ -3252,30 +3447,16 @@ def import_session_payload(
     annotation_items: list[dict] = []
     segment_items: list[dict] = []
     variable_items = payload.get('variables', {}) or payload.get('independent_variables', {}) or {}
+    metadata_items = payload.get('metadata') if isinstance(payload.get('metadata'), dict) else {}
 
-    if payload.get('schema') in {
-        'cowlog-django-v5-session',
-        'pybehaviorlog-v6-session',
-        'pybehaviorlog-0.8-session',
-        'pybehaviorlog-0.8.3-session',
-        'pybehaviorlog-0.9-session',
-        'pybehaviorlog-0.9.1-session',
-        'pybehaviorlog-0.9.5-session',
-        'cowlog-results-v1',
-        'boris-tabular-csv-v1',
-        'boris-tabular-tsv-v1',
-        'boris-tabular-xlsx-v1',
+    if _is_supported_session_schema(payload.get('schema')) or payload.get('schema') in {
+        'pybehaviorlog-v6-session'
     }:
-        event_items = payload.get('events', [])
-        annotation_items = payload.get('annotations', [])
-        segment_items = payload.get('segments', [])
+        event_items = _coerce_object_rows(payload.get('events'))
+        annotation_items = _coerce_object_rows(payload.get('annotations'))
+        segment_items = _coerce_object_rows(payload.get('segments'))
     elif (
-        payload.get('schema')
-        in {
-            'boris-observation-v1',
-            'boris-observation-v2',
-            'boris-observation-v3',
-        }
+        _is_supported_observation_schema(payload.get('schema'))
         or payload.get('observations')
         or payload.get('events')
     ):
@@ -3283,16 +3464,84 @@ def import_session_payload(
         if isinstance(observations, dict):
             observations = list(observations.values())
         if observations:
-            first = observations[0]
-            event_items = first.get('events', [])
-            annotation_items = first.get('annotations', [])
-            segment_items = first.get('segments', [])
-            if isinstance(first.get('variables'), dict):
-                variable_items = first.get('variables')
+            merged_variables: dict = {}
+            multi_observation = len(observations) > 1
+            imported_observation_labels: list[str] = []
+            imported_media_labels: list[str] = []
+            for observation in observations:
+                if not isinstance(observation, dict):
+                    continue
+                observation_label = (
+                    observation.get('title')
+                    or observation.get('description')
+                    or observation.get('id')
+                    or observation.get('observation_id')
+                    or ''
+                )
+                if observation_label:
+                    imported_observation_labels.append(str(observation_label))
+                imported_media_labels.extend(_extract_media_labels(observation))
+                observation_events = []
+                observation_event_rows = _coerce_object_rows(observation.get('events'))
+                for raw_event in observation_event_rows:
+                    event_item = dict(raw_event) if isinstance(raw_event, dict) else raw_event
+                    if (
+                        multi_observation
+                        and isinstance(event_item, dict)
+                        and observation_label
+                    ):
+                        existing_comment = (
+                            event_item.get('comment')
+                            or event_item.get('note')
+                            or event_item.get('remarks')
+                            or ''
+                        )
+                        event_item['comment'] = (
+                            f'[BORIS observation: {observation_label}] {existing_comment}'.strip()
+                        )
+                    observation_events.append(event_item)
+                observation_annotations = []
+                observation_annotation_rows = _coerce_object_rows(observation.get('annotations'))
+                for raw_annotation in observation_annotation_rows:
+                    annotation_item = (
+                        dict(raw_annotation) if isinstance(raw_annotation, dict) else raw_annotation
+                    )
+                    if (
+                        multi_observation
+                        and isinstance(annotation_item, dict)
+                        and observation_label
+                    ):
+                        annotation_item['title'] = (
+                            f'[{observation_label}] {annotation_item.get("title") or "Note"}'
+                        )[:120]
+                    observation_annotations.append(annotation_item)
+                event_items.extend(observation_events)
+                annotation_items.extend(observation_annotations)
+                segment_items.extend(_coerce_object_rows(observation.get('segments')))
+                if isinstance(observation.get('variables'), dict):
+                    merged_variables.update(observation.get('variables'))
+                if isinstance(observation.get('independent_variables'), dict):
+                    merged_variables.update(observation.get('independent_variables'))
+            if merged_variables:
+                variable_items = merged_variables
+            if imported_observation_labels:
+                unique_labels = ', '.join(dict.fromkeys(imported_observation_labels))
+                session.notes = _append_note_line(
+                    session.notes,
+                    str(_('Imported BORIS observations: %(labels)s') % {'labels': unique_labels}),
+                )
+            if imported_media_labels:
+                unique_media = ', '.join(dict.fromkeys(imported_media_labels))
+                session.notes = _append_note_line(
+                    session.notes,
+                    str(_('Imported BORIS media labels: %(labels)s') % {'labels': unique_media}),
+                )
+            if imported_observation_labels or imported_media_labels:
+                session.save(update_fields=['notes'])
         else:
-            event_items = payload.get('events', [])
-            annotation_items = payload.get('annotations', [])
-            segment_items = payload.get('segments', [])
+            event_items = _coerce_object_rows(payload.get('events'))
+            annotation_items = _coerce_object_rows(payload.get('annotations'))
+            segment_items = _coerce_object_rows(payload.get('segments'))
     else:
         raise ValueError(_('Unsupported session payload format.'))
 
@@ -3312,6 +3561,7 @@ def import_session_payload(
             timestamp_seconds=_decimal(
                 item.get('timestamp_seconds', item.get('time', item.get('timestamp'))),
                 default='0',
+                frame_rate=item.get('fps') or item.get('frame_rate') or item.get('framerate'),
             ),
             frame_index=item.get('frame_index') or item.get('frame') or None,
             comment=(item.get('comment') or item.get('note') or item.get('remarks') or '').strip(),
@@ -3355,6 +3605,40 @@ def import_session_payload(
         session.review_notes = payload.get('review_notes', session.review_notes or '')
         session.save(update_fields=['workflow_status', 'review_notes'])
 
+    if _schema_matches(payload.get('schema'), r'cowlog-results-v\d+') and metadata_items:
+        metadata_notes = []
+        for key in ('session', 'project', 'primary_video', 'observer'):
+            value = str(metadata_items.get(key, '')).strip()
+            if value:
+                metadata_notes.append(f'{key}: {value}')
+        fps_metadata = None
+        for key in ('fps', 'frame_rate', 'framerate'):
+            value = str(metadata_items.get(key, '')).strip()
+            if value:
+                fps_metadata = value
+                break
+        if fps_metadata:
+            fps_definition = next(
+                (
+                    definition
+                    for label, definition in variable_map.items()
+                    if label.casefold().replace(' ', '_') in {'fps', 'frame_rate', 'framerate'}
+                ),
+                None,
+            )
+            if fps_definition is not None:
+                ObservationVariableValue.objects.update_or_create(
+                    session=session,
+                    definition=fps_definition,
+                    defaults={'value': fps_metadata},
+                )
+        if metadata_notes:
+            session.notes = _append_note_line(
+                session.notes,
+                str(_('Imported CowLog metadata: %(items)s') % {'items': '; '.join(metadata_notes)}),
+            )
+            session.save(update_fields=['notes'])
+
     for raw_item in annotation_items:
         item = dict(raw_item) if isinstance(raw_item, dict) else {}
         SessionAnnotation.objects.create(
@@ -3362,6 +3646,7 @@ def import_session_payload(
             timestamp_seconds=_decimal(
                 item.get('timestamp_seconds', item.get('time', item.get('timestamp'))),
                 default='0',
+                frame_rate=item.get('fps') or item.get('frame_rate') or item.get('framerate'),
             ),
             title=(item.get('title') or 'Note').strip()[:120] or 'Note',
             note=(item.get('note') or item.get('comment') or item.get('text') or '').strip(),
@@ -5534,10 +5819,34 @@ def session_export_cowlog_txt(request, pk: int):  # pragma: no cover
     response.write('# PyBehaviorLog 0.9.5 CowLog-compatible export\n')
     response.write(f'# session\t{session.title}\n')
     response.write(f'# project\t{session.project.name}\n')
+    response.write(f'# observer\t{session.observer.username if session.observer else ""}\n')
     response.write(f'# primary_video\t{session.primary_label}\n')
+    fps_value = (
+        ObservationVariableValue.objects.filter(
+            session=session,
+            definition__label__iregex=r'^(fps|frame[_ ]?rate|framerate)$',
+        )
+        .order_by('definition__sort_order', 'definition__label')
+        .values_list('value', flat=True)
+        .first()
+    )
+    if fps_value:
+        response.write(f'# fps\t{fps_value}\n')
     report = build_session_compatibility_report(session)
     for warning in report['cowlog']['warnings']:
         response.write(f'# warning\t{warning}\n')
+    for annotation in session.annotations.all().order_by('timestamp_seconds', 'pk'):
+        response.write(
+            '# annotation\t'
+            + '\t'.join(
+                [
+                    _format_seconds_token(annotation.timestamp_seconds),
+                    (annotation.title or 'Note').replace('\t', ' '),
+                    (annotation.note or '').replace('\t', ' ').replace('\n', ' '),
+                ]
+            )
+            + '\n'
+        )
     for event in session.events.all().order_by('timestamp_seconds', 'pk'):
         row = [
             _format_seconds_token(event.timestamp_seconds),
