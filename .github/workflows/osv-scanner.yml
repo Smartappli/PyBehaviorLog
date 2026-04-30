@@ -22,9 +22,10 @@ on:
     branches: [ "main" ]
 
 permissions:
+  # Allow reusable workflow to read action metadata
+  actions: read
   # Require writing security events to upload SARIF file to security tab
   security-events: write
-  # Read commit contents
   contents: read
 
 jobs:
