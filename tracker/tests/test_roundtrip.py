@@ -126,3 +126,27 @@ class RoundTripCertificationTests(TestCase):
         report = build_roundtrip_report(left, right, family='session')
         self.assertFalse(report['equivalent'])
         self.assertIn('events', report['mismatches'])
+
+    def test_roundtrip_report_normalizes_mapping_rows_and_multiple_observations(self):
+        left = {
+            'schema': 'boris-observation-v4',
+            'observations': {
+                'obs_a': {'events': {'e1': {'time': 1.0, 'behavior': 'Eat', 'event_kind': 'point'}}},
+                'obs_b': {
+                    'events': {'e2': {'time': 2.0, 'behavior': 'Stand', 'event_kind': 'start'}},
+                    'annotations': {'a1': {'time': 2.5, 'note': 'Mark'}},
+                },
+            },
+        }
+        right = {
+            'schema': 'boris-observation-v4',
+            'observations': [
+                {'events': [{'time': 1.0, 'behavior': 'Eat', 'event_kind': 'point'}]},
+                {
+                    'events': [{'time': 2.0, 'behavior': 'Stand', 'event_kind': 'start'}],
+                    'annotations': [{'time': 2.5, 'note': 'Mark'}],
+                },
+            ],
+        }
+        report = build_roundtrip_report(left, right, family='session')
+        self.assertTrue(report['equivalent'], report)

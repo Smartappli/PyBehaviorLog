@@ -8,18 +8,24 @@ from django.urls import reverse
 
 from tracker.models import (
     Behavior,
+    IndependentVariableDefinition,
     Modifier,
     ObservationEvent,
     ObservationSession,
+    ObservationVariableValue,
     Project,
+    SessionAnnotation,
     Subject,
 )
 from tracker.views import (
     build_behavioral_sequences_text,
     build_binary_table_rows,
+    build_project_compatibility_report,
     build_session_compatibility_report,
     build_textgrid_text,
     load_session_import_payload,
+    parse_cowlog_results_text,
+    parse_tabular_session_rows,
 )
 
 User = get_user_model()
@@ -59,8 +65,166 @@ class CompatibilityTests(TestCase):
         )
         payload, report = load_session_import_payload(upload, self.session)
         self.assertEqual(report['detected_format'], 'cowlog-results-v1')
+        self.assertEqual(report['source_hint'], 'cowlog_text_time_token')
         self.assertEqual(payload['events'][0]['behavior'], 'Eat')
         self.assertEqual(payload['events'][0]['modifiers'], ['Near'])
+
+    def test_parse_cowlog_results_text_strict_mode_rejects_unknown_behavior(self):
+        with self.assertRaises(ValueError):
+            parse_cowlog_results_text(self.session, '1.0\tUnknownBehavior\tNear\n', strict=True)
+
+    def test_load_session_import_payload_supports_cowlog_timecodes(self):
+        upload = SimpleUploadedFile(
+            'cowlog.txt',
+            b'00:01:02.500\tEat\tNear\n',
+            content_type='text/plain',
+        )
+        payload, report = load_session_import_payload(upload, self.session)
+        self.assertEqual(report['detected_format'], 'cowlog-results-v1')
+        self.assertEqual(payload['events'][0]['time'], 62.5)
+
+    def test_load_session_import_payload_supports_cowlog_iso8601_durations(self):
+        upload = SimpleUploadedFile(
+            'cowlog.txt',
+            b'PT1M2.5S\tEat\tNear\n',
+            content_type='text/plain',
+        )
+        payload, report = load_session_import_payload(upload, self.session)
+        self.assertEqual(report['detected_format'], 'cowlog-results-v1')
+        self.assertEqual(payload['events'][0]['time'], 62.5)
+
+    def test_load_session_import_payload_supports_cowlog_frame_timecodes(self):
+        upload = SimpleUploadedFile(
+            'cowlog.txt',
+            b'00:00:10:12\tEat\tNear\n',
+            content_type='text/plain',
+        )
+        payload, report = load_session_import_payload(upload, self.session)
+        self.assertEqual(report['detected_format'], 'cowlog-results-v1')
+        self.assertAlmostEqual(payload['events'][0]['time'], 10.48, places=3)
+
+    def test_load_session_import_payload_supports_smpte_semicolon_timecodes(self):
+        upload = SimpleUploadedFile(
+            'cowlog.txt',
+            b'00:00:10;12\tEat\tNear\n',
+            content_type='text/plain',
+        )
+        payload, report = load_session_import_payload(upload, self.session)
+        self.assertEqual(report['detected_format'], 'cowlog-results-v1')
+        self.assertAlmostEqual(payload['events'][0]['time'], 10.48, places=3)
+
+    def test_load_session_import_payload_supports_cowlog_frame_rate_metadata(self):
+        upload = SimpleUploadedFile(
+            'cowlog.txt',
+            b'# fps\t30\n00:00:10:15\tEat\tNear\n',
+            content_type='text/plain',
+        )
+        payload, report = load_session_import_payload(upload, self.session)
+        self.assertEqual(report['detected_format'], 'cowlog-results-v1')
+        self.assertEqual(report['frame_rate'], '30')
+        self.assertAlmostEqual(payload['events'][0]['time'], 10.5, places=3)
+
+    def test_load_session_import_payload_supports_cowlog_frame_rate_with_unit(self):
+        upload = SimpleUploadedFile(
+            'cowlog.txt',
+            b'# fps\t29.97 fps\n00:00:10:15\tEat\tNear\n',
+            content_type='text/plain',
+        )
+        payload, report = load_session_import_payload(upload, self.session)
+        self.assertEqual(report['detected_format'], 'cowlog-results-v1')
+        self.assertEqual(report['frame_rate'], '29.97 fps')
+        self.assertAlmostEqual(payload['events'][0]['time'], 10.5005, places=3)
+
+    def test_load_session_import_payload_supports_cowlog_frame_rate_ratio(self):
+        upload = SimpleUploadedFile(
+            'cowlog.txt',
+            b'# fps\t30000/1001\n00:00:10:15\tEat\tNear\n',
+            content_type='text/plain',
+        )
+        payload, report = load_session_import_payload(upload, self.session)
+        self.assertEqual(report['detected_format'], 'cowlog-results-v1')
+        self.assertEqual(report['frame_rate'], '30000/1001')
+        self.assertAlmostEqual(payload['events'][0]['time'], 10.5005, places=3)
+
+    def test_load_session_import_payload_supports_cowlog_colon_metadata(self):
+        upload = SimpleUploadedFile(
+            'cowlog.txt',
+            b'# fps:30\n00:00:10:15\tEat\tNear\n',
+            content_type='text/plain',
+        )
+        payload, report = load_session_import_payload(upload, self.session)
+        self.assertEqual(report['detected_format'], 'cowlog-results-v1')
+        self.assertEqual(report['frame_rate'], '30')
+        self.assertAlmostEqual(payload['events'][0]['time'], 10.5, places=3)
+
+    def test_load_session_import_payload_supports_cowlog_state_aliases(self):
+        upload = SimpleUploadedFile(
+            'cowlog.txt',
+            b'2.0\tStand\tbegin\tCow 1\n4.0\tStand\tend\tCow 1\n',
+            content_type='text/plain',
+        )
+        payload, report = load_session_import_payload(upload, self.session)
+        self.assertEqual(report['detected_format'], 'cowlog-results-v1')
+        self.assertEqual(payload['events'][0]['event_kind'], ObservationEvent.KIND_START)
+        self.assertEqual(payload['events'][1]['event_kind'], ObservationEvent.KIND_STOP)
+
+    def test_load_session_import_payload_supports_symbolic_state_aliases(self):
+        upload = SimpleUploadedFile(
+            'cowlog.txt',
+            b'2.0\tStand\t+\tCow 1\n4.0\tStand\t-\tCow 1\n',
+            content_type='text/plain',
+        )
+        payload, report = load_session_import_payload(upload, self.session)
+        self.assertEqual(report['detected_format'], 'cowlog-results-v1')
+        self.assertEqual(payload['events'][0]['event_kind'], ObservationEvent.KIND_START)
+        self.assertEqual(payload['events'][1]['event_kind'], ObservationEvent.KIND_STOP)
+
+    def test_load_session_import_payload_supports_semicolon_cowlog_rows(self):
+        upload = SimpleUploadedFile(
+            'cowlog.txt',
+            b'2.0;Stand;begin;Cow 1\n4.0;Stand;end;Cow 1\n',
+            content_type='text/plain',
+        )
+        payload, report = load_session_import_payload(upload, self.session)
+        self.assertEqual(report['detected_format'], 'cowlog-results-v1')
+        self.assertEqual(payload['events'][0]['event_kind'], ObservationEvent.KIND_START)
+        self.assertEqual(payload['events'][1]['event_kind'], ObservationEvent.KIND_STOP)
+
+    def test_load_session_import_payload_parses_cowlog_metadata_annotations(self):
+        upload = SimpleUploadedFile(
+            'cowlog.txt',
+            b'# annotation\t3.0\tMarker\tInteresting moment\n1.0\tEat\tNear\n',
+            content_type='text/plain',
+        )
+        payload, report = load_session_import_payload(upload, self.session)
+        self.assertEqual(report['detected_format'], 'cowlog-results-v1')
+        self.assertEqual(report['annotation_count'], 1)
+        self.assertEqual(payload['annotations'][0]['title'], 'Marker')
+        self.assertEqual(payload['annotations'][0]['note'], 'Interesting moment')
+
+    def test_load_session_import_payload_parses_quoted_cowlog_metadata_annotations(self):
+        upload = SimpleUploadedFile(
+            'cowlog.txt',
+            b'# annotation 3.0 Marker \"Interesting moment with spaces\"\n1.0\tEat\tNear\n',
+            content_type='text/plain',
+        )
+        payload, report = load_session_import_payload(upload, self.session)
+        self.assertEqual(report['detected_format'], 'cowlog-results-v1')
+        self.assertEqual(report['annotation_count'], 1)
+        self.assertEqual(payload['annotations'][0]['title'], 'Marker')
+        self.assertEqual(payload['annotations'][0]['note'], 'Interesting moment with spaces')
+
+    def test_load_session_import_payload_parses_cowlog_headers(self):
+        upload = SimpleUploadedFile(
+            'cowlog.txt',
+            b'# session\tHeader Session\n# project\tHeader Project\n# primary_video\tclip.mp4\n1.0\tEat\tNear\n',
+            content_type='text/plain',
+        )
+        payload, report = load_session_import_payload(upload, self.session)
+        self.assertEqual(report['detected_format'], 'cowlog-results-v1')
+        self.assertEqual(payload['metadata']['session'], 'Header Session')
+        self.assertEqual(payload['metadata']['project'], 'Header Project')
+        self.assertEqual(payload['metadata']['primary_video'], 'clip.mp4')
 
     def test_session_import_view_accepts_cowlog_text(self):
         upload = SimpleUploadedFile(
@@ -85,9 +249,108 @@ class CompatibilityTests(TestCase):
         )
         payload, report = load_session_import_payload(upload, self.session)
         self.assertEqual(report['detected_format'], 'boris-tabular-csv-v1')
+        self.assertEqual(report['source_hint'], 'tabular_header_delimiter')
         self.assertEqual(len(payload['events']), 2)
         self.assertEqual(payload['events'][0]['event_kind'], 'start')
         self.assertEqual(payload['events'][1]['event_kind'], 'stop')
+
+    def test_parse_tabular_session_rows_strict_mode_rejects_unknown_behavior(self):
+        with self.assertRaises(ValueError):
+            parse_tabular_session_rows(
+                self.session,
+                [{'time': '1.0', 'behavior': 'UnknownBehavior'}],
+                source_format='boris-tabular-csv-v1',
+                strict=True,
+            )
+
+    def test_load_session_import_payload_supports_tabular_timecodes(self):
+        upload = SimpleUploadedFile(
+            'boris_rows.csv',
+            b'time,stop,behavior\n00:00:05.100,00:00:08.600,Stand\n',
+            content_type='text/csv',
+        )
+        payload, report = load_session_import_payload(upload, self.session)
+        self.assertEqual(report['detected_format'], 'boris-tabular-csv-v1')
+        self.assertEqual(payload['events'][0]['time'], 5.1)
+        self.assertEqual(payload['events'][1]['time'], 8.6)
+
+    def test_load_session_import_payload_supports_tabular_iso8601_durations(self):
+        upload = SimpleUploadedFile(
+            'boris_rows.csv',
+            b'time,stop,behavior\nPT5S,PT8.5S,Stand\n',
+            content_type='text/csv',
+        )
+        payload, report = load_session_import_payload(upload, self.session)
+        self.assertEqual(report['detected_format'], 'boris-tabular-csv-v1')
+        self.assertEqual(payload['events'][0]['time'], 5.0)
+        self.assertEqual(payload['events'][1]['time'], 8.5)
+
+    def test_load_session_import_payload_supports_semicolon_csv_with_comma_decimals(self):
+        upload = SimpleUploadedFile(
+            'boris_rows.csv',
+            b'time;stop;behavior\n00:00:05,100;00:00:08,600;Stand\n',
+            content_type='text/csv',
+        )
+        payload, report = load_session_import_payload(upload, self.session)
+        self.assertEqual(report['detected_format'], 'boris-tabular-csv-v1')
+        self.assertAlmostEqual(payload['events'][0]['time'], 5.1, places=3)
+        self.assertAlmostEqual(payload['events'][1]['time'], 8.6, places=3)
+
+    def test_load_session_import_payload_supports_tabular_frame_timecodes(self):
+        upload = SimpleUploadedFile(
+            'boris_rows.csv',
+            b'time,stop,behavior\n00:00:05:10,00:00:08:20,Stand\n',
+            content_type='text/csv',
+        )
+        payload, report = load_session_import_payload(upload, self.session)
+        self.assertEqual(report['detected_format'], 'boris-tabular-csv-v1')
+        self.assertAlmostEqual(payload['events'][0]['time'], 5.4, places=3)
+        self.assertAlmostEqual(payload['events'][1]['time'], 8.8, places=3)
+
+    def test_load_session_import_payload_supports_tabular_smpte_semicolon_timecodes(self):
+        upload = SimpleUploadedFile(
+            'boris_rows.csv',
+            b'time,stop,behavior\n00:00:05;10,00:00:08;20,Stand\n',
+            content_type='text/csv',
+        )
+        payload, report = load_session_import_payload(upload, self.session)
+        self.assertEqual(report['detected_format'], 'boris-tabular-csv-v1')
+        self.assertAlmostEqual(payload['events'][0]['time'], 5.4, places=3)
+        self.assertAlmostEqual(payload['events'][1]['time'], 8.8, places=3)
+
+    def test_load_session_import_payload_supports_tabular_custom_frame_rate(self):
+        upload = SimpleUploadedFile(
+            'boris_rows.csv',
+            b'time,stop,behavior,frame_rate\n00:00:05:10,00:00:08:20,Stand,50 fps\n',
+            content_type='text/csv',
+        )
+        payload, report = load_session_import_payload(upload, self.session)
+        self.assertEqual(report['detected_format'], 'boris-tabular-csv-v1')
+        self.assertAlmostEqual(payload['events'][0]['time'], 5.2, places=3)
+        self.assertAlmostEqual(payload['events'][1]['time'], 8.4, places=3)
+
+    def test_load_session_import_payload_supports_tabular_ratio_frame_rate(self):
+        upload = SimpleUploadedFile(
+            'boris_rows.csv',
+            b'time,stop,behavior,frame_rate\n00:00:05:10,00:00:08:20,Stand,30000/1001\n',
+            content_type='text/csv',
+        )
+        payload, report = load_session_import_payload(upload, self.session)
+        self.assertEqual(report['detected_format'], 'boris-tabular-csv-v1')
+        self.assertAlmostEqual(payload['events'][0]['time'], 5.3336, places=3)
+        self.assertAlmostEqual(payload['events'][1]['time'], 8.6673, places=3)
+
+    def test_load_session_import_payload_supports_state_duration_column(self):
+        upload = SimpleUploadedFile(
+            'boris_rows.csv',
+            b'time,duration,behavior\n10.0,2.5,Stand\n',
+            content_type='text/csv',
+        )
+        payload, report = load_session_import_payload(upload, self.session)
+        self.assertEqual(report['detected_format'], 'boris-tabular-csv-v1')
+        self.assertEqual(payload['events'][0]['event_kind'], ObservationEvent.KIND_START)
+        self.assertEqual(payload['events'][1]['event_kind'], ObservationEvent.KIND_STOP)
+        self.assertEqual(payload['events'][1]['time'], 12.5)
 
     def test_session_undo_and_redo_endpoints_restore_event_state(self):
         response = self.client.post(
@@ -180,11 +443,35 @@ class CompatibilityTests(TestCase):
             event_kind=ObservationEvent.KIND_POINT,
             timestamp_seconds=Decimal('1.000'),
         )
+        SessionAnnotation.objects.create(
+            session=self.session,
+            timestamp_seconds=Decimal('1.500'),
+            title='Mark',
+            note='CowLog annotation line',
+            color='#f59e0b',
+            created_by=self.user,
+        )
+        fps_definition = IndependentVariableDefinition.objects.create(
+            project=self.project,
+            label='fps',
+            value_type=IndependentVariableDefinition.TYPE_NUMERIC,
+        )
+        ObservationVariableValue.objects.create(
+            session=self.session,
+            definition=fps_definition,
+            value='30',
+        )
         response = self.client.get(
             reverse('tracker:session_export_cowlog_txt', args=[self.session.pk])
         )
         self.assertEqual(response.status_code, 200)
         self.assertIn('CowLog-compatible', response.content.decode('utf-8'))
+        self.assertIn('# observer\tolivier', response.content.decode('utf-8'))
+        self.assertIn('# fps\t30', response.content.decode('utf-8'))
+        self.assertIn(
+            '# annotation\t1.5\tMark\tCowLog annotation line',
+            response.content.decode('utf-8'),
+        )
         response = self.client.get(
             reverse('tracker:session_export_behavioral_sequences', args=[self.session.pk])
         )
@@ -206,3 +493,8 @@ class CompatibilityTests(TestCase):
         self.assertEqual(response.status_code, 200)
         payload = json.loads(response.content.decode('utf-8'))
         self.assertEqual(payload['schema'], 'pybehaviorlog-0.9.5-session-compatibility-report')
+
+    def test_project_compatibility_report_includes_schema_matrix(self):
+        payload = build_project_compatibility_report(self.project)
+        self.assertIn('supported_schema_matrix', payload)
+        self.assertIn('session_patterns', payload['supported_schema_matrix'])
