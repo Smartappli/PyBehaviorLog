@@ -5,12 +5,6 @@ Atteindre une compatibilité fonctionnelle plus complète avec les formats réce
 au-delà de la compatibilité actuelle orientée import/export principal.
 
 ## 1) Stabiliser la base de compatibilité (priorité haute)
-- [ ] **Définir une matrice officielle des schémas supportés** (BORIS v1..vN, CowLog résultats v1..vN, variantes tabulaires CSV/TSV/XLSX, payloads mapping/list).
-- [ ] **Versionner explicitement les extensions maison** (ex. métadonnées CowLog enrichies, préfixes d'observation fusionnées).
-- [ ] **Éviter les ambiguïtés de parsing automatique** (CowLog texte vs tabulaire) via règles de détection déterministes documentées.
-- [ ] **Ajouter un mode strict/lenient** pour import:
-  - strict = rejet des champs non documentés/incohérents
-  - lenient = tolérance + warnings détaillés.
 
 ## 2) Compléter la fidélité BORIS (priorité haute)
 - [ ] **Importer/exporter toutes les observations BORIS sans perte de contexte**:

@@ -2112,7 +2112,9 @@ def _token_lookup_map(queryset, *, include_keys: bool = True) -> dict[str, objec
     return lookup
 
 
-def parse_cowlog_results_text(session: ObservationSession, raw_text: str) -> tuple[dict, dict]:
+def parse_cowlog_results_text(
+    session: ObservationSession, raw_text: str, *, strict: bool = False
+) -> tuple[dict, dict]:
     """Parse CowLog-style plain text results into a session import payload."""
     behavior_lookup = _token_lookup_map(session.project.behaviors.all())
     modifier_lookup = _token_lookup_map(session.project.modifiers.all())
@@ -2199,10 +2201,12 @@ def parse_cowlog_results_text(session: ObservationSession, raw_text: str) -> tup
         tokens = parts[1:]
         behavior = behavior_lookup.get(tokens[0].casefold())
         if behavior is None:
-            warnings.append(
-                _('Line %(line)s: unknown behavior token “%(token)s”.')
-                % {'line': line_number, 'token': tokens[0]}
-            )
+            message = _(
+                'Line %(line)s: unknown behavior token “%(token)s”.'
+            ) % {'line': line_number, 'token': tokens[0]}
+            if strict:
+                raise ValueError(message)
+            warnings.append(message)
             continue
         event_kind = ObservationEvent.KIND_POINT
         modifier_names: list[str] = []
@@ -2262,7 +2266,11 @@ def _normalize_import_header(value: str) -> str:
 
 
 def parse_tabular_session_rows(
-    session: ObservationSession, rows: list[dict[str, object]], *, source_format: str
+    session: ObservationSession,
+    rows: list[dict[str, object]],
+    *,
+    source_format: str,
+    strict: bool = False,
 ) -> tuple[dict, dict]:
     """Parse CSV/TSV/XLSX rows with BORIS-like columns into a session payload."""
     behavior_lookup = _token_lookup_map(session.project.behaviors.all())
@@ -2317,10 +2325,13 @@ def parse_tabular_session_rows(
             continue
         timestamp_decimal = _decimal(time_token, default='NaN', frame_rate=frame_rate_token)
         if timestamp_decimal.is_nan():
-            warnings.append(
-                _('Row %(row)s: invalid time value “%(value)s”.')
-                % {'row': index, 'value': time_token}
-            )
+            message = _('Row %(row)s: invalid time value “%(value)s”.') % {
+                'row': index,
+                'value': time_token,
+            }
+            if strict:
+                raise ValueError(message)
+            warnings.append(message)
             continue
         timestamp = float(timestamp_decimal)
         stop_seconds = None
@@ -2338,10 +2349,13 @@ def parse_tabular_session_rows(
                 stop_seconds = float(timestamp_decimal + duration_decimal)
         behavior = behavior_lookup.get(str(behavior_token).casefold())
         if behavior is None:
-            warnings.append(
-                _('Row %(row)s: unknown behavior token “%(token)s”.')
-                % {'row': index, 'token': behavior_token}
-            )
+            message = _('Row %(row)s: unknown behavior token “%(token)s”.') % {
+                'row': index,
+                'token': behavior_token,
+            }
+            if strict:
+                raise ValueError(message)
+            warnings.append(message)
             continue
         line_count += 1
         explicit_kind = _resolve_event_kind_token(
@@ -2424,7 +2438,7 @@ def parse_tabular_session_rows(
 
 
 def parse_tabular_session_file(
-    session: ObservationSession, uploaded_file, raw_bytes: bytes
+    session: ObservationSession, uploaded_file, raw_bytes: bytes, *, strict: bool = False
 ) -> tuple[dict, dict]:
     """Parse CSV/TSV/XLSX tabular imports modeled on BORIS tabular exports."""
     filename = str(getattr(uploaded_file, 'name', '') or '').lower()
@@ -2440,7 +2454,9 @@ def parse_tabular_session_file(
             row_dicts.append(
                 {headers[index]: row[index] for index in range(min(len(headers), len(row)))}
             )
-        return parse_tabular_session_rows(session, row_dicts, source_format='boris-tabular-xlsx-v1')
+        return parse_tabular_session_rows(
+            session, row_dicts, source_format='boris-tabular-xlsx-v1', strict=strict
+        )
 
     try:
         text_payload = raw_bytes.decode('utf-8-sig')
@@ -2463,10 +2479,12 @@ def parse_tabular_session_file(
     for row in reader:
         rows.append({str(key): value for key, value in row.items() if key is not None})
     source_format = 'boris-tabular-tsv-v1' if delimiter == '	' else 'boris-tabular-csv-v1'
-    return parse_tabular_session_rows(session, rows, source_format=source_format)
+    return parse_tabular_session_rows(session, rows, source_format=source_format, strict=strict)
 
 
-def load_session_import_payload(uploaded_file, session: ObservationSession) -> tuple[dict, dict]:
+def load_session_import_payload(
+    uploaded_file, session: ObservationSession, *, strict: bool = False
+) -> tuple[dict, dict]:
     """Load session payloads from PyBehaviorLog/BORIS JSON, tabular imports, or CowLog text exports."""
     raw_bytes = uploaded_file.read()
     report = {'warnings': []}
@@ -2483,7 +2501,9 @@ def load_session_import_payload(uploaded_file, session: ObservationSession) -> t
             report['source_name'] = candidate
             return payload, report
     if filename.endswith(('.csv', '.tsv', '.xlsx')):
-        payload, parsed_report = parse_tabular_session_file(session, uploaded_file, raw_bytes)
+        payload, parsed_report = parse_tabular_session_file(
+            session, uploaded_file, raw_bytes, strict=strict
+        )
         report.update(parsed_report)
         return payload, report
     try:
@@ -2509,14 +2529,19 @@ def load_session_import_payload(uploaded_file, session: ObservationSession) -> t
     else:
         first_token_is_time = False
     if first_token_is_time and filename.endswith('.txt'):
-        payload, parsed_report = parse_cowlog_results_text(session, text_payload)
+        report['source_hint'] = 'cowlog_text_time_token'
+        payload, parsed_report = parse_cowlog_results_text(session, text_payload, strict=strict)
         report.update(parsed_report)
         return payload, report
     if ',' in first_line or ';' in first_line or '	' in first_line:
-        payload, parsed_report = parse_tabular_session_file(session, uploaded_file, raw_bytes)
+        report['source_hint'] = 'tabular_header_delimiter'
+        payload, parsed_report = parse_tabular_session_file(
+            session, uploaded_file, raw_bytes, strict=strict
+        )
         report.update(parsed_report)
         return payload, report
-    payload, parsed_report = parse_cowlog_results_text(session, text_payload)
+    report['source_hint'] = 'cowlog_text_fallback'
+    payload, parsed_report = parse_cowlog_results_text(session, text_payload, strict=strict)
     report.update(parsed_report)
     return payload, report
 
@@ -2569,6 +2594,7 @@ def build_session_compatibility_report(session: ObservationSession) -> dict:
             'certified_against_built_in_corpus': True,
             'fixture_version': '0.9.1',
         },
+        'extension_profile': EXTENSION_PROFILE,
     }
     if state_event_count:
         report['cowlog']['warnings'].append(
@@ -2611,6 +2637,8 @@ def build_project_compatibility_report(project: Project) -> dict:
         ],
         'supported_cowlog_exports': ['plain_text_results'],
         'supported_boris_imports': ['json_project', 'json_observation', 'csv', 'tsv', 'xlsx'],
+        'supported_schema_matrix': SUPPORTED_SCHEMA_MATRIX,
+        'extension_profile': EXTENSION_PROFILE,
         'notes': [
             _(
                 'BORIS interoperability is strongest when using the documented JSON project/observation workflows and tabular exports.'
@@ -2746,39 +2774,62 @@ def _schema_matches(value: str | None, pattern: str) -> bool:
     return bool(value and re.fullmatch(pattern, value))
 
 
+SUPPORTED_SCHEMA_MATRIX = {
+    'session_exact': ['pybehaviorlog-v6-session'],
+    'session_patterns': [
+        r'cowlog-django-v\d+-session',
+        r'pybehaviorlog-0(?:\.\d+)*-session',
+        r'cowlog-results-v\d+',
+        r'boris-tabular-(?:csv|tsv|xlsx)-v\d+',
+        r'boris-tabular-spreadsheet-v\d+',
+    ],
+    'observation_patterns': [r'boris-observation-v\d+'],
+    'project_patterns': [r'boris-project-v\d+', r'pybehaviorlog-0(?:\.\d+)*-bundle'],
+    'ethogram_patterns': [
+        r'cowlog-django-v\d+-ethogram',
+        r'pybehaviorlog-0(?:\.\d+)*-ethogram',
+        r'boris-project-v\d+',
+        r'boris-observation-v\d+',
+    ],
+}
+
+EXTENSION_PROFILE = {
+    'profile_version': '1.0',
+    'extensions': {
+        'cowlog_metadata_headers': '1.0',
+        'cowlog_metadata_annotations': '1.0',
+        'cowlog_export_observer_fps': '1.0',
+        'boris_observation_merge_notes': '1.0',
+        'schema_regex_families': '1.0',
+    },
+}
+
+
 def _is_supported_session_schema(value: str | None) -> bool:
-    return any(
-        (
-            _schema_matches(value, r'cowlog-django-v\d+-session'),
-            _schema_matches(value, r'pybehaviorlog-0(?:\.\d+)*-session'),
-            _schema_matches(value, r'cowlog-results-v\d+'),
-            _schema_matches(value, r'boris-tabular-(?:csv|tsv|xlsx)-v\d+'),
-            _schema_matches(value, r'boris-tabular-spreadsheet-v\d+'),
+    return bool(
+        value in SUPPORTED_SCHEMA_MATRIX['session_exact']
+        or any(
+            _schema_matches(value, pattern)
+            for pattern in SUPPORTED_SCHEMA_MATRIX['session_patterns']
         )
     )
 
 
 def _is_supported_observation_schema(value: str | None) -> bool:
-    return _schema_matches(value, r'boris-observation-v\d+')
+    return any(
+        _schema_matches(value, pattern) for pattern in SUPPORTED_SCHEMA_MATRIX['observation_patterns']
+    )
 
 
 def _is_supported_project_schema(value: str | None) -> bool:
     return any(
-        (
-            _schema_matches(value, r'boris-project-v\d+'),
-            _schema_matches(value, r'pybehaviorlog-0(?:\.\d+)*-bundle'),
-        )
+        _schema_matches(value, pattern) for pattern in SUPPORTED_SCHEMA_MATRIX['project_patterns']
     )
 
 
 def _is_supported_ethogram_schema(value: str | None) -> bool:
     return any(
-        (
-            _schema_matches(value, r'cowlog-django-v\d+-ethogram'),
-            _schema_matches(value, r'pybehaviorlog-0(?:\.\d+)*-ethogram'),
-            _schema_matches(value, r'boris-project-v\d+'),
-            _schema_matches(value, r'boris-observation-v\d+'),
-        )
+        _schema_matches(value, pattern) for pattern in SUPPORTED_SCHEMA_MATRIX['ethogram_patterns']
     )
 
 
@@ -5828,6 +5879,7 @@ def session_export_cowlog_txt(request, pk: int):  # pragma: no cover
         f'attachment; filename="session_{session.pk}_cowlog_compatible.txt"'
     )
     response.write('# PyBehaviorLog 0.9.5 CowLog-compatible export\n')
+    response.write(f'# extension_profile\t{EXTENSION_PROFILE["profile_version"]}\n')
     response.write(f'# session\t{session.title}\n')
     response.write(f'# project\t{session.project.name}\n')
     response.write(f'# observer\t{session.observer.username if session.observer else ""}\n')

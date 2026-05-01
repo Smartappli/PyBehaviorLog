@@ -20,9 +20,12 @@ from tracker.models import (
 from tracker.views import (
     build_behavioral_sequences_text,
     build_binary_table_rows,
+    build_project_compatibility_report,
     build_session_compatibility_report,
     build_textgrid_text,
     load_session_import_payload,
+    parse_cowlog_results_text,
+    parse_tabular_session_rows,
 )
 
 User = get_user_model()
@@ -62,8 +65,13 @@ class CompatibilityTests(TestCase):
         )
         payload, report = load_session_import_payload(upload, self.session)
         self.assertEqual(report['detected_format'], 'cowlog-results-v1')
+        self.assertEqual(report['source_hint'], 'cowlog_text_time_token')
         self.assertEqual(payload['events'][0]['behavior'], 'Eat')
         self.assertEqual(payload['events'][0]['modifiers'], ['Near'])
+
+    def test_parse_cowlog_results_text_strict_mode_rejects_unknown_behavior(self):
+        with self.assertRaises(ValueError):
+            parse_cowlog_results_text(self.session, '1.0\tUnknownBehavior\tNear\n', strict=True)
 
     def test_load_session_import_payload_supports_cowlog_timecodes(self):
         upload = SimpleUploadedFile(
@@ -241,9 +249,19 @@ class CompatibilityTests(TestCase):
         )
         payload, report = load_session_import_payload(upload, self.session)
         self.assertEqual(report['detected_format'], 'boris-tabular-csv-v1')
+        self.assertEqual(report['source_hint'], 'tabular_header_delimiter')
         self.assertEqual(len(payload['events']), 2)
         self.assertEqual(payload['events'][0]['event_kind'], 'start')
         self.assertEqual(payload['events'][1]['event_kind'], 'stop')
+
+    def test_parse_tabular_session_rows_strict_mode_rejects_unknown_behavior(self):
+        with self.assertRaises(ValueError):
+            parse_tabular_session_rows(
+                self.session,
+                [{'time': '1.0', 'behavior': 'UnknownBehavior'}],
+                source_format='boris-tabular-csv-v1',
+                strict=True,
+            )
 
     def test_load_session_import_payload_supports_tabular_timecodes(self):
         upload = SimpleUploadedFile(
@@ -448,6 +466,7 @@ class CompatibilityTests(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertIn('CowLog-compatible', response.content.decode('utf-8'))
+        self.assertIn('# extension_profile\t1.0', response.content.decode('utf-8'))
         self.assertIn('# observer\tolivier', response.content.decode('utf-8'))
         self.assertIn('# fps\t30', response.content.decode('utf-8'))
         self.assertIn(
@@ -475,3 +494,10 @@ class CompatibilityTests(TestCase):
         self.assertEqual(response.status_code, 200)
         payload = json.loads(response.content.decode('utf-8'))
         self.assertEqual(payload['schema'], 'pybehaviorlog-0.9.5-session-compatibility-report')
+
+    def test_project_compatibility_report_includes_schema_matrix(self):
+        payload = build_project_compatibility_report(self.project)
+        self.assertIn('supported_schema_matrix', payload)
+        self.assertIn('session_patterns', payload['supported_schema_matrix'])
+        self.assertIn('extension_profile', payload)
+        self.assertEqual(payload['extension_profile']['profile_version'], '1.0')
