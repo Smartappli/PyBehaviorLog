@@ -127,6 +127,17 @@ class CompatibilityTests(TestCase):
         self.assertEqual(report['frame_rate'], '29.97 fps')
         self.assertAlmostEqual(payload['events'][0]['time'], 10.5005, places=3)
 
+    def test_load_session_import_payload_supports_cowlog_frame_rate_ratio(self):
+        upload = SimpleUploadedFile(
+            'cowlog.txt',
+            b'# fps\t30000/1001\n00:00:10:15\tEat\tNear\n',
+            content_type='text/plain',
+        )
+        payload, report = load_session_import_payload(upload, self.session)
+        self.assertEqual(report['detected_format'], 'cowlog-results-v1')
+        self.assertEqual(report['frame_rate'], '30000/1001')
+        self.assertAlmostEqual(payload['events'][0]['time'], 10.5005, places=3)
+
     def test_load_session_import_payload_supports_cowlog_colon_metadata(self):
         upload = SimpleUploadedFile(
             'cowlog.txt',
@@ -299,6 +310,17 @@ class CompatibilityTests(TestCase):
         self.assertEqual(report['detected_format'], 'boris-tabular-csv-v1')
         self.assertAlmostEqual(payload['events'][0]['time'], 5.2, places=3)
         self.assertAlmostEqual(payload['events'][1]['time'], 8.4, places=3)
+
+    def test_load_session_import_payload_supports_tabular_ratio_frame_rate(self):
+        upload = SimpleUploadedFile(
+            'boris_rows.csv',
+            b'time,stop,behavior,frame_rate\n00:00:05:10,00:00:08:20,Stand,30000/1001\n',
+            content_type='text/csv',
+        )
+        payload, report = load_session_import_payload(upload, self.session)
+        self.assertEqual(report['detected_format'], 'boris-tabular-csv-v1')
+        self.assertAlmostEqual(payload['events'][0]['time'], 5.3336, places=3)
+        self.assertAlmostEqual(payload['events'][1]['time'], 8.6673, places=3)
 
     def test_load_session_import_payload_supports_state_duration_column(self):
         upload = SimpleUploadedFile(

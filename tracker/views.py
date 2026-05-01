@@ -692,7 +692,18 @@ def _normalize_frame_rate_token(value: str | float | Decimal | None) -> Decimal:
         return Decimal('25')
     if isinstance(value, Decimal):
         return value if value > 0 else Decimal('25')
-    match = re.search(r'[-+]?\d+(?:[.,]\d+)?', str(value))
+    token = str(value).strip()
+    ratio_match = re.search(
+        r'(?P<num>[-+]?\d+(?:[.,]\d+)?)\s*/\s*(?P<den>[-+]?\d+(?:[.,]\d+)?)', token
+    )
+    if ratio_match:
+        numerator = _decimal(ratio_match.group('num').replace(',', '.'), default='25')
+        denominator = _decimal(ratio_match.group('den').replace(',', '.'), default='1')
+        if denominator > 0:
+            ratio = numerator / denominator
+            if ratio > 0:
+                return ratio
+    match = re.search(r'[-+]?\d+(?:[.,]\d+)?', token)
     if not match:
         return Decimal('25')
     parsed = _decimal(match.group(0), default='25')
