@@ -39,6 +39,7 @@ def _resolve_event_items(payload: dict[str, Any]) -> list[dict[str, Any]]:
     schema = payload.get('schema', '')
     if schema in {
         'cowlog-results-v1',
+        'cowlog-results-v2',
         'pybehaviorlog-0.9-session',
         'pybehaviorlog-0.9.1-session',
         'pybehaviorlog-0.8.3-session',
@@ -48,42 +49,76 @@ def _resolve_event_items(payload: dict[str, Any]) -> list[dict[str, Any]]:
         'boris-tabular-xlsx-v1',
         'boris-tabular-spreadsheet-v2',
     }:
-        return [item for item in payload.get('events', []) if isinstance(item, dict)]
+        events = payload.get('events', [])
+        if isinstance(events, dict):
+            events = list(events.values())
+        return [item for item in events if isinstance(item, dict)]
     observations = payload.get('observations')
     if isinstance(observations, dict):
         observations = list(observations.values())
     if isinstance(observations, list) and observations:
-        first = observations[0]
-        if isinstance(first, dict):
-            return [item for item in first.get('events', []) if isinstance(item, dict)]
-    if isinstance(payload.get('events'), list):
-        return [item for item in payload['events'] if isinstance(item, dict)]
+        merged_events: list[dict[str, Any]] = []
+        for observation in observations:
+            if not isinstance(observation, dict):
+                continue
+            observation_events = observation.get('events', [])
+            if isinstance(observation_events, dict):
+                observation_events = list(observation_events.values())
+            merged_events.extend(
+                [item for item in observation_events if isinstance(item, dict)]
+            )
+        return merged_events
+    root_events = payload.get('events')
+    if isinstance(root_events, dict):
+        root_events = list(root_events.values())
+    if isinstance(root_events, list):
+        return [item for item in root_events if isinstance(item, dict)]
     return []
 
 
 def _resolve_annotation_items(payload: dict[str, Any]) -> list[dict[str, Any]]:
     if payload.get('schema', '').startswith('pybehaviorlog-'):
-        return [item for item in payload.get('annotations', []) if isinstance(item, dict)]
+        annotations = payload.get('annotations', [])
+        if isinstance(annotations, dict):
+            annotations = list(annotations.values())
+        return [item for item in annotations if isinstance(item, dict)]
     observations = payload.get('observations')
     if isinstance(observations, dict):
         observations = list(observations.values())
     if isinstance(observations, list) and observations:
-        first = observations[0]
-        if isinstance(first, dict):
-            return [item for item in first.get('annotations', []) if isinstance(item, dict)]
+        merged_annotations: list[dict[str, Any]] = []
+        for observation in observations:
+            if not isinstance(observation, dict):
+                continue
+            observation_annotations = observation.get('annotations', [])
+            if isinstance(observation_annotations, dict):
+                observation_annotations = list(observation_annotations.values())
+            merged_annotations.extend(
+                [item for item in observation_annotations if isinstance(item, dict)]
+            )
+        return merged_annotations
     return []
 
 
 def _resolve_segment_items(payload: dict[str, Any]) -> list[dict[str, Any]]:
     if payload.get('schema', '').startswith('pybehaviorlog-'):
-        return [item for item in payload.get('segments', []) if isinstance(item, dict)]
+        segments = payload.get('segments', [])
+        if isinstance(segments, dict):
+            segments = list(segments.values())
+        return [item for item in segments if isinstance(item, dict)]
     observations = payload.get('observations')
     if isinstance(observations, dict):
         observations = list(observations.values())
     if isinstance(observations, list) and observations:
-        first = observations[0]
-        if isinstance(first, dict):
-            return [item for item in first.get('segments', []) if isinstance(item, dict)]
+        merged_segments: list[dict[str, Any]] = []
+        for observation in observations:
+            if not isinstance(observation, dict):
+                continue
+            observation_segments = observation.get('segments', [])
+            if isinstance(observation_segments, dict):
+                observation_segments = list(observation_segments.values())
+            merged_segments.extend([item for item in observation_segments if isinstance(item, dict)])
+        return merged_segments
     return []
 
 
