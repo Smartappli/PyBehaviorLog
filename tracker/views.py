@@ -2594,6 +2594,7 @@ def build_session_compatibility_report(session: ObservationSession) -> dict:
             'certified_against_built_in_corpus': True,
             'fixture_version': '0.9.1',
         },
+        'extension_profile': EXTENSION_PROFILE,
     }
     if state_event_count:
         report['cowlog']['warnings'].append(
@@ -2637,6 +2638,7 @@ def build_project_compatibility_report(project: Project) -> dict:
         'supported_cowlog_exports': ['plain_text_results'],
         'supported_boris_imports': ['json_project', 'json_observation', 'csv', 'tsv', 'xlsx'],
         'supported_schema_matrix': SUPPORTED_SCHEMA_MATRIX,
+        'extension_profile': EXTENSION_PROFILE,
         'notes': [
             _(
                 'BORIS interoperability is strongest when using the documented JSON project/observation workflows and tabular exports.'
@@ -2789,6 +2791,17 @@ SUPPORTED_SCHEMA_MATRIX = {
         r'boris-project-v\d+',
         r'boris-observation-v\d+',
     ],
+}
+
+EXTENSION_PROFILE = {
+    'profile_version': '1.0',
+    'extensions': {
+        'cowlog_metadata_headers': '1.0',
+        'cowlog_metadata_annotations': '1.0',
+        'cowlog_export_observer_fps': '1.0',
+        'boris_observation_merge_notes': '1.0',
+        'schema_regex_families': '1.0',
+    },
 }
 
 
@@ -5866,6 +5879,7 @@ def session_export_cowlog_txt(request, pk: int):  # pragma: no cover
         f'attachment; filename="session_{session.pk}_cowlog_compatible.txt"'
     )
     response.write('# PyBehaviorLog 0.9.5 CowLog-compatible export\n')
+    response.write(f'# extension_profile\t{EXTENSION_PROFILE["profile_version"]}\n')
     response.write(f'# session\t{session.title}\n')
     response.write(f'# project\t{session.project.name}\n')
     response.write(f'# observer\t{session.observer.username if session.observer else ""}\n')

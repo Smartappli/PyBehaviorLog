@@ -5,7 +5,6 @@ Atteindre une compatibilité fonctionnelle plus complète avec les formats réce
 au-delà de la compatibilité actuelle orientée import/export principal.
 
 ## 1) Stabiliser la base de compatibilité (priorité haute)
-- [ ] **Versionner explicitement les extensions maison** (ex. métadonnées CowLog enrichies, préfixes d'observation fusionnées).
 
 ## 2) Compléter la fidélité BORIS (priorité haute)
 - [ ] **Importer/exporter toutes les observations BORIS sans perte de contexte**:

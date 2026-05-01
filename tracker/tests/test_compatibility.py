@@ -466,6 +466,7 @@ class CompatibilityTests(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertIn('CowLog-compatible', response.content.decode('utf-8'))
+        self.assertIn('# extension_profile\t1.0', response.content.decode('utf-8'))
         self.assertIn('# observer\tolivier', response.content.decode('utf-8'))
         self.assertIn('# fps\t30', response.content.decode('utf-8'))
         self.assertIn(
@@ -498,3 +499,5 @@ class CompatibilityTests(TestCase):
         payload = build_project_compatibility_report(self.project)
         self.assertIn('supported_schema_matrix', payload)
         self.assertIn('session_patterns', payload['supported_schema_matrix'])
+        self.assertIn('extension_profile', payload)
+        self.assertEqual(payload['extension_profile']['profile_version'], '1.0')
