@@ -2430,6 +2430,67 @@ def parse_tabular_session_rows(
     return payload, report
 
 
+def _first_import_content_line(text_payload: str, *, skip_cowlog_metadata: bool = False) -> str:
+    for raw_line in text_payload.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        if skip_cowlog_metadata and (line.startswith('#') or line.startswith(';')):
+            continue
+        return line
+    return ''
+
+
+def _line_starts_with_import_time(line: str) -> bool:
+    line = line.strip()
+    if not line or line.startswith('#') or line.startswith(';'):
+        return False
+    if '\t' in line:
+        token = line.split('\t', 1)[0].strip()
+    else:
+        smpte_semicolon_match = re.match(r'\d{1,3}:\d{1,2}:\d{1,2};\d{1,3}(?=$|[\s,;\t])', line)
+        if smpte_semicolon_match:
+            token = smpte_semicolon_match.group(0)
+        elif ';' in line and line.count(';') >= 2:
+            token = line.split(';', 1)[0].strip()
+        else:
+            try:
+                parts = shlex.split(line)
+            except ValueError:
+                parts = line.split()
+            token = parts[0].strip() if parts else ''
+    if not token:
+        return False
+    return not _decimal(token, default='NaN').is_nan()
+
+
+def _looks_like_tabular_import_header(line: str) -> bool:
+    if not line or not any(delimiter in line for delimiter in (',', ';', '\t')):
+        return False
+    delimiter = '\t' if '\t' in line else ';' if line.count(';') >= line.count(',') else ','
+    try:
+        headers = next(csv.reader([line], delimiter=delimiter))
+    except (csv.Error, StopIteration):
+        return False
+    normalized_headers = {_normalize_import_header(header) for header in headers if header}
+    time_headers = {
+        'time',
+        'timestamp',
+        'timestamp_seconds',
+        'start',
+        'start_time',
+        'elapsed_time',
+        'media_time',
+    }
+    behavior_headers = {'behavior', 'code', 'behavior_code', 'event', 'behavior_name'}
+    note_headers = {'annotation', 'note', 'text'}
+    interval_headers = {'stop', 'end', 'stop_time', 'end_time', 'duration', 'duration_seconds'}
+    return bool(
+        normalized_headers & time_headers
+        and normalized_headers & (behavior_headers | note_headers | interval_headers)
+    )
+
+
 def parse_tabular_session_file(
     session: ObservationSession, uploaded_file, raw_bytes: bytes, *, strict: bool = False
 ) -> tuple[dict, dict]:
@@ -2455,16 +2516,14 @@ def parse_tabular_session_file(
         text_payload = raw_bytes.decode('utf-8-sig')
     except UnicodeDecodeError as exc:
         raise ValueError(_('The uploaded tabular file is not valid UTF-8 text.')) from exc
+    first_line = _first_import_content_line(text_payload)
     delimiter = (
         '	'
-        if ('	' in text_payload.splitlines()[0] if text_payload.splitlines() else False)
-        or filename.endswith('.tsv')
+        if ('	' in first_line if first_line else False) or filename.endswith('.tsv')
         else ','
     )
-    if delimiter == ',' and filename.endswith('.csv'):
-        first_line = text_payload.splitlines()[0] if text_payload.splitlines() else ''
-        if ';' in first_line and first_line.count(';') >= first_line.count(','):
-            delimiter = ';'
+    if delimiter == ',' and ';' in first_line and first_line.count(';') >= first_line.count(','):
+        delimiter = ';'
     reader = csv.DictReader(io.StringIO(text_payload), delimiter=delimiter)
     if not reader.fieldnames:
         raise ValueError(_('The uploaded tabular file does not contain a header row.'))
@@ -2494,6 +2553,9 @@ def load_session_import_payload(
             report['source_name'] = candidate
             return payload, report
     if filename.endswith(('.csv', '.tsv', '.xlsx')):
+        report['source_hint'] = (
+            'tabular_extension' if filename.endswith('.xlsx') else 'tabular_header_delimiter'
+        )
         payload, parsed_report = parse_tabular_session_file(
             session, uploaded_file, raw_bytes, strict=strict
         )
@@ -2510,23 +2572,14 @@ def load_session_import_payload(
         payload = json.loads(text_payload)
         report['detected_format'] = payload.get('schema', 'json')
         return payload, report
-    first_line = text_payload.splitlines()[0] if text_payload.splitlines() else ''
-    first_tokens = [token for token in re.split(r'[\t ]+', first_line.strip()) if token]
-    if first_tokens:
-        try:
-            float(first_tokens[0].replace(',', '.'))
-        except ValueError:
-            first_token_is_time = False
-        else:
-            first_token_is_time = True
-    else:
-        first_token_is_time = False
-    if first_token_is_time and filename.endswith('.txt'):
+    first_line = _first_import_content_line(text_payload)
+    first_data_line = _first_import_content_line(text_payload, skip_cowlog_metadata=True)
+    if _line_starts_with_import_time(first_data_line):
         report['source_hint'] = 'cowlog_text_time_token'
         payload, parsed_report = parse_cowlog_results_text(session, text_payload, strict=strict)
         report.update(parsed_report)
         return payload, report
-    if ',' in first_line or ';' in first_line or '	' in first_line:
+    if _looks_like_tabular_import_header(first_line):
         report['source_hint'] = 'tabular_header_delimiter'
         payload, parsed_report = parse_tabular_session_file(
             session, uploaded_file, raw_bytes, strict=strict

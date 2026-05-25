@@ -47,4 +47,4 @@ jobs:
       - name: Run unit tests with coverage
         run: |
           uv run --no-project --with-requirements requirements-dev.txt coverage run manage.py test
-          uv run --no-project --with-requirements requirements-dev.txt coverage report --fail-under=80
+          uv run --no-project --with-requirements requirements-dev.txt coverage report --fail-under=81
