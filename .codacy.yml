@@ -1,0 +1,8 @@
+---
+exclude_paths:
+  - "tracker/tests/**"
+  - "tracker/migrations/**"
+  - "locale/**"
+  - "media/**"
+  - "static/**"
+  - "**/__pycache__/**"
