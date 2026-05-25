@@ -4,7 +4,6 @@ import importlib
 from importlib.metadata import PackageNotFoundError, version
 from urllib.parse import urlparse
 
-
 DEFAULT_DEALHOST_SDK_MODULE = 'dealhost_sdk'
 DEALHOST_SDK_ENV = 'DEALHOST_SDK_MODULE'
 

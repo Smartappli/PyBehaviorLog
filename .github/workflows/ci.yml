@@ -4,6 +4,9 @@ on:
   push:
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   quality:
     name: ${{ matrix.os }} / Python ${{ matrix.python-version }}
@@ -30,7 +33,7 @@ jobs:
         run: uv run --no-project --with-requirements requirements-dev.txt python manage.py check
 
       - name: Run pre-commit
-        run: uv run --no-project --with-requirements requirements-dev.txt pre-commit run --all-files
+        run: uv run --no-project --with-requirements requirements-dev.txt pre-commit run --all-files --show-diff-on-failure
 
       - name: Analyze dependency licenses
         run: uv run --no-project --with-requirements requirements-dev.txt --with pip-licenses pip-licenses --format=markdown --with-authors --with-urls --output-file licenses-report.md

@@ -131,7 +131,9 @@ class RoundTripCertificationTests(TestCase):
         left = {
             'schema': 'boris-observation-v4',
             'observations': {
-                'obs_a': {'events': {'e1': {'time': 1.0, 'behavior': 'Eat', 'event_kind': 'point'}}},
+                'obs_a': {
+                    'events': {'e1': {'time': 1.0, 'behavior': 'Eat', 'event_kind': 'point'}}
+                },
                 'obs_b': {
                     'events': {'e2': {'time': 2.0, 'behavior': 'Stand', 'event_kind': 'start'}},
                     'annotations': {'a1': {'time': 2.5, 'note': 'Mark'}},

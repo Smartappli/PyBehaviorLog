@@ -121,8 +121,7 @@ DEFAULT_SECRET_KEY = 'django-insecure-pybehaviorlog-0-8-change-me'
 SECRET_KEY = env('DJANGO_SECRET_KEY', DEFAULT_SECRET_KEY)
 DEBUG = env_bool('DJANGO_DEBUG', True)
 ALLOWED_HOSTS = unique_list(
-    env_list('DJANGO_ALLOWED_HOSTS', '127.0.0.1,localhost')
-    + dealhost_hosts_from_env(os.environ)
+    env_list('DJANGO_ALLOWED_HOSTS', '127.0.0.1,localhost') + dealhost_hosts_from_env(os.environ)
 )
 CSRF_TRUSTED_ORIGINS = unique_list(
     env_list('DJANGO_CSRF_TRUSTED_ORIGINS') + dealhost_origins_from_env(os.environ)

@@ -636,10 +636,7 @@ def _decimal(
                 frames = Decimal(parts[3])
                 fps = _normalize_frame_rate_token(frame_rate)
                 return (
-                    (hours * Decimal('3600'))
-                    + (minutes * Decimal('60'))
-                    + seconds
-                    + (frames / fps)
+                    (hours * Decimal('3600')) + (minutes * Decimal('60')) + seconds + (frames / fps)
                 )
             except (InvalidOperation, TypeError, ValueError):
                 pass
@@ -2155,11 +2152,7 @@ def parse_cowlog_results_text(
                         else Decimal('NaN')
                     )
                     if not annotation_time.is_nan():
-                        title = (
-                            metadata_parts[2]
-                            if len(metadata_parts) > 2
-                            else _('Imported note')
-                        )
+                        title = metadata_parts[2] if len(metadata_parts) > 2 else _('Imported note')
                         note = (
                             ' '.join(metadata_parts[3:])
                             if len(metadata_parts) > 3
@@ -2205,9 +2198,10 @@ def parse_cowlog_results_text(
         tokens = parts[1:]
         behavior = behavior_lookup.get(tokens[0].casefold())
         if behavior is None:
-            message = _(
-                'Line %(line)s: unknown behavior token “%(token)s”.'
-            ) % {'line': line_number, 'token': tokens[0]}
+            message = _('Line %(line)s: unknown behavior token “%(token)s”.') % {
+                'line': line_number,
+                'token': tokens[0],
+            }
             if strict:
                 raise ValueError(message)
             warnings.append(message)
@@ -2343,9 +2337,7 @@ def parse_tabular_session_rows(
             stop_seconds_decimal = _decimal(stop_token, default='NaN', frame_rate=frame_rate_token)
             stop_seconds = None if stop_seconds_decimal.is_nan() else float(stop_seconds_decimal)
         elif duration_token not in {None, ''}:
-            duration_decimal = _decimal(
-                duration_token, default='NaN', frame_rate=frame_rate_token
-            )
+            duration_decimal = _decimal(duration_token, default='NaN', frame_rate=frame_rate_token)
             if not duration_decimal.is_nan() and duration_decimal >= 0:
                 stop_seconds = float(timestamp_decimal + duration_decimal)
         behavior = behavior_lookup.get(str(behavior_token).casefold())
@@ -2852,7 +2844,8 @@ def _is_supported_session_schema(value: str | None) -> bool:
 
 def _is_supported_observation_schema(value: str | None) -> bool:
     return any(
-        _schema_matches(value, pattern) for pattern in SUPPORTED_SCHEMA_MATRIX['observation_patterns']
+        _schema_matches(value, pattern)
+        for pattern in SUPPORTED_SCHEMA_MATRIX['observation_patterns']
     )
 
 
@@ -3582,11 +3575,7 @@ def import_session_payload(
                 observation_event_rows = _coerce_object_rows(observation.get('events'))
                 for raw_event in observation_event_rows:
                     event_item = dict(raw_event) if isinstance(raw_event, dict) else raw_event
-                    if (
-                        multi_observation
-                        and isinstance(event_item, dict)
-                        and observation_label
-                    ):
+                    if multi_observation and isinstance(event_item, dict) and observation_label:
                         existing_comment = (
                             event_item.get('comment')
                             or event_item.get('note')
@@ -3732,7 +3721,9 @@ def import_session_payload(
         if metadata_notes:
             session.notes = _append_note_line(
                 session.notes,
-                str(_('Imported CowLog metadata: %(items)s') % {'items': '; '.join(metadata_notes)}),
+                str(
+                    _('Imported CowLog metadata: %(items)s') % {'items': '; '.join(metadata_notes)}
+                ),
             )
             session.save(update_fields=['notes'])
 

@@ -205,7 +205,7 @@ class CompatibilityTests(TestCase):
     def test_load_session_import_payload_parses_quoted_cowlog_metadata_annotations(self):
         upload = SimpleUploadedFile(
             'cowlog.txt',
-            b'# annotation 3.0 Marker \"Interesting moment with spaces\"\n1.0\tEat\tNear\n',
+            b'# annotation 3.0 Marker "Interesting moment with spaces"\n1.0\tEat\tNear\n',
             content_type='text/plain',
         )
         payload, report = load_session_import_payload(upload, self.session)

@@ -64,9 +64,7 @@ def _resolve_event_items(payload: dict[str, Any]) -> list[dict[str, Any]]:
             observation_events = observation.get('events', [])
             if isinstance(observation_events, dict):
                 observation_events = list(observation_events.values())
-            merged_events.extend(
-                [item for item in observation_events if isinstance(item, dict)]
-            )
+            merged_events.extend([item for item in observation_events if isinstance(item, dict)])
         return merged_events
     root_events = payload.get('events')
     if isinstance(root_events, dict):
@@ -117,7 +115,9 @@ def _resolve_segment_items(payload: dict[str, Any]) -> list[dict[str, Any]]:
             observation_segments = observation.get('segments', [])
             if isinstance(observation_segments, dict):
                 observation_segments = list(observation_segments.values())
-            merged_segments.extend([item for item in observation_segments if isinstance(item, dict)])
+            merged_segments.extend(
+                [item for item in observation_segments if isinstance(item, dict)]
+            )
         return merged_segments
     return []
 
