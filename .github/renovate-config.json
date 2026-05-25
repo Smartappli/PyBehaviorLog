@@ -1,0 +1,10 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "platform": "github",
+  "repositories": ["Smartappli/PyBehaviorLog"],
+  "branchPrefix": "self-hosted-renovate/",
+  "onboarding": false,
+  "requireConfig": "optional",
+  "extends": ["config:recommended"],
+  "dependencyDashboard": true
+}
