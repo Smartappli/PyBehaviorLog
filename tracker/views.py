@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 import hashlib
+import html as html_utils
 import io
 import json
 import math
@@ -5902,13 +5903,15 @@ def session_export_html(request, pk: int):  # pragma: no cover
         '<head><meta charset="utf-8"><title>PyBehaviorLog session export</title>',
         '<style>body{font-family:system-ui,sans-serif;margin:2rem}table{border-collapse:collapse;width:100%}th,td{border:1px solid #cbd5e1;padding:.45rem;text-align:left}thead{background:#f8fafc}caption{text-align:left;font-weight:700;margin-bottom:.75rem}</style>',
         '</head><body>',
-        f'<h1>{session.title}</h1>',
-        f'<p>Project: {session.project.name}</p>',
-        f'<p>Observer: {session.observer.username if session.observer else "-"}</p>',
+        f'<h1>{html_utils.escape(session.title)}</h1>',
+        f'<p>Project: {html_utils.escape(session.project.name)}</p>',
+        f'<p>Observer: {html_utils.escape(session.observer.username if session.observer else "-")}</p>',
         '<table><caption>Events</caption><thead><tr><th>Project</th><th>Session</th><th>Primary video</th><th>Synced videos</th><th>Observer</th><th>Category</th><th>Behavior</th><th>Mode</th><th>Kind</th><th>Time</th><th>Subjects</th><th>Modifiers</th><th>Comment</th><th>Created at</th></tr></thead><tbody>',
     ]
     for row in rows:
-        html.append('<tr>' + ''.join(f'<td>{str(value)}</td>' for value in row) + '</tr>')
+        html.append(
+            '<tr>' + ''.join(f'<td>{html_utils.escape(str(value))}</td>' for value in row) + '</tr>'
+        )
     html.append('</tbody></table></body></html>')
     response = HttpResponse(''.join(html), content_type='text/html; charset=utf-8')
     response['Content-Disposition'] = f'attachment; filename="session_{session.pk}_events.html"'
@@ -5927,7 +5930,7 @@ def session_export_sql(request, pk: int):  # pragma: no cover
     for row in _event_rows(session):
         escaped = [str(value).replace("'", "''") for value in row]
         lines.append(
-            'INSERT INTO pybehaviorlog_event_export (project, session, primary_video, synced_videos, observer, category, behavior, behavior_mode, event_kind, timestamp_seconds, subjects, modifiers, comment, created_at) VALUES ('
+            'INSERT INTO pybehaviorlog_event_export (project, session, primary_video, synced_videos, observer, category, behavior, behavior_mode, event_kind, timestamp_seconds, subjects, modifiers, comment, created_at) VALUES ('  # nosec B608 - this exports SQL text; it is never executed by the app.
             + f"'{escaped[0]}', '{escaped[1]}', '{escaped[2]}', '{escaped[3]}', '{escaped[4]}', '{escaped[5]}', '{escaped[6]}', '{escaped[7]}', '{escaped[8]}', {escaped[9]}, '{escaped[10]}', '{escaped[11]}', '{escaped[12]}', '{escaped[13]}');"
         )
     lines.append('COMMIT;')

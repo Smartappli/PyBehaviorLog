@@ -117,7 +117,7 @@ def build_database_config() -> dict[str, object]:
     }
 
 
-DEFAULT_SECRET_KEY = 'django-insecure-pybehaviorlog-0-8-change-me'
+DEFAULT_SECRET_KEY = 'django-insecure-pybehaviorlog-0-8-change-me'  # nosec B105
 SECRET_KEY = env('DJANGO_SECRET_KEY', DEFAULT_SECRET_KEY)
 DEBUG = env_bool('DJANGO_DEBUG', True)
 ALLOWED_HOSTS = unique_list(
