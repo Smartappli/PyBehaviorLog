@@ -435,6 +435,8 @@ class CompatibilityTests(TestCase):
         report = build_session_compatibility_report(self.session)
         self.assertFalse(report['cowlog']['ready'])
         self.assertTrue(report['cowlog']['warnings'])
+        self.assertFalse(report['cowcloud']['ready'])
+        self.assertEqual(report['cowcloud']['status'], 'blocked_pending_format_contract')
 
     def test_export_endpoints_for_compatibility_formats(self):
         ObservationEvent.objects.create(
@@ -500,4 +502,6 @@ class CompatibilityTests(TestCase):
         self.assertIn('supported_schema_matrix', payload)
         self.assertIn('session_patterns', payload['supported_schema_matrix'])
         self.assertIn('extension_profile', payload)
+        self.assertIn('cowcloud', payload)
+        self.assertFalse(payload['cowcloud']['ready'])
         self.assertEqual(payload['extension_profile']['profile_version'], '1.0')

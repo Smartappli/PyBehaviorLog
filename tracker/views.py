@@ -5,6 +5,7 @@ import hashlib
 import io
 import json
 import math
+import os
 import re
 import shlex
 import wave
@@ -51,6 +52,7 @@ from .forms import (
     SubjectGroupForm,
     VideoAssetForm,
 )
+from .dealhost import build_dealhost_runtime_manifest
 from .models import (
     Behavior,
     BehaviorCategory,
@@ -137,6 +139,8 @@ def build_release_metadata() -> dict:
         'database': 'postgresql 18',
         'cache': 'redis 8',
         'languages': ['en', 'ar', 'zh-hans', 'es', 'fr', 'ru'],
+        'deployment_profiles': ['docker-compose', 'container-paas', 'dealhost-container'],
+        'dealhost': build_dealhost_runtime_manifest(os.environ),
     }
 
 
@@ -2547,7 +2551,7 @@ def load_session_import_payload(
 
 
 def build_session_compatibility_report(session: ObservationSession) -> dict:
-    """Summarize what can be exchanged with BORIS and CowLog for one session."""
+    """Summarize what can be exchanged with BORIS, CowLog, and CowCloud for one session."""
     stats = build_statistics(session)
     ordered_events = list(session.events.prefetch_related('modifiers', 'subjects'))
     state_event_count = sum(
@@ -2581,6 +2585,24 @@ def build_session_compatibility_report(session: ObservationSession) -> dict:
             'ready': state_event_count == 0,
             'warnings': [],
         },
+        'cowcloud': {
+            'documented_exports': [],
+            'documented_imports': [],
+            'ready': False,
+            'status': 'blocked_pending_format_contract',
+            'required_contract': [
+                'authentication model or file exchange mechanism',
+                'animal or subject identifier mapping',
+                'event timestamp units and timezone rules',
+                'point/state behavior semantics',
+                'modifier, annotation, media, and biometric field mappings',
+            ],
+            'warnings': [
+                _(
+                    'CowCloud compatibility cannot be certified until a public API, SDK contract, or representative import/export files are available.'
+                )
+            ],
+        },
         'session_metrics': {
             'event_count': stats['session_event_count'],
             'annotation_count': stats['annotation_count'],
@@ -2610,7 +2632,7 @@ def build_session_compatibility_report(session: ObservationSession) -> dict:
 
 
 def build_project_compatibility_report(project: Project) -> dict:
-    """Summarize project-level exchange coverage for BORIS and CowLog."""
+    """Summarize project-level exchange coverage for BORIS, CowLog, and CowCloud."""
     return {
         'schema': 'pybehaviorlog-0.9.5-project-compatibility-report',
         'version': '0.9.5',
@@ -2636,7 +2658,20 @@ def build_project_compatibility_report(project: Project) -> dict:
             'sql',
         ],
         'supported_cowlog_exports': ['plain_text_results'],
+        'supported_cowcloud_exports': [],
         'supported_boris_imports': ['json_project', 'json_observation', 'csv', 'tsv', 'xlsx'],
+        'supported_cowcloud_imports': [],
+        'cowcloud': {
+            'ready': False,
+            'status': 'blocked_pending_format_contract',
+            'required_contract': [
+                'SDK package name and supported Python versions',
+                'deployment target type and environment variable contract',
+                'project/session/entity schema',
+                'event ingestion and export endpoints',
+                'media and biometric data retention rules',
+            ],
+        },
         'supported_schema_matrix': SUPPORTED_SCHEMA_MATRIX,
         'extension_profile': EXTENSION_PROFILE,
         'notes': [

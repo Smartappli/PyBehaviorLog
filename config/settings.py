@@ -16,6 +16,8 @@ from django.core.exceptions import ImproperlyConfigured
 from django.utils.csp import CSP
 from django.utils.translation import gettext_lazy as _
 
+from tracker.dealhost import dealhost_hosts_from_env, dealhost_origins_from_env
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
@@ -47,6 +49,17 @@ def env_list(name: str, default: str = '') -> list[str]:
     """Parse a comma-separated environment variable into a cleaned list."""
     raw = env(name, default) or ''
     return [item.strip() for item in raw.split(',') if item.strip()]
+
+
+def unique_list(items: list[str]) -> list[str]:
+    """Return a duplicate-free list while preserving declaration order."""
+    seen = set()
+    results = []
+    for item in items:
+        if item and item not in seen:
+            seen.add(item)
+            results.append(item)
+    return results
 
 
 def build_database_config() -> dict[str, object]:
@@ -107,8 +120,12 @@ def build_database_config() -> dict[str, object]:
 DEFAULT_SECRET_KEY = 'django-insecure-pybehaviorlog-0-8-change-me'
 SECRET_KEY = env('DJANGO_SECRET_KEY', DEFAULT_SECRET_KEY)
 DEBUG = env_bool('DJANGO_DEBUG', True)
-ALLOWED_HOSTS = env_list('DJANGO_ALLOWED_HOSTS', '127.0.0.1,localhost')
-CSRF_TRUSTED_ORIGINS = env_list('DJANGO_CSRF_TRUSTED_ORIGINS')
+ALLOWED_HOSTS = unique_list(
+    env_list('DJANGO_ALLOWED_HOSTS', '127.0.0.1,localhost') + dealhost_hosts_from_env(os.environ)
+)
+CSRF_TRUSTED_ORIGINS = unique_list(
+    env_list('DJANGO_CSRF_TRUSTED_ORIGINS') + dealhost_origins_from_env(os.environ)
+)
 
 if not DEBUG and SECRET_KEY == DEFAULT_SECRET_KEY:
     raise ImproperlyConfigured(
@@ -201,10 +218,10 @@ LOCALE_PATHS = [BASE_DIR / 'locale']
 
 STATIC_URL = '/static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']
-STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATIC_ROOT = Path(env('STATIC_ROOT', str(BASE_DIR / 'staticfiles')) or BASE_DIR / 'staticfiles')
 
 MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
+MEDIA_ROOT = Path(env('MEDIA_ROOT', str(BASE_DIR / 'media')) or BASE_DIR / 'media')
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
@@ -229,15 +246,30 @@ if 'test' in sys.argv:
         }
     }
 else:
-    redis_url = env('REDIS_URL', 'redis://redis:6379/1') or 'redis://redis:6379/1'
-    CACHES = {
-        'default': {
-            'BACKEND': 'django.core.cache.backends.redis.RedisCache',
-            'LOCATION': redis_url,
-            'TIMEOUT': env_int('CACHE_TIMEOUT', 300),
-            'KEY_PREFIX': env('CACHE_KEY_PREFIX', 'pybehaviorlog'),
+    cache_backend = env('PYBEHAVIORLOG_CACHE_BACKEND')
+    if cache_backend is None:
+        cache_backend = (
+            'locmem' if env_bool('DEALHOST_ENABLED', False) and not env('REDIS_URL') else 'redis'
+        )
+    cache_backend = cache_backend.strip().lower()
+    if cache_backend in {'locmem', 'local', 'memory'}:
+        CACHES = {
+            'default': {
+                'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+                'LOCATION': env('CACHE_KEY_PREFIX', 'pybehaviorlog'),
+                'TIMEOUT': env_int('CACHE_TIMEOUT', 300),
+            }
         }
-    }
+    else:
+        redis_url = env('REDIS_URL', 'redis://redis:6379/1') or 'redis://redis:6379/1'
+        CACHES = {
+            'default': {
+                'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+                'LOCATION': redis_url,
+                'TIMEOUT': env_int('CACHE_TIMEOUT', 300),
+                'KEY_PREFIX': env('CACHE_KEY_PREFIX', 'pybehaviorlog'),
+            }
+        }
 
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 USE_X_FORWARDED_HOST = True
