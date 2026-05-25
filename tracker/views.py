@@ -5930,7 +5930,8 @@ def session_export_sql(request, pk: int):  # pragma: no cover
     for row in _event_rows(session):
         escaped = [str(value).replace("'", "''") for value in row]
         lines.append(
-            'INSERT INTO pybehaviorlog_event_export (project, session, primary_video, synced_videos, observer, category, behavior, behavior_mode, event_kind, timestamp_seconds, subjects, modifiers, comment, created_at) VALUES ('  # nosec B608 - this exports SQL text; it is never executed by the app.
+            # This exports SQL text for downstream tools; the app never executes it.
+            'INSERT INTO pybehaviorlog_event_export (project, session, primary_video, synced_videos, observer, category, behavior, behavior_mode, event_kind, timestamp_seconds, subjects, modifiers, comment, created_at) VALUES ('  # nosec B608
             + f"'{escaped[0]}', '{escaped[1]}', '{escaped[2]}', '{escaped[3]}', '{escaped[4]}', '{escaped[5]}', '{escaped[6]}', '{escaped[7]}', '{escaped[8]}', {escaped[9]}, '{escaped[10]}', '{escaped[11]}', '{escaped[12]}', '{escaped[13]}');"
         )
     lines.append('COMMIT;')
