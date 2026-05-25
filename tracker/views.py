@@ -2341,10 +2341,7 @@ def parse_tabular_session_rows(
         stop_seconds = None
         if stop_token not in {None, ''}:
             stop_seconds_decimal = _decimal(stop_token, default='NaN', frame_rate=frame_rate_token)
-            if stop_seconds_decimal.is_nan():
-                stop_seconds = None
-            else:
-                stop_seconds = float(stop_seconds_decimal)
+            stop_seconds = None if stop_seconds_decimal.is_nan() else float(stop_seconds_decimal)
         elif duration_token not in {None, ''}:
             duration_decimal = _decimal(
                 duration_token, default='NaN', frame_rate=frame_rate_token

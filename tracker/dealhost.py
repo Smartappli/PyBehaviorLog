@@ -81,7 +81,10 @@ def dealhost_origins_from_env(environ: dict[str, str]) -> list[str]:
 
 
 def dealhost_sdk_module_name(environ: dict[str, str]) -> str:
-    return _env_value(environ, DEALHOST_SDK_ENV, DEFAULT_DEALHOST_SDK_MODULE) or DEFAULT_DEALHOST_SDK_MODULE
+    return (
+        _env_value(environ, DEALHOST_SDK_ENV, DEFAULT_DEALHOST_SDK_MODULE)
+        or DEFAULT_DEALHOST_SDK_MODULE
+    )
 
 
 def load_dealhost_sdk(module_name: str = DEFAULT_DEALHOST_SDK_MODULE):
@@ -123,8 +126,7 @@ def dealhost_sdk_status(environ: dict[str, str]) -> dict[str, object]:
 def build_dealhost_runtime_manifest(environ: dict[str, str]) -> dict[str, object]:
     return {
         'profile': 'dealhost-container',
-        'enabled': _env_value(environ, 'DEALHOST_ENABLED').lower()
-        in {'1', 'true', 'yes', 'on'},
+        'enabled': _env_value(environ, 'DEALHOST_ENABLED').lower() in {'1', 'true', 'yes', 'on'},
         'port_env': 'PORT',
         'port': _env_value(environ, 'PORT', '8000'),
         'public_hosts': dealhost_hosts_from_env(environ),
