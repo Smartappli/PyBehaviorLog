@@ -54,8 +54,42 @@ jobs:
           # This will handover control about PR rejection to the GitHub side
           max-allowed-issues: 2147483647
 
+      - name: Split SARIF runs
+        run: |
+          python3 - <<'PY'
+          import json
+          import pathlib
+          import re
+
+          source = pathlib.Path('results.sarif')
+          target_dir = pathlib.Path('sarif-results')
+          target_dir.mkdir(exist_ok=True)
+
+          report = json.loads(source.read_text(encoding='utf-8'))
+          runs = report.get('runs') or []
+          if not runs:
+              raise SystemExit('Codacy did not produce any SARIF runs')
+
+          for index, run in enumerate(runs, start=1):
+              tool_name = (
+                  run.get('tool', {}).get('driver', {}).get('name')
+                  or f'codacy-run-{index}'
+              )
+              safe_tool_name = re.sub(r'[^A-Za-z0-9_.-]+', '-', tool_name).strip('-')
+              run['automationDetails'] = {
+                  'id': f'codacy/{index}-{safe_tool_name or "analysis"}'
+              }
+              split_report = dict(report)
+              split_report['runs'] = [run]
+              output = target_dir / f'{index:02d}-{safe_tool_name or "analysis"}.sarif'
+              output.write_text(
+                  json.dumps(split_report, ensure_ascii=False, indent=2) + '\n',
+                  encoding='utf-8',
+              )
+          PY
+
       # Upload the SARIF file generated in the previous step
       - name: Upload SARIF results file
         uses: github/codeql-action/upload-sarif@v4
         with:
-          sarif_file: results.sarif
+          sarif_file: sarif-results
