@@ -5,6 +5,7 @@ from . import views
 app_name = 'tracker'
 
 urlpatterns = [
+    path('health', views.healthcheck, name='healthcheck_noslash'),
     path('health/', views.healthcheck, name='healthcheck'),
     path('release.json', views.release_metadata_json, name='release_metadata_json'),
     path('review-queue/', views.review_queue, name='review_queue'),

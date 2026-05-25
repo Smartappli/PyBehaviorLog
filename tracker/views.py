@@ -2681,6 +2681,9 @@ def build_project_compatibility_report(project: Project) -> dict:
             _(
                 'CowLog interoperability currently targets the documented plain-text coding results and keyboard/behavior conventions.'
             ),
+            _(
+                'CowCloud interoperability is blocked until a format, API, SDK, or representative file corpus is provided.'
+            ),
         ],
         'certification': {
             'roundtrip_tested_families': [

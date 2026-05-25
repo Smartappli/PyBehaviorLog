@@ -38,6 +38,8 @@ def _origin_from_value(value: str) -> str:
         if parsed.netloc:
             return f'{parsed.scheme}://{parsed.netloc}'
     host = _host_from_value(value)
+    if host == '*':
+        return ''
     return f'https://{host}' if host else ''
 
 
@@ -79,13 +81,18 @@ def dealhost_origins_from_env(environ: dict[str, str]) -> list[str]:
 
 
 def dealhost_sdk_module_name(environ: dict[str, str]) -> str:
-    return _env_value(environ, DEALHOST_SDK_ENV, DEFAULT_DEALHOST_SDK_MODULE)
+    return _env_value(environ, DEALHOST_SDK_ENV, DEFAULT_DEALHOST_SDK_MODULE) or DEFAULT_DEALHOST_SDK_MODULE
 
 
 def load_dealhost_sdk(module_name: str = DEFAULT_DEALHOST_SDK_MODULE):
     try:
         return importlib.import_module(module_name)
     except ModuleNotFoundError as exc:
+        if exc.name != module_name:
+            raise RuntimeError(
+                f'Dealhost SDK module "{module_name}" is installed but one of its '
+                f'dependencies is missing: "{exc.name}".'
+            ) from exc
         raise RuntimeError(
             f'Dealhost SDK module "{module_name}" is not installed. '
             f'Set {DEALHOST_SDK_ENV} if Dealhost uses another package name.'
@@ -101,7 +108,9 @@ def dealhost_sdk_status(environ: dict[str, str]) -> dict[str, object]:
     }
     try:
         sdk_module = importlib.import_module(module_name)
-    except ModuleNotFoundError:
+    except ModuleNotFoundError as exc:
+        if exc.name != module_name:
+            status['error'] = f'missing dependency: {exc.name}'
         return status
     status['available'] = True
     try:
