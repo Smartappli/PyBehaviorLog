@@ -1,0 +1,6 @@
+-r requirements.txt
+
+# Add the official Dealhost SDK package here when Dealhost provides its exact
+# package name and version. The application loads it lazily through
+# DEALHOST_SDK_MODULE so deployments do not fail on unsupported package names.
+# dealhost-sdk==x.y.z
