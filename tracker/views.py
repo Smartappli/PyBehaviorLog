@@ -29,6 +29,7 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_POST
 from openpyxl import Workbook, load_workbook
 
+from .dealhost import build_dealhost_runtime_manifest
 from .forms import (
     BehaviorCategoryForm,
     BehaviorForm,
@@ -52,7 +53,6 @@ from .forms import (
     SubjectGroupForm,
     VideoAssetForm,
 )
-from .dealhost import build_dealhost_runtime_manifest
 from .models import (
     Behavior,
     BehaviorCategory,
@@ -132,7 +132,7 @@ def build_release_metadata() -> dict:
     return {
         'application': 'PyBehaviorLog',
         'version': '0.9.5',
-        'django_target': '6.0.3',
+        'django_target': '6.0.5',
         'python_minimum': '3.13',
         'asgi': True,
         'server': 'granian',
