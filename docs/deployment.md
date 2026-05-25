@@ -3,7 +3,7 @@
 ## Recommended stack
 
 - Python 3.13
-- Django 6.0.3
+- Django 6.0.5
 - Granian
 - PostgreSQL 18
 - Redis 8
@@ -65,3 +65,24 @@ Use Granian directly to mirror production ASGI behavior:
 ```bash
 granian --interface asgi --host 127.0.0.1 --port 8000 config.asgi:application
 ```
+
+## Dealhost-compatible container profile
+
+The application now supports a Dealhost-style container deployment profile.
+Because no public Dealhost Python hosting SDK could be verified, the integration
+is intentionally split into:
+
+- container/runtime compatibility through `PORT`, `DATABASE_URL`, optional
+  `REDIS_URL`, and `DEALHOST_APP_URL`
+- lazy SDK detection through `DEALHOST_SDK_MODULE`
+- a machine-readable profile from `python manage.py dealhost_manifest`
+
+Use:
+
+```bash
+python manage.py dealhost_manifest
+python manage.py dealhost_manifest --sdk-check
+```
+
+The Docker image uses `${PORT:-8000}` and exposes `/health/` for platform health
+checks. See `docs/dealhost.md` and `deploy/dealhost.env.example`.

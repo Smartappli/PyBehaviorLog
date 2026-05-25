@@ -49,6 +49,20 @@ CowLog plain-text exports do not preserve all PyBehaviorLog/BORIS semantics with
 For those cases, BORIS JSON and PyBehaviorLog JSON remain the preferred interchange formats.
 
 
+## CowCloud coverage
+
+CowCloud is not currently certified or implemented as an exchange target.
+
+The repository does not include a CowCloud API contract, SDK reference, file
+format sample, or representative export corpus. Compatibility reports therefore
+mark CowCloud as `blocked_pending_format_contract`.
+
+Before implementing this adapter, collect the CowCloud contract described in
+`docs/compatibility_matrix.md`: authentication, project/session/animal schema,
+event timestamp rules, point/state behavior semantics, media handling, biometric
+field mappings, and representative gold files.
+
+
 ## Built-in certification baseline
 
 Version 0.9 adds a compact fixture corpus and automated round-trip tests for:
@@ -82,6 +96,9 @@ If you want to move toward a stronger "certified compatibility" claim, use this 
 6. Store the round-trip reports in CI.
 
 That approach is the right path toward a future compatibility certification release.
+
+See `docs/compatibility_matrix.md` for the current per-application matrix and
+the CowCloud contract checklist.
 
 
 ### Added in 0.9

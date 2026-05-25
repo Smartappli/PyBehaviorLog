@@ -6,7 +6,7 @@
 [![Release Drafter](https://github.com/Smartappli/PyBehaviorLog/actions/workflows/release-drafter.yml/badge.svg)](https://github.com/Smartappli/PyBehaviorLog/actions/workflows/release-drafter.yml)
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=Smartappli_PyBehaviorLog&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=Smartappli_PyBehaviorLog)
 
-PyBehaviorLog is an ASGI-first behavioral observation platform built with Django 6.0.3. It is designed for research teams who need video-assisted coding, live observations, structured ethograms, review workflows, and exportable analytics without being locked into a desktop-only workflow.
+PyBehaviorLog is an ASGI-first behavioral observation platform built with Django 6.0.5. It is designed for research teams who need video-assisted coding, live observations, structured ethograms, review workflows, and exportable analytics without being locked into a desktop-only workflow.
 
 ## What is in this version
 
@@ -43,7 +43,7 @@ This version extends the earlier CowLog/BORIS-inspired foundations with:
 ## Runtime stack
 
 - Python 3.13+
-- Django 6.0.3
+- Django 6.0.5
 - Granian (ASGI server)
 - PostgreSQL 18
 - Redis 8
@@ -110,6 +110,8 @@ Additional English documentation is available in:
 - `docs/deployment.md`
 - `docs/compatibility.md`
 - `docs/certification.md`
+- `docs/compatibility_matrix.md`
+- `docs/dealhost.md`
 
 ## License
 
