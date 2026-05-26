@@ -25,8 +25,8 @@ User = get_user_model()
 
 class ModelTests(TestCase):
     def setUp(self):
-        self.user = User.objects.create_user(username='olivier', password='pass12345')
-        self.member = User.objects.create_user(username='member', password='pass12345')
+        self.user = User.objects.create_user(username='olivier')
+        self.member = User.objects.create_user(username='member')
         self.project = Project.objects.create(owner=self.user, name='Project 1')
         self.category = BehaviorCategory.objects.create(project=self.project, name='General')
         self.behavior = Behavior.objects.create(

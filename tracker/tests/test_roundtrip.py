@@ -28,7 +28,7 @@ FIXTURES = Path(__file__).resolve().parent / 'fixtures'
 
 class RoundTripCertificationTests(TestCase):
     def setUp(self):
-        self.user = User.objects.create_user(username='fixture_user', password='pass12345')
+        self.user = User.objects.create_user(username='fixture_user')
 
     def _base_project(self):
         project = Project.objects.create(owner=self.user, name='Fixture Project')

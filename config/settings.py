@@ -85,17 +85,17 @@ def build_database_config() -> dict[str, object]:
 
     if database_url:
         parsed = urlparse(database_url)
-        name = parsed.path.lstrip('/')
+        name = parsed.path.lstrip('/') or env('POSTGRES_DB') or env('DB_NAME')
         host = parsed.hostname or 'db'
         port = parsed.port or 5432
-        user = parsed.username or 'pybehaviorlog'
-        password = parsed.password or 'pybehaviorlog'
+        user = parsed.username or env('POSTGRES_USER') or env('DB_USER') or name
+        password = parsed.password or env('POSTGRES_PASSWORD') or env('DB_PASSWORD') or ''
     else:
         name = db_name or 'pybehaviorlog'
         host = env('POSTGRES_HOST', env('DB_HOST', 'db')) or 'db'
         port = env_int('POSTGRES_PORT', env_int('DB_PORT', 5432))
-        user = env('POSTGRES_USER', env('DB_USER', 'pybehaviorlog')) or 'pybehaviorlog'
-        password = env('POSTGRES_PASSWORD', env('DB_PASSWORD', 'pybehaviorlog')) or 'pybehaviorlog'
+        user = env('POSTGRES_USER') or env('DB_USER') or name
+        password = env('POSTGRES_PASSWORD') or env('DB_PASSWORD') or ''
 
     pool_config: bool | dict[str, int] = {
         'min_size': env_int('POSTGRES_POOL_MIN_SIZE', 2),

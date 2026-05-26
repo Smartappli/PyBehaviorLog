@@ -33,9 +33,9 @@ User = get_user_model()
 
 class CompatibilityTests(TestCase):
     def setUp(self):
-        self.user = User.objects.create_user(username='olivier', password='pass12345')
+        self.user = User.objects.create_user(username='olivier')
         self.client = Client()
-        self.client.login(username='olivier', password='pass12345')
+        self.client.force_login(self.user)
         self.project = Project.objects.create(owner=self.user, name='Project 1')
         self.point_behavior = Behavior.objects.create(
             project=self.project,
