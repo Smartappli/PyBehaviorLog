@@ -5077,8 +5077,8 @@ def session_workflow_action(request, pk: int):
     session = get_accessible_session(request.user, pk)
     try:
         payload = json.loads(request.body.decode('utf-8')) if request.body else request.POST.dict()
-    except json.JSONDecodeError as exc:
-        return JsonResponse({'error': _('Invalid JSON: %(error)s') % {'error': exc}}, status=400)
+    except json.JSONDecodeError:
+        return JsonResponse({'error': _('Invalid JSON payload.')}, status=400)
     action = payload.get('action')
     review_notes = (payload.get('review_notes') or session.review_notes or '').strip()
     status_map = {
@@ -5544,8 +5544,8 @@ def event_create_api(request, pk: int):
     _require_editable_session(session, request.user)
     try:
         payload = json.loads(request.body.decode('utf-8'))
-    except json.JSONDecodeError as exc:
-        return JsonResponse({'error': _('Invalid JSON: %(error)s') % {'error': exc}}, status=400)
+    except json.JSONDecodeError:
+        return JsonResponse({'error': _('Invalid JSON payload.')}, status=400)
 
     behavior = get_object_or_404(Behavior, pk=payload.get('behavior_id'), project=session.project)
     timestamp_seconds = _decimal(payload.get('timestamp_seconds'), default='0')
@@ -5616,8 +5616,8 @@ def event_update_api(request, pk: int):
     _require_editable_session(session, request.user)
     try:
         payload = json.loads(request.body.decode('utf-8'))
-    except json.JSONDecodeError as exc:
-        return JsonResponse({'error': _('Invalid JSON: %(error)s') % {'error': exc}}, status=400)
+    except json.JSONDecodeError:
+        return JsonResponse({'error': _('Invalid JSON payload.')}, status=400)
 
     behavior = get_object_or_404(
         Behavior, pk=payload.get('behavior_id', event.behavior_id), project=session.project
@@ -5742,8 +5742,8 @@ def session_undo_api(request, pk: int):
         return JsonResponse({'error': _('Nothing to undo.')}, status=400)
     try:
         applied_action = _apply_history_entry(session, entry, direction='undo')
-    except ValueError as exc:
-        return JsonResponse({'error': str(exc)}, status=400)
+    except ValueError:
+        return JsonResponse({'error': _('Unable to apply undo operation.')}, status=400)
     _push_redo_history(request, session.id, entry)
     _log_audit(
         session,
@@ -5773,8 +5773,8 @@ def session_redo_api(request, pk: int):
         return JsonResponse({'error': _('Nothing to redo.')}, status=400)
     try:
         applied_action = _apply_history_entry(session, entry, direction='redo')
-    except ValueError as exc:
-        return JsonResponse({'error': str(exc)}, status=400)
+    except ValueError:
+        return JsonResponse({'error': _('Unable to apply redo operation.')}, status=400)
     _restore_history_entry(request, session.id, entry, to_stack='undo')
     _log_audit(
         session,
@@ -5803,8 +5803,8 @@ def annotation_create_api(request, pk: int):
     )
     try:
         payload = json.loads(request.body.decode('utf-8'))
-    except json.JSONDecodeError as exc:
-        return JsonResponse({'error': _('Invalid JSON: %(error)s') % {'error': exc}}, status=400)
+    except json.JSONDecodeError:
+        return JsonResponse({'error': _('Invalid JSON payload.')}, status=400)
     annotation = SessionAnnotation.objects.create(
         session=session,
         timestamp_seconds=_decimal(payload.get('timestamp_seconds'), default='0'),
@@ -5837,8 +5837,8 @@ def annotation_update_api(request, pk: int):
     )
     try:
         payload = json.loads(request.body.decode('utf-8'))
-    except json.JSONDecodeError as exc:
-        return JsonResponse({'error': _('Invalid JSON: %(error)s') % {'error': exc}}, status=400)
+    except json.JSONDecodeError:
+        return JsonResponse({'error': _('Invalid JSON payload.')}, status=400)
     annotation.timestamp_seconds = _decimal(
         payload.get('timestamp_seconds', annotation.timestamp_seconds), default='0'
     )

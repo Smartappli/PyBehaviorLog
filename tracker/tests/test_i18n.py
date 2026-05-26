@@ -13,7 +13,6 @@ class InternationalizationTests(TestCase):
         self.user = get_user_model().objects.create_user(
             username='linguist',
             email='linguist@example.com',
-            password='password123',
         )
         self.project = Project.objects.create(
             owner=self.user, name='Ethology', description='Project'
@@ -24,7 +23,7 @@ class InternationalizationTests(TestCase):
     ):
         client = Client()
         if authenticated:
-            client.login(username='linguist', password='password123')
+            client.force_login(self.user)
         with translation.override(language):
             url = reverse(viewname, args=args or [])
         response = client.get(url)

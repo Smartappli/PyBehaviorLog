@@ -22,11 +22,11 @@ User = get_user_model()
 
 class ViewTests(TestCase):
     def setUp(self):
-        self.user = User.objects.create_user(username='olivier', password='pass12345')
-        self.reviewer = User.objects.create_user(username='reviewer', password='pass12345')
-        self.viewer = User.objects.create_user(username='viewer', password='pass12345')
+        self.user = User.objects.create_user(username='olivier')
+        self.reviewer = User.objects.create_user(username='reviewer')
+        self.viewer = User.objects.create_user(username='viewer')
         self.client = Client()
-        self.client.login(username='olivier', password='pass12345')
+        self.client.force_login(self.user)
         self.project = Project.objects.create(owner=self.user, name='Project 1')
         self.behavior = Behavior.objects.create(project=self.project, name='Eat', key_binding='e')
         self.subject = Subject.objects.create(project=self.project, name='Cow 1', key_binding='c')
@@ -131,7 +131,7 @@ class ViewTests(TestCase):
             session_kind='live',
         )
         reviewer_client = Client()
-        reviewer_client.login(username='reviewer', password='pass12345')
+        reviewer_client.force_login(self.reviewer)
         annotation_response = reviewer_client.post(
             reverse('tracker:annotation_create_api', args=[session.pk]),
             data=json.dumps({'timestamp_seconds': 1.0, 'title': 'Mark', 'note': 'Note'}),
@@ -163,7 +163,7 @@ class ViewTests(TestCase):
             session_kind='live',
         )
         viewer_client = Client()
-        viewer_client.login(username='viewer', password='pass12345')
+        viewer_client.force_login(self.viewer)
         response = viewer_client.post(
             reverse('tracker:event_create_api', args=[session.pk]),
             data=json.dumps({'behavior_id': self.behavior.pk, 'timestamp_seconds': 1.5}),
@@ -346,7 +346,7 @@ class ViewTests(TestCase):
             session_kind='live',
         )
         reviewer_client = Client()
-        reviewer_client.login(username='reviewer', password='pass12345')
+        reviewer_client.force_login(self.reviewer)
         response = reviewer_client.post(
             reverse('tracker:session_workflow_action', args=[session.pk]),
             data=json.dumps({'action': 'save_notes', 'review_notes': 'Detailed review note'}),
@@ -471,7 +471,7 @@ class ViewTests(TestCase):
             title='Segment session', observer=self.user, session_kind='live'
         )
         reviewer_client = Client()
-        reviewer_client.login(username='reviewer', password='pass12345')
+        reviewer_client.force_login(self.reviewer)
         create_response = reviewer_client.post(
             reverse('tracker:segment_create', args=[session.pk]),
             data={
@@ -529,7 +529,7 @@ class ViewTests(TestCase):
         )
 
         reviewer_client = Client()
-        reviewer_client.login(username='reviewer', password='pass12345')
+        reviewer_client.force_login(self.reviewer)
         batch_response = reviewer_client.post(
             reverse('tracker:segment_batch_assign', args=[session.pk]),
             data={

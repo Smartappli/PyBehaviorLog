@@ -26,7 +26,7 @@ services:
       POSTGRES_PORT: "5432"
       POSTGRES_DB: pybehaviorlog
       POSTGRES_USER: pybehaviorlog
-      POSTGRES_PASSWORD: pybehaviorlog
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in your environment or local .env file}
       REDIS_URL: redis://redis:6379/1
       SESSION_COOKIE_SECURE: "0"
       CSRF_COOKIE_SECURE: "0"
@@ -52,7 +52,7 @@ services:
     environment:
       POSTGRES_DB: pybehaviorlog
       POSTGRES_USER: pybehaviorlog
-      POSTGRES_PASSWORD: pybehaviorlog
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in your environment or local .env file}
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U pybehaviorlog -d pybehaviorlog"]
       interval: 10s

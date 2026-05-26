@@ -31,7 +31,7 @@ User = get_user_model()
 
 class ObservationSessionFormTests(TestCase):
     def setUp(self):
-        self.user = User.objects.create_user(username='olivier', password='pass12345')
+        self.user = User.objects.create_user(username='olivier')
         self.project = Project.objects.create(owner=self.user, name='Project 1')
         self.video = VideoAsset.objects.create(
             project=self.project, title='Vid 1', file='videos/test.mp4'
@@ -122,7 +122,7 @@ class ObservationSessionFormTests(TestCase):
 
 class SubjectAndTemplateFormTests(TestCase):
     def setUp(self):
-        self.user = User.objects.create_user(username='olivier', password='pass12345')
+        self.user = User.objects.create_user(username='olivier')
         self.project = Project.objects.create(owner=self.user, name='Project 1')
         self.group = SubjectGroup.objects.create(project=self.project, name='Adults')
         self.subject = Subject.objects.create(project=self.project, name='Cow 1', key_binding='c')
@@ -169,9 +169,9 @@ class SubjectAndTemplateFormTests(TestCase):
 
 class AdditionalFormCoverageTests(TestCase):
     def setUp(self):
-        self.owner = User.objects.create_user(username='owner', password='pass12345')
-        self.other = User.objects.create_user(username='other', password='pass12345')
-        self.viewer = User.objects.create_user(username='viewer', password='pass12345')
+        self.owner = User.objects.create_user(username='owner')
+        self.other = User.objects.create_user(username='other')
+        self.viewer = User.objects.create_user(username='viewer')
         self.project = Project.objects.create(owner=self.owner, name='Project 1')
         self.category = BehaviorCategory.objects.create(project=self.project, name='General')
         self.video = VideoAsset.objects.create(
