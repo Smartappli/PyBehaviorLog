@@ -123,6 +123,39 @@ class ViewTests(TestCase):
         self.assertEqual(delete_response.status_code, 200)
         self.assertFalse(session.events.exists())
 
+    def test_invalid_json_response_does_not_echo_parser_details(self):
+        session = self.project.sessions.create(
+            title='Malformed JSON session',
+            observer=self.user,
+            session_kind='live',
+        )
+        response = self.client.post(
+            reverse('tracker:event_create_api', args=[session.pk]),
+            data='{"behavior_id":',
+            content_type='application/json',
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()['error'], 'Invalid JSON payload.')
+
+    def test_undo_history_error_does_not_echo_exception_details(self):
+        session = self.project.sessions.create(
+            title='Broken history session',
+            observer=self.user,
+            session_kind='live',
+        )
+        client_session = self.client.session
+        client_session[f'pybehaviorlog_history_{session.pk}'] = {
+            'undo': [{'action': 'unsupported'}],
+            'redo': [],
+        }
+        client_session.save()
+
+        response = self.client.post(reverse('tracker:session_undo_api', args=[session.pk]))
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()['error'], 'Unable to apply undo operation.')
+
     def test_annotation_workflow_and_audit_endpoints_for_reviewer(self):
         session = ObservationSession.objects.create(
             project=self.project,
