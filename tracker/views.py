@@ -633,7 +633,7 @@ def _decimal(
         return (hours * Decimal('3600')) + (minutes * Decimal('60')) + seconds
     if ':' in token:
         parts = list(map(str.strip, token.split(':')))
-        if len(parts) in {2, 3, 4} and all(part for part in parts):
+        if len(parts) in {2, 3, 4} and all(parts):
             try:
                 if len(parts) == 2:
                     hours = Decimal('0')
