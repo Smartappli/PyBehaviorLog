@@ -442,6 +442,44 @@ class ObservationSessionForm(forms.ModelForm):
             'review_notes': _('Review notes'),
         }
 
+    def _variable_help_text(self, definition: IndependentVariableDefinition) -> str:
+        help_text = definition.description or ''
+        if (
+            definition.value_type == IndependentVariableDefinition.TYPE_SET
+            and definition.set_values
+        ):
+            allowed_values = _('Allowed values: %(values)s') % {'values': definition.set_values}
+            return f'{help_text} {allowed_values}' if help_text else allowed_values
+        return help_text
+
+    def _variable_field(self, definition: IndependentVariableDefinition) -> forms.Field:
+        field_options = {'required': False, 'label': definition.label}
+        if definition.value_type == IndependentVariableDefinition.TYPE_NUMERIC:
+            field = forms.DecimalField(**field_options)
+        elif definition.value_type == IndependentVariableDefinition.TYPE_SET:
+            choices = [('', _('---------'))] + [(item, item) for item in definition.value_options]
+            field = forms.ChoiceField(**field_options, choices=choices)
+        elif definition.value_type == IndependentVariableDefinition.TYPE_BOOLEAN:
+            field = forms.TypedChoiceField(
+                **field_options,
+                choices=[('', _('---------')), ('true', _('True')), ('false', _('False'))],
+                coerce=str,
+            )
+        elif definition.value_type == IndependentVariableDefinition.TYPE_TIMESTAMP:
+            field = forms.DateTimeField(
+                **field_options,
+                widget=forms.DateTimeInput(attrs={'type': 'datetime-local'}),
+            )
+        elif definition.value_type == IndependentVariableDefinition.TYPE_LONGTEXT:
+            field = forms.CharField(
+                **field_options,
+                widget=forms.Textarea(attrs={'rows': 3}),
+            )
+        else:
+            field = forms.CharField(**field_options)
+        field.help_text = self._variable_help_text(definition)
+        return field
+
     def __init__(self, *args, project=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.project = project
@@ -458,46 +496,7 @@ class ObservationSessionForm(forms.ModelForm):
             )
             for definition in self.variable_definitions:
                 field_name = f'var_{definition.pk}'
-                if definition.value_type == IndependentVariableDefinition.TYPE_NUMERIC:
-                    field = forms.DecimalField(required=False, label=definition.label)
-                elif definition.value_type == IndependentVariableDefinition.TYPE_SET:
-                    choices = [('', _('---------'))] + [
-                        (item, item) for item in definition.value_options
-                    ]
-                    field = forms.ChoiceField(
-                        required=False, label=definition.label, choices=choices
-                    )
-                elif definition.value_type == IndependentVariableDefinition.TYPE_BOOLEAN:
-                    field = forms.TypedChoiceField(
-                        required=False,
-                        label=definition.label,
-                        choices=[('', _('---------')), ('true', _('True')), ('false', _('False'))],
-                        coerce=str,
-                    )
-                elif definition.value_type == IndependentVariableDefinition.TYPE_TIMESTAMP:
-                    field = forms.DateTimeField(
-                        required=False,
-                        label=definition.label,
-                        widget=forms.DateTimeInput(attrs={'type': 'datetime-local'}),
-                    )
-                elif definition.value_type == IndependentVariableDefinition.TYPE_LONGTEXT:
-                    field = forms.CharField(
-                        required=False,
-                        label=definition.label,
-                        widget=forms.Textarea(attrs={'rows': 3}),
-                    )
-                else:
-                    field = forms.CharField(required=False, label=definition.label)
-                help_text = definition.description or ''
-                if (
-                    definition.value_type == IndependentVariableDefinition.TYPE_SET
-                    and definition.set_values
-                ):
-                    help_text = (help_text + ' ' if help_text else '') + _(
-                        'Allowed values: %(values)s'
-                    ) % {'values': definition.set_values}
-                field.help_text = help_text
-                self.fields[field_name] = field
+                self.fields[field_name] = self._variable_field(definition)
                 initial_value = definition.default_value
                 if self.instance and self.instance.pk:
                     existing = self.instance.variable_values.filter(definition=definition).first()

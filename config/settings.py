@@ -62,6 +62,46 @@ def unique_list(items: list[str]) -> list[str]:
     return results
 
 
+def sqlite_database_config() -> dict[str, object]:
+    return {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
+    }
+
+
+def postgres_settings_from_url(database_url: str) -> dict[str, object]:
+    parsed = urlparse(database_url)
+    name = parsed.path.lstrip('/') or env('POSTGRES_DB') or env('DB_NAME')
+    return {
+        'NAME': name,
+        'HOST': parsed.hostname or 'db',
+        'PORT': parsed.port or 5432,
+        'USER': parsed.username or env('POSTGRES_USER') or env('DB_USER') or name,
+        'PASSWORD': parsed.password or env('POSTGRES_PASSWORD') or env('DB_PASSWORD') or '',
+    }
+
+
+def postgres_settings_from_env(db_name: str | None) -> dict[str, object]:
+    name = db_name or 'pybehaviorlog'
+    return {
+        'NAME': name,
+        'HOST': env('POSTGRES_HOST', env('DB_HOST', 'db')) or 'db',
+        'PORT': env_int('POSTGRES_PORT', env_int('DB_PORT', 5432)),
+        'USER': env('POSTGRES_USER') or env('DB_USER') or name,
+        'PASSWORD': env('POSTGRES_PASSWORD') or env('DB_PASSWORD') or '',
+    }
+
+
+def postgres_pool_config() -> bool | dict[str, int]:
+    if env_bool('POSTGRES_POOL_DEFAULTS', False):
+        return True
+    return {
+        'min_size': env_int('POSTGRES_POOL_MIN_SIZE', 2),
+        'max_size': env_int('POSTGRES_POOL_MAX_SIZE', 12),
+        'timeout': env_int('POSTGRES_POOL_TIMEOUT', 30),
+    }
+
+
 def build_database_config() -> dict[str, object]:
     """Build a SQLite or PostgreSQL database configuration.
 
@@ -70,50 +110,23 @@ def build_database_config() -> dict[str, object]:
     environment variables are provided.
     """
     if 'test' in sys.argv and not env_bool('PYBEHAVIORLOG_FORCE_EXTERNAL_DB', False):
-        return {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
-        }
+        return sqlite_database_config()
 
     database_url = env('DATABASE_URL')
     db_name = env('POSTGRES_DB') or env('DB_NAME')
     if not database_url and not db_name:
-        return {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
-        }
+        return sqlite_database_config()
 
-    if database_url:
-        parsed = urlparse(database_url)
-        name = parsed.path.lstrip('/') or env('POSTGRES_DB') or env('DB_NAME')
-        host = parsed.hostname or 'db'
-        port = parsed.port or 5432
-        user = parsed.username or env('POSTGRES_USER') or env('DB_USER') or name
-        password = parsed.password or env('POSTGRES_PASSWORD') or env('DB_PASSWORD') or ''
-    else:
-        name = db_name or 'pybehaviorlog'
-        host = env('POSTGRES_HOST', env('DB_HOST', 'db')) or 'db'
-        port = env_int('POSTGRES_PORT', env_int('DB_PORT', 5432))
-        user = env('POSTGRES_USER') or env('DB_USER') or name
-        password = env('POSTGRES_PASSWORD') or env('DB_PASSWORD') or ''
-
-    pool_config: bool | dict[str, int] = {
-        'min_size': env_int('POSTGRES_POOL_MIN_SIZE', 2),
-        'max_size': env_int('POSTGRES_POOL_MAX_SIZE', 12),
-        'timeout': env_int('POSTGRES_POOL_TIMEOUT', 30),
-    }
-    if env_bool('POSTGRES_POOL_DEFAULTS', False):
-        pool_config = True
-
+    postgres_settings = (
+        postgres_settings_from_url(database_url)
+        if database_url
+        else postgres_settings_from_env(db_name)
+    )
     return {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': name,
-        'USER': user,
-        'PASSWORD': password,
-        'HOST': host,
-        'PORT': port,
+        **postgres_settings,
         'CONN_MAX_AGE': env_int('DB_CONN_MAX_AGE', 60),
-        'OPTIONS': {'pool': pool_config},
+        'OPTIONS': {'pool': postgres_pool_config()},
     }
 
 
