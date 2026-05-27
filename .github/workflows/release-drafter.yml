@@ -23,7 +23,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Draft release notes
-        uses: release-drafter/release-drafter@v7
+        uses: release-drafter/release-drafter@693d20e7c1ce1a81d3a41962f85914253b518449
         with:
           config-name: release-drafter.yml
         env:
@@ -37,6 +37,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Auto label pull request
-        uses: release-drafter/release-drafter/autolabeler@v7
+        uses: release-drafter/release-drafter/autolabeler@693d20e7c1ce1a81d3a41962f85914253b518449
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

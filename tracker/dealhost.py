@@ -32,10 +32,9 @@ def _host_from_value(value: str) -> str:
 
 
 def _origin_from_value(value: str) -> str:
-    if value.startswith(('http://', 'https://')):
-        parsed = urlparse(value)
-        if parsed.netloc:
-            return f'{parsed.scheme}://{parsed.netloc}'
+    parsed = urlparse(value)
+    if parsed.scheme in {'http', 'https'} and parsed.netloc:
+        return f'https://{parsed.netloc}'
     host = _host_from_value(value)
     if host == '*':
         return ''

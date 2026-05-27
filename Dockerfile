@@ -14,7 +14,13 @@ COPY requirements.txt ./
 RUN python -m pip install --upgrade pip \
     && pip install -r requirements.txt
 
-COPY . .
+COPY manage.py entrypoint.sh ./
+COPY config ./config
+COPY tracker ./tracker
+COPY templates ./templates
+COPY static ./static
+COPY locale ./locale
+COPY deploy ./deploy
 
 RUN addgroup --system pybehaviorlog \
     && adduser --system --ingroup pybehaviorlog pybehaviorlog \

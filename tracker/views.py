@@ -27,7 +27,7 @@ from django.utils import timezone
 from django.utils.text import slugify
 from django.utils.translation import gettext as _
 from django.views.decorators.csrf import ensure_csrf_cookie
-from django.views.decorators.http import require_GET, require_POST
+from django.views.decorators.http import require_GET, require_http_methods, require_POST
 from openpyxl import Workbook, load_workbook
 
 from .dealhost import build_dealhost_runtime_manifest
@@ -91,6 +91,7 @@ TSV_EXTENSION = '.tsv'
 XLSX_EXTENSION = '.xlsx'
 
 
+@require_http_methods(['GET', 'POST'])
 def signup(request):  # pragma: no cover
     if request.user.is_authenticated:
         return redirect('tracker:home')
@@ -716,6 +717,26 @@ def _append_note_line(existing: str | None, line: str, *, max_length: int = 2000
     return '\n'.join(lines)[:max_length]
 
 
+def _first_decimal_text(value: str) -> str | None:
+    token: list[str] = []
+    saw_digit = False
+    saw_separator = False
+    for char in value:
+        if char.isdigit():
+            token.append(char)
+            saw_digit = True
+        elif char in '+-' and not token:
+            token.append(char)
+        elif char in '.,' and saw_digit and not saw_separator:
+            token.append(char)
+            saw_separator = True
+        elif saw_digit:
+            break
+        elif token:
+            token = []
+    return ''.join(token) if saw_digit else None
+
+
 def _normalize_frame_rate_token(value: str | float | Decimal | None) -> Decimal:
     """Return a positive frame rate value parsed from tokens like '29.97 fps'."""
     if value is None:
@@ -723,20 +744,19 @@ def _normalize_frame_rate_token(value: str | float | Decimal | None) -> Decimal:
     if isinstance(value, Decimal):
         return value if value > 0 else Decimal('25')
     token = str(value).strip()
-    ratio_match = re.search(
-        r'(?P<num>[-+]?\d+(?:[.,]\d+)?)\s*/\s*(?P<den>[-+]?\d+(?:[.,]\d+)?)', token
-    )
-    if ratio_match:
-        numerator = _decimal(ratio_match.group('num').replace(',', '.'), default='25')
-        denominator = _decimal(ratio_match.group('den').replace(',', '.'), default='1')
-        if denominator > 0:
-            ratio = numerator / denominator
-            if ratio > 0:
-                return ratio
-    match = re.search(r'[-+]?\d+(?:[.,]\d+)?', token)
-    if not match:
+    if '/' in token:
+        numerator_text, _, denominator_text = token.partition('/')
+        numerator_token = _first_decimal_text(numerator_text)
+        denominator_token = _first_decimal_text(denominator_text)
+        if numerator_token and denominator_token:
+            numerator = _decimal(numerator_token.replace(',', '.'), default='25')
+            denominator = _decimal(denominator_token.replace(',', '.'), default='1')
+            if denominator > 0 and numerator > 0:
+                return numerator / denominator
+    decimal_token = _first_decimal_text(token)
+    if not decimal_token:
         return Decimal('25')
-    parsed = _decimal(match.group(0), default='25')
+    parsed = _decimal(decimal_token, default='25')
     return parsed if parsed > 0 else Decimal('25')
 
 
@@ -864,19 +884,18 @@ def _image_sequence_summary(file_path: Path | None, *, limit: int = 12) -> dict:
         return {'available': False, 'reason': 'not-image'}
     parent = file_path.parent
     stem = file_path.stem
-    prefix = re.sub(r'\d+$', '', stem)
-    pattern = (
-        re.compile(rf'^{re.escape(prefix)}\d*{re.escape(suffix)}$', re.IGNORECASE)
-        if prefix
-        else None
-    )
+    prefix = stem.rstrip('0123456789').casefold()
     siblings = []
     for candidate in sorted(parent.iterdir()):
         if not candidate.is_file():
             continue
         if candidate.suffix.lower() != suffix:
             continue
-        if pattern is not None and not pattern.match(candidate.name):
+        candidate_stem = candidate.stem.casefold()
+        suffix_part = candidate_stem[len(prefix) :]
+        if prefix and (
+            not candidate_stem.startswith(prefix) or (suffix_part and not suffix_part.isdigit())
+        ):
             continue
         siblings.append(candidate.name)
     if file_path.name not in siblings:
@@ -3871,6 +3890,7 @@ def release_metadata_json(request):
 
 
 @login_required
+@require_http_methods(['GET', 'POST'])
 def project_import_create(request):  # pragma: no cover
     form = ProjectImportCreateForm(request.POST or None, request.FILES or None)
     if request.method == 'POST' and form.is_valid():
@@ -3923,6 +3943,7 @@ def project_import_create(request):  # pragma: no cover
 
 
 @login_required
+@require_http_methods(['GET', 'POST'])
 def project_clone(request, pk: int):  # pragma: no cover
     source = get_owned_project(request.user, pk)
     initial = {
@@ -3950,6 +3971,7 @@ def project_clone(request, pk: int):  # pragma: no cover
 
 
 @login_required
+@require_GET
 def home(request):  # pragma: no cover
     projects = list(
         accessible_projects_qs(request.user).prefetch_related(
@@ -3976,6 +3998,7 @@ def home(request):  # pragma: no cover
 
 
 @login_required
+@require_http_methods(['GET', 'POST'])
 def project_create(request):  # pragma: no cover
     form = ProjectForm(request.POST or None)
     if request.method == 'POST' and form.is_valid():
@@ -3993,6 +4016,7 @@ def project_create(request):  # pragma: no cover
 
 
 @login_required
+@require_http_methods(['GET', 'POST'])
 def project_update(request, pk: int):  # pragma: no cover
     project = get_owned_project(request.user, pk)
     form = ProjectSettingsForm(request.POST or None, instance=project)
@@ -4018,6 +4042,7 @@ def project_update(request, pk: int):  # pragma: no cover
 
 
 @login_required
+@require_GET
 def project_detail(request, pk: int):  # pragma: no cover
     project = get_accessible_project(request.user, pk)
     project = (
@@ -4063,6 +4088,7 @@ def project_detail(request, pk: int):  # pragma: no cover
 
 
 @login_required
+@require_GET
 def project_analytics(request, pk: int):  # pragma: no cover
     project = get_accessible_project(request.user, pk)
     analytics = build_project_statistics(project)
@@ -4092,6 +4118,7 @@ def project_analytics(request, pk: int):  # pragma: no cover
 
 
 @login_required
+@require_GET
 def project_export_xlsx(request, pk: int):  # pragma: no cover
     project = get_accessible_project(request.user, pk)
     analytics = build_project_statistics(project)
@@ -4227,6 +4254,7 @@ def project_export_xlsx(request, pk: int):  # pragma: no cover
 
 
 @login_required
+@require_GET
 def project_export_bundle(request, pk: int):  # pragma: no cover
     project = get_accessible_project(request.user, pk)
     bundle_files = build_reproducibility_bundle(project)
@@ -4242,6 +4270,7 @@ def project_export_bundle(request, pk: int):  # pragma: no cover
 
 
 @login_required
+@require_GET
 def project_export_boris_json(request, pk: int):  # pragma: no cover
     project = get_accessible_project(request.user, pk)
     payload = build_project_boris_payload(project)
@@ -4255,6 +4284,7 @@ def project_export_boris_json(request, pk: int):  # pragma: no cover
 
 
 @login_required
+@require_GET
 def project_export_compatibility_report(request, pk: int):  # pragma: no cover
     project = get_accessible_project(request.user, pk)
     report = build_project_compatibility_report(project)
@@ -4269,6 +4299,7 @@ def project_export_compatibility_report(request, pk: int):  # pragma: no cover
 
 
 @login_required
+@require_GET
 def project_export_ethogram(request, pk: int):  # pragma: no cover
     project = get_accessible_project(request.user, pk)
     payload = build_ethogram_payload(project)
@@ -4282,6 +4313,7 @@ def project_export_ethogram(request, pk: int):  # pragma: no cover
 
 
 @login_required
+@require_http_methods(['GET', 'POST'])
 def project_import_ethogram(request, pk: int):  # pragma: no cover
     project = get_owned_project(request.user, pk)
     form = EthogramImportForm(request.POST or None, request.FILES or None)
@@ -4314,6 +4346,7 @@ def project_import_ethogram(request, pk: int):  # pragma: no cover
 
 
 @login_required
+@require_http_methods(['GET', 'POST'])
 def project_import_boris_json(request, pk: int):  # pragma: no cover
     project = get_owned_project(request.user, pk)
     form = ProjectBORISImportForm(request.POST or None, request.FILES or None)
@@ -4359,6 +4392,7 @@ def project_import_boris_json(request, pk: int):  # pragma: no cover
 
 
 @login_required
+@require_http_methods(['GET', 'POST'])
 def project_membership_create(request, pk: int):  # pragma: no cover
     project = get_owned_project(request.user, pk)
     form = ProjectMembershipForm(request.POST or None, project=project)
@@ -4376,6 +4410,7 @@ def project_membership_create(request, pk: int):  # pragma: no cover
 
 
 @login_required
+@require_http_methods(['GET', 'POST'])
 def project_membership_update(request, pk: int):  # pragma: no cover
     membership = get_object_or_404(
         ProjectMembership.objects.select_related('project', 'user'), pk=pk
@@ -4397,6 +4432,7 @@ def project_membership_update(request, pk: int):  # pragma: no cover
 
 
 @login_required
+@require_http_methods(['GET', 'POST'])
 def project_membership_delete(request, pk: int):  # pragma: no cover
     membership = get_object_or_404(
         ProjectMembership.objects.select_related('project', 'user'), pk=pk
@@ -4420,6 +4456,7 @@ def project_membership_delete(request, pk: int):  # pragma: no cover
 
 
 @login_required
+@require_http_methods(['GET', 'POST'])
 def keyboard_profile_create(request, pk: int):  # pragma: no cover
     project = get_owned_project(request.user, pk)
     form = KeyboardProfileForm(request.POST or None)
@@ -4441,6 +4478,7 @@ def keyboard_profile_create(request, pk: int):  # pragma: no cover
 
 
 @login_required
+@require_http_methods(['GET', 'POST'])
 def keyboard_profile_update(request, pk: int):  # pragma: no cover
     profile = get_object_or_404(KeyboardProfile.objects.select_related('project'), pk=pk)
     _require_project_owner(request.user, profile.project)
@@ -4464,6 +4502,7 @@ def keyboard_profile_update(request, pk: int):  # pragma: no cover
 
 
 @login_required
+@require_http_methods(['GET', 'POST'])
 def keyboard_profile_delete(request, pk: int):  # pragma: no cover
     profile = get_object_or_404(KeyboardProfile.objects.select_related('project'), pk=pk)
     _require_project_owner(request.user, profile.project)
@@ -4485,6 +4524,7 @@ def keyboard_profile_delete(request, pk: int):  # pragma: no cover
 
 
 @login_required
+@require_http_methods(['GET', 'POST'])
 def category_create(request, pk: int):  # pragma: no cover
     project = get_accessible_project(request.user, pk)
     _require_project_editor(request.user, project)
@@ -4501,6 +4541,7 @@ def category_create(request, pk: int):  # pragma: no cover
 
 
 @login_required
+@require_http_methods(['GET', 'POST'])
 def category_update(request, pk: int):  # pragma: no cover
     category = _get_owned_category(request.user, pk)
     form = BehaviorCategoryForm(request.POST or None, instance=category)
@@ -4516,6 +4557,7 @@ def category_update(request, pk: int):  # pragma: no cover
 
 
 @login_required
+@require_http_methods(['GET', 'POST'])
 def category_delete(request, pk: int):  # pragma: no cover
     category = _get_owned_category(request.user, pk)
     form = DeleteConfirmForm(request.POST or None)
@@ -4536,6 +4578,7 @@ def category_delete(request, pk: int):  # pragma: no cover
 
 
 @login_required
+@require_http_methods(['GET', 'POST'])
 def modifier_create(request, pk: int):  # pragma: no cover
     project = get_accessible_project(request.user, pk)
     _require_project_editor(request.user, project)
@@ -4552,6 +4595,7 @@ def modifier_create(request, pk: int):  # pragma: no cover
 
 
 @login_required
+@require_http_methods(['GET', 'POST'])
 def modifier_update(request, pk: int):  # pragma: no cover
     modifier = _get_owned_modifier(request.user, pk)
     form = ModifierForm(request.POST or None, instance=modifier)
@@ -4567,6 +4611,7 @@ def modifier_update(request, pk: int):  # pragma: no cover
 
 
 @login_required
+@require_http_methods(['GET', 'POST'])
 def modifier_delete(request, pk: int):  # pragma: no cover
     modifier = _get_owned_modifier(request.user, pk)
     form = DeleteConfirmForm(request.POST or None)
@@ -4587,6 +4632,7 @@ def modifier_delete(request, pk: int):  # pragma: no cover
 
 
 @login_required
+@require_http_methods(['GET', 'POST'])
 def subject_group_create(request, pk: int):  # pragma: no cover
     project = get_accessible_project(request.user, pk)
     _require_project_editor(request.user, project)
@@ -4605,6 +4651,7 @@ def subject_group_create(request, pk: int):  # pragma: no cover
 
 
 @login_required
+@require_http_methods(['GET', 'POST'])
 def subject_group_update(request, pk: int):  # pragma: no cover
     group = get_object_or_404(SubjectGroup.objects.select_related('project'), pk=pk)
     _require_project_editor(
@@ -4623,6 +4670,7 @@ def subject_group_update(request, pk: int):  # pragma: no cover
 
 
 @login_required
+@require_http_methods(['GET', 'POST'])
 def subject_group_delete(request, pk: int):  # pragma: no cover
     group = get_object_or_404(SubjectGroup.objects.select_related('project'), pk=pk)
     _require_project_editor(
@@ -4646,6 +4694,7 @@ def subject_group_delete(request, pk: int):  # pragma: no cover
 
 
 @login_required
+@require_http_methods(['GET', 'POST'])
 def subject_create(request, pk: int):  # pragma: no cover
     project = get_accessible_project(request.user, pk)
     _require_project_editor(request.user, project)
@@ -4663,6 +4712,7 @@ def subject_create(request, pk: int):  # pragma: no cover
 
 
 @login_required
+@require_http_methods(['GET', 'POST'])
 def subject_update(request, pk: int):  # pragma: no cover
     subject = get_object_or_404(Subject.objects.select_related('project'), pk=pk)
     _require_project_editor(
@@ -4681,6 +4731,7 @@ def subject_update(request, pk: int):  # pragma: no cover
 
 
 @login_required
+@require_http_methods(['GET', 'POST'])
 def subject_delete(request, pk: int):  # pragma: no cover
     subject = get_object_or_404(Subject.objects.select_related('project'), pk=pk)
     _require_project_editor(
@@ -4700,6 +4751,7 @@ def subject_delete(request, pk: int):  # pragma: no cover
 
 
 @login_required
+@require_http_methods(['GET', 'POST'])
 def independent_variable_create(request, pk: int):  # pragma: no cover
     project = get_accessible_project(request.user, pk)
     _require_project_editor(request.user, project)
@@ -4718,6 +4770,7 @@ def independent_variable_create(request, pk: int):  # pragma: no cover
 
 
 @login_required
+@require_http_methods(['GET', 'POST'])
 def independent_variable_update(request, pk: int):  # pragma: no cover
     definition = get_object_or_404(
         IndependentVariableDefinition.objects.select_related('project'), pk=pk
@@ -4740,6 +4793,7 @@ def independent_variable_update(request, pk: int):  # pragma: no cover
 
 
 @login_required
+@require_http_methods(['GET', 'POST'])
 def independent_variable_delete(request, pk: int):  # pragma: no cover
     definition = get_object_or_404(
         IndependentVariableDefinition.objects.select_related('project'), pk=pk
@@ -4767,6 +4821,7 @@ def independent_variable_delete(request, pk: int):  # pragma: no cover
 
 
 @login_required
+@require_http_methods(['GET', 'POST'])
 def observation_template_create(request, pk: int):  # pragma: no cover
     project = get_accessible_project(request.user, pk)
     _require_project_editor(request.user, project)
@@ -4786,6 +4841,7 @@ def observation_template_create(request, pk: int):  # pragma: no cover
 
 
 @login_required
+@require_http_methods(['GET', 'POST'])
 def observation_template_update(request, pk: int):  # pragma: no cover
     template = get_object_or_404(ObservationTemplate.objects.select_related('project'), pk=pk)
     _require_project_editor(
@@ -4808,6 +4864,7 @@ def observation_template_update(request, pk: int):  # pragma: no cover
 
 
 @login_required
+@require_http_methods(['GET', 'POST'])
 def observation_template_delete(request, pk: int):  # pragma: no cover
     template = get_object_or_404(ObservationTemplate.objects.select_related('project'), pk=pk)
     _require_project_editor(
@@ -4833,6 +4890,7 @@ def observation_template_delete(request, pk: int):  # pragma: no cover
 
 
 @login_required
+@require_http_methods(['GET', 'POST'])
 def behavior_create(request, pk: int):  # pragma: no cover
     project = get_accessible_project(request.user, pk)
     _require_project_editor(request.user, project)
@@ -4849,6 +4907,7 @@ def behavior_create(request, pk: int):  # pragma: no cover
 
 
 @login_required
+@require_http_methods(['GET', 'POST'])
 def behavior_update(request, pk: int):  # pragma: no cover
     behavior = _get_owned_behavior(request.user, pk)
     form = BehaviorForm(request.POST or None, instance=behavior, project=behavior.project)
@@ -4864,6 +4923,7 @@ def behavior_update(request, pk: int):  # pragma: no cover
 
 
 @login_required
+@require_http_methods(['GET', 'POST'])
 def behavior_delete(request, pk: int):  # pragma: no cover
     behavior = _get_owned_behavior(request.user, pk)
     form = DeleteConfirmForm(request.POST or None)
@@ -4884,6 +4944,7 @@ def behavior_delete(request, pk: int):  # pragma: no cover
 
 
 @login_required
+@require_http_methods(['GET', 'POST'])
 def video_create(request, pk: int):  # pragma: no cover
     project = get_accessible_project(request.user, pk)
     _require_project_editor(request.user, project)
@@ -4900,6 +4961,7 @@ def video_create(request, pk: int):  # pragma: no cover
 
 
 @login_required
+@require_http_methods(['GET', 'POST'])
 def video_update(request, pk: int):  # pragma: no cover
     video = _get_owned_video(request.user, pk)
     form = VideoAssetForm(request.POST or None, request.FILES or None, instance=video)
@@ -4916,6 +4978,7 @@ def video_update(request, pk: int):  # pragma: no cover
 
 
 @login_required
+@require_http_methods(['GET', 'POST'])
 def video_delete(request, pk: int):  # pragma: no cover
     video = _get_owned_video(request.user, pk)
     if video.sessions.exists() or video.session_links.exists():
@@ -4935,6 +4998,7 @@ def video_delete(request, pk: int):  # pragma: no cover
 
 
 @login_required
+@require_http_methods(['GET', 'POST'])
 def session_create(request, pk: int):  # pragma: no cover
     project = get_object_or_404(
         accessible_projects_qs(request.user).prefetch_related('videos', 'keyboard_profiles'), pk=pk
@@ -4961,6 +5025,7 @@ def session_create(request, pk: int):  # pragma: no cover
 
 
 @login_required
+@require_http_methods(['GET', 'POST'])
 def session_update(request, pk: int):  # pragma: no cover
     session = get_accessible_session(request.user, pk)
     _require_project_editor(
@@ -4981,6 +5046,7 @@ def session_update(request, pk: int):  # pragma: no cover
 
 
 @login_required
+@require_http_methods(['GET', 'POST'])
 def session_delete(request, pk: int):  # pragma: no cover
     session = get_accessible_session(request.user, pk)
     if not session.project.can_edit(request.user) and session.observer_id != request.user.id:
@@ -5003,6 +5069,7 @@ def session_delete(request, pk: int):  # pragma: no cover
 
 
 @login_required
+@require_http_methods(['GET', 'POST'])
 def session_import_json(request, pk: int):  # pragma: no cover
     session = get_accessible_session(request.user, pk)
     _require_editable_session(session, request.user)
@@ -5256,6 +5323,7 @@ def session_player(request, pk: int):  # pragma: no cover
 
 
 @login_required
+@require_GET
 def review_queue(request):  # pragma: no cover
     queue = build_review_queue(request.user)
     filter_name = request.GET.get('filter', 'assigned')
@@ -5432,6 +5500,7 @@ def segment_batch_assign(request, pk: int):  # pragma: no cover
 
 
 @login_required
+@require_http_methods(['GET', 'POST'])
 def segment_create(request, pk: int):  # pragma: no cover
     session = get_accessible_session(request.user, pk)
     _require_project_reviewer(request.user, session.project)
@@ -5459,6 +5528,7 @@ def segment_create(request, pk: int):  # pragma: no cover
 
 
 @login_required
+@require_http_methods(['GET', 'POST'])
 def segment_update(request, pk: int):  # pragma: no cover
     segment = get_object_or_404(
         ObservationSegment.objects.select_related('session__project'), pk=pk
@@ -5493,6 +5563,7 @@ def segment_update(request, pk: int):  # pragma: no cover
 
 
 @login_required
+@require_http_methods(['GET', 'POST'])
 def segment_delete(request, pk: int):  # pragma: no cover
     segment = get_object_or_404(
         ObservationSegment.objects.select_related('session__project'), pk=pk
@@ -5917,6 +5988,7 @@ def session_media_analysis_json(request, pk: int):
 
 
 @login_required
+@require_GET
 def session_export_html(request, pk: int):  # pragma: no cover
     """Export the event table as a simple standalone HTML report."""
     session = get_accessible_session(request.user, pk)
@@ -5943,6 +6015,7 @@ def session_export_html(request, pk: int):  # pragma: no cover
 
 
 @login_required
+@require_GET
 def session_export_sql(request, pk: int):  # pragma: no cover
     """Export session events as SQL INSERT statements for downstream analysis."""
     session = get_accessible_session(request.user, pk)
@@ -5965,6 +6038,7 @@ def session_export_sql(request, pk: int):  # pragma: no cover
 
 
 @login_required
+@require_GET
 def session_export_compatibility_report(request, pk: int):  # pragma: no cover
     session = get_accessible_session(request.user, pk)
     report = build_session_compatibility_report(session)
@@ -5979,6 +6053,7 @@ def session_export_compatibility_report(request, pk: int):  # pragma: no cover
 
 
 @login_required
+@require_GET
 def session_export_cowlog_txt(request, pk: int):  # pragma: no cover
     session = get_accessible_session(request.user, pk)
     response = HttpResponse(content_type=TEXT_CONTENT_TYPE)
@@ -6037,6 +6112,7 @@ def session_export_cowlog_txt(request, pk: int):  # pragma: no cover
 
 
 @login_required
+@require_GET
 def session_export_behavioral_sequences(request, pk: int):  # pragma: no cover
     session = get_accessible_session(request.user, pk)
     response = HttpResponse(content_type=TEXT_CONTENT_TYPE)
@@ -6048,6 +6124,7 @@ def session_export_behavioral_sequences(request, pk: int):  # pragma: no cover
 
 
 @login_required
+@require_GET
 def session_export_textgrid(request, pk: int):  # pragma: no cover
     session = get_accessible_session(request.user, pk)
     response = HttpResponse(content_type=TEXT_CONTENT_TYPE)
@@ -6057,6 +6134,7 @@ def session_export_textgrid(request, pk: int):  # pragma: no cover
 
 
 @login_required
+@require_GET
 def session_export_binary_table_tsv(request, pk: int):  # pragma: no cover
     session = get_accessible_session(request.user, pk)
     try:
@@ -6083,6 +6161,7 @@ def session_export_binary_table_tsv(request, pk: int):  # pragma: no cover
 
 
 @login_required
+@require_GET
 def session_export_csv(request, pk: int):  # pragma: no cover
     session = get_accessible_session(request.user, pk)
     response = HttpResponse(content_type='text/csv; charset=utf-8')
@@ -6113,6 +6192,7 @@ def session_export_csv(request, pk: int):  # pragma: no cover
 
 
 @login_required
+@require_GET
 def session_export_tsv(request, pk: int):  # pragma: no cover
     session = get_accessible_session(request.user, pk)
     response = HttpResponse(content_type='text/tab-separated-values; charset=utf-8')
@@ -6134,6 +6214,7 @@ def session_export_tsv(request, pk: int):  # pragma: no cover
 
 
 @login_required
+@require_GET
 def session_export_json(request, pk: int):
     session = get_accessible_session(request.user, pk)
     payload = {
@@ -6178,6 +6259,7 @@ def session_export_json(request, pk: int):
 
 
 @login_required
+@require_GET
 def session_export_boris_json(request, pk: int):  # pragma: no cover
     session = get_accessible_session(request.user, pk)
     payload = build_boris_like_payload(session)
@@ -6190,6 +6272,7 @@ def session_export_boris_json(request, pk: int):  # pragma: no cover
 
 
 @login_required
+@require_GET
 def session_export_xlsx(request, pk: int):  # pragma: no cover
     session = get_accessible_session(request.user, pk)
     workbook = Workbook()
