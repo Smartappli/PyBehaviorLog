@@ -2,20 +2,18 @@ from django.db import migrations
 
 
 def forwards(apps, schema_editor):
-    Project = apps.get_model('tracker', 'Project')
-    ProjectMembership = apps.get_model('tracker', 'ProjectMembership')
+    project_model = apps.get_model('tracker', 'Project')
+    membership_model = apps.get_model('tracker', 'ProjectMembership')
 
-    through = Project.collaborators.through
-    existing = set(
-        ProjectMembership.objects.values_list('project_id', 'user_id')
-    )
+    through = project_model.collaborators.through
+    existing = set(membership_model.objects.values_list('project_id', 'user_id'))
 
     memberships = []
-    for project in Project.objects.all().iterator():
+    for project in project_model.objects.all().iterator():
         owner_key = (project.id, project.owner_id)
         if owner_key not in existing:
             memberships.append(
-                ProjectMembership(
+                membership_model(
                     project_id=project.id,
                     user_id=project.owner_id,
                     role='owner',
@@ -23,7 +21,7 @@ def forwards(apps, schema_editor):
             )
             existing.add(owner_key)
 
-    ProjectMembership.objects.bulk_create(memberships, ignore_conflicts=True)
+    membership_model.objects.bulk_create(memberships, ignore_conflicts=True)
 
     editor_memberships = []
     collaborator_rows = through.objects.all().values_list('project_id', 'user_id')
@@ -31,7 +29,7 @@ def forwards(apps, schema_editor):
         key = (project_id, user_id)
         if key not in existing:
             editor_memberships.append(
-                ProjectMembership(
+                membership_model(
                     project_id=project_id,
                     user_id=user_id,
                     role='editor',
@@ -39,12 +37,12 @@ def forwards(apps, schema_editor):
             )
             existing.add(key)
 
-    ProjectMembership.objects.bulk_create(editor_memberships, ignore_conflicts=True)
+    membership_model.objects.bulk_create(editor_memberships, ignore_conflicts=True)
 
 
 def backwards(apps, schema_editor):
-    ProjectMembership = apps.get_model('tracker', 'ProjectMembership')
-    ProjectMembership.objects.filter(role__in=['owner', 'editor']).delete()
+    membership_model = apps.get_model('tracker', 'ProjectMembership')
+    membership_model.objects.filter(role__in=['owner', 'editor']).delete()
 
 
 class Migration(migrations.Migration):

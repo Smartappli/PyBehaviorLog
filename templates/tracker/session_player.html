@@ -13,20 +13,20 @@
         <p class="muted">{% trans 'Keyboard profile' %}: <strong>{% if active_keyboard_profile %}{{ active_keyboard_profile.name }}{% else %}{% trans 'Project defaults' %}{% endif %}</strong></p>
     </div>
     <div class="action-stack compact">
-        <a href="{% url 'tracker:session_update' session.pk %}" role="button" class="secondary">{% trans 'Settings' %}</a>
-        {% if can_code_session %}<a href="{% url 'tracker:session_import_json' session.pk %}" role="button" class="secondary">{% trans 'Import JSON' %}</a>{% endif %}
-        <a href="{% url 'tracker:session_export_csv' session.pk %}" role="button" class="secondary">CSV</a>
-        <a href="{% url 'tracker:session_export_tsv' session.pk %}" role="button" class="secondary">TSV</a>
-        <a href="{% url 'tracker:session_export_json' session.pk %}" role="button" class="secondary">JSON</a>
-        <a href="{% url 'tracker:session_export_boris_json' session.pk %}" role="button" class="secondary">{% trans 'BORIS JSON' %}</a>
-        <a href="{% url 'tracker:session_export_behavioral_sequences' session.pk %}" role="button" class="secondary">{% trans 'Sequences' %}</a>
-        <a href="{% url 'tracker:session_export_textgrid' session.pk %}" role="button" class="secondary">TextGrid</a>
-        <a href="{% url 'tracker:session_export_binary_table_tsv' session.pk %}" role="button" class="secondary">{% trans 'Binary table' %}</a>
-        <a href="{% url 'tracker:session_export_cowlog_txt' session.pk %}" role="button" class="secondary">{% trans 'CowLog TXT' %}</a>
-        <a href="{% url 'tracker:session_export_html' session.pk %}" role="button" class="secondary">HTML</a>
-        <a href="{% url 'tracker:session_export_sql' session.pk %}" role="button" class="secondary">SQL</a>
-        <a href="{% url 'tracker:session_export_compatibility_report' session.pk %}" role="button" class="secondary">{% trans 'Compatibility report' %}</a>
-        <a href="{% url 'tracker:session_export_xlsx' session.pk %}" role="button">XLSX</a>
+        <a href="{% url 'tracker:session_update' session.pk %}" class="button secondary">{% trans 'Settings' %}</a>
+        {% if can_code_session %}<a href="{% url 'tracker:session_import_json' session.pk %}" class="button secondary">{% trans 'Import JSON' %}</a>{% endif %}
+        <a href="{% url 'tracker:session_export_csv' session.pk %}" class="button secondary">CSV</a>
+        <a href="{% url 'tracker:session_export_tsv' session.pk %}" class="button secondary">TSV</a>
+        <a href="{% url 'tracker:session_export_json' session.pk %}" class="button secondary">JSON</a>
+        <a href="{% url 'tracker:session_export_boris_json' session.pk %}" class="button secondary">{% trans 'BORIS JSON' %}</a>
+        <a href="{% url 'tracker:session_export_behavioral_sequences' session.pk %}" class="button secondary">{% trans 'Sequences' %}</a>
+        <a href="{% url 'tracker:session_export_textgrid' session.pk %}" class="button secondary">TextGrid</a>
+        <a href="{% url 'tracker:session_export_binary_table_tsv' session.pk %}" class="button secondary">{% trans 'Binary table' %}</a>
+        <a href="{% url 'tracker:session_export_cowlog_txt' session.pk %}" class="button secondary">{% trans 'CowLog TXT' %}</a>
+        <a href="{% url 'tracker:session_export_html' session.pk %}" class="button secondary">HTML</a>
+        <a href="{% url 'tracker:session_export_sql' session.pk %}" class="button secondary">SQL</a>
+        <a href="{% url 'tracker:session_export_compatibility_report' session.pk %}" class="button secondary">{% trans 'Compatibility report' %}</a>
+        <a href="{% url 'tracker:session_export_xlsx' session.pk %}" class="button">XLSX</a>
     </div>
 </header>
 
@@ -233,7 +233,7 @@
         <article>
             <div class="section-headline">
                 <h3>{% trans 'Review segments' %}</h3>
-                {% if can_review_session %}<a href="{% url 'tracker:segment_create' session.pk %}" class="secondary" role="button">{% trans 'New segment' %}</a>{% endif %}
+                {% if can_review_session %}<a href="{% url 'tracker:segment_create' session.pk %}" class="button secondary">{% trans 'New segment' %}</a>{% endif %}
             </div>
             {% if can_review_session %}
             <form method="post" action="{% url 'tracker:segment_batch_assign' session.pk %}" class="integrity-box compact-box" style="margin-bottom: 1rem;">

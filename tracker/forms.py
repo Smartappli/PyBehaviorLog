@@ -21,6 +21,8 @@ from .models import (
 )
 
 User = get_user_model()
+KEY_BINDING_LABEL = _('Key binding')
+SORT_ORDER_LABEL = _('Sort order')
 
 
 class SignUpForm(UserCreationForm):
@@ -178,7 +180,7 @@ class BehaviorCategoryForm(forms.ModelForm):
         model = BehaviorCategory
         fields = ['name', 'color', 'sort_order']
         widgets = {'color': forms.TextInput(attrs={'type': 'color'})}
-        labels = {'name': _('Name'), 'color': _('Color'), 'sort_order': _('Sort order')}
+        labels = {'name': _('Name'), 'color': _('Color'), 'sort_order': SORT_ORDER_LABEL}
 
 
 class ModifierForm(forms.ModelForm):
@@ -192,8 +194,8 @@ class ModifierForm(forms.ModelForm):
         labels = {
             'name': _('Name'),
             'description': _('Description'),
-            'key_binding': _('Key binding'),
-            'sort_order': _('Sort order'),
+            'key_binding': KEY_BINDING_LABEL,
+            'sort_order': SORT_ORDER_LABEL,
         }
 
     def clean_key_binding(self):
@@ -212,7 +214,7 @@ class SubjectGroupForm(forms.ModelForm):
             'name': _('Name'),
             'description': _('Description'),
             'color': _('Color'),
-            'sort_order': _('Sort order'),
+            'sort_order': SORT_ORDER_LABEL,
         }
 
 
@@ -230,9 +232,9 @@ class SubjectForm(forms.ModelForm):
             'name': _('Name'),
             'description': _('Description'),
             'groups': _('Groups'),
-            'key_binding': _('Key binding'),
+            'key_binding': KEY_BINDING_LABEL,
             'color': _('Color'),
-            'sort_order': _('Sort order'),
+            'sort_order': SORT_ORDER_LABEL,
         }
 
     def __init__(self, *args, project=None, **kwargs):
@@ -261,7 +263,7 @@ class IndependentVariableDefinitionForm(forms.ModelForm):
             'value_type': _('Value type'),
             'set_values': _('Allowed values'),
             'default_value': _('Default value'),
-            'sort_order': _('Sort order'),
+            'sort_order': SORT_ORDER_LABEL,
         }
 
 
@@ -278,10 +280,10 @@ class BehaviorForm(forms.ModelForm):
             'category': _('Category'),
             'name': _('Name'),
             'description': _('Description'),
-            'key_binding': _('Key binding'),
+            'key_binding': KEY_BINDING_LABEL,
             'color': _('Color'),
             'mode': _('Mode'),
-            'sort_order': _('Sort order'),
+            'sort_order': SORT_ORDER_LABEL,
         }
 
     def __init__(self, *args, project=None, **kwargs):

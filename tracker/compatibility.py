@@ -3,6 +3,19 @@ from __future__ import annotations
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
+SESSION_EVENT_SCHEMAS = {
+    'cowlog-results-v1',
+    'cowlog-results-v2',
+    'pybehaviorlog-0.9-session',
+    'pybehaviorlog-0.9.1-session',
+    'pybehaviorlog-0.8.3-session',
+    'pybehaviorlog-0.8-session',
+    'boris-tabular-csv-v1',
+    'boris-tabular-tsv-v1',
+    'boris-tabular-xlsx-v1',
+    'boris-tabular-spreadsheet-v2',
+}
+
 
 def _normalize_time(value: Any) -> float:
     try:
@@ -11,175 +24,129 @@ def _normalize_time(value: Any) -> float:
         return 0.0
 
 
+def _unique_sorted_nonempty(items: list[str]) -> list[str]:
+    return sorted({item for item in items if item})
+
+
+def _coerce_named_item(item: Any, fallback: str = '') -> str:
+    if isinstance(item, dict):
+        return str(item.get('name') or item.get('label') or fallback)
+    return str(item)
+
+
+def _string_list_from_mapping(value: dict[Any, Any]) -> list[str]:
+    values = []
+    for key, item in value.items():
+        if isinstance(item, dict):
+            values.append(_coerce_named_item(item, str(key)))
+        elif item:
+            values.append(str(key))
+    return _unique_sorted_nonempty(values)
+
+
 def _string_list(value: Any) -> list[str]:
     if value is None:
         return []
     if isinstance(value, str):
         return [item.strip() for item in value.split('|') if item.strip()]
     if isinstance(value, dict):
-        values: list[str] = []
-        for key, item in value.items():
-            if isinstance(item, dict):
-                values.append(str(item.get('name') or item.get('label') or key))
-            elif item:
-                values.append(str(key))
-        return sorted({item for item in values if item})
+        return _string_list_from_mapping(value)
     if isinstance(value, list):
-        values = []
-        for item in value:
-            if isinstance(item, dict):
-                values.append(str(item.get('name') or item.get('label') or ''))
-            else:
-                values.append(str(item))
-        return sorted({item for item in values if item})
+        return _unique_sorted_nonempty([_coerce_named_item(item) for item in value])
     return [str(value)]
 
 
-def _resolve_event_items(payload: dict[str, Any]) -> list[dict[str, Any]]:
-    schema = payload.get('schema', '')
-    if schema in {
-        'cowlog-results-v1',
-        'cowlog-results-v2',
-        'pybehaviorlog-0.9-session',
-        'pybehaviorlog-0.9.1-session',
-        'pybehaviorlog-0.8.3-session',
-        'pybehaviorlog-0.8-session',
-        'boris-tabular-csv-v1',
-        'boris-tabular-tsv-v1',
-        'boris-tabular-xlsx-v1',
-        'boris-tabular-spreadsheet-v2',
-    }:
-        events = payload.get('events', [])
-        if isinstance(events, dict):
-            events = list(events.values())
-        return [item for item in events if isinstance(item, dict)]
-    observations = payload.get('observations')
-    if isinstance(observations, dict):
-        observations = list(observations.values())
-    if isinstance(observations, list) and observations:
-        merged_events: list[dict[str, Any]] = []
-        for observation in observations:
-            if not isinstance(observation, dict):
-                continue
-            observation_events = observation.get('events', [])
-            if isinstance(observation_events, dict):
-                observation_events = list(observation_events.values())
-            merged_events.extend([item for item in observation_events if isinstance(item, dict)])
-        return merged_events
-    root_events = payload.get('events')
-    if isinstance(root_events, dict):
-        root_events = list(root_events.values())
-    if isinstance(root_events, list):
-        return [item for item in root_events if isinstance(item, dict)]
+def _as_list(value: Any) -> list[Any]:
+    if isinstance(value, dict):
+        return list(value.values())
+    if isinstance(value, list):
+        return value
     return []
+
+
+def _dict_items(value: Any) -> list[dict[str, Any]]:
+    return [item for item in _as_list(value) if isinstance(item, dict)]
+
+
+def _merge_observation_items(payload: dict[str, Any], key: str) -> list[dict[str, Any]]:
+    merged_items: list[dict[str, Any]] = []
+    for observation in _dict_items(payload.get('observations')):
+        merged_items.extend(_dict_items(observation.get(key, [])))
+    return merged_items
+
+
+def _resolve_event_items(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    if payload.get('schema', '') in SESSION_EVENT_SCHEMAS:
+        return _dict_items(payload.get('events', []))
+    if _dict_items(payload.get('observations')):
+        return _merge_observation_items(payload, 'events')
+    return _dict_items(payload.get('events'))
 
 
 def _resolve_annotation_items(payload: dict[str, Any]) -> list[dict[str, Any]]:
     if payload.get('schema', '').startswith('pybehaviorlog-'):
-        annotations = payload.get('annotations', [])
-        if isinstance(annotations, dict):
-            annotations = list(annotations.values())
-        return [item for item in annotations if isinstance(item, dict)]
-    observations = payload.get('observations')
-    if isinstance(observations, dict):
-        observations = list(observations.values())
-    if isinstance(observations, list) and observations:
-        merged_annotations: list[dict[str, Any]] = []
-        for observation in observations:
-            if not isinstance(observation, dict):
-                continue
-            observation_annotations = observation.get('annotations', [])
-            if isinstance(observation_annotations, dict):
-                observation_annotations = list(observation_annotations.values())
-            merged_annotations.extend(
-                [item for item in observation_annotations if isinstance(item, dict)]
-            )
-        return merged_annotations
-    return []
+        return _dict_items(payload.get('annotations', []))
+    return _merge_observation_items(payload, 'annotations')
 
 
 def _resolve_segment_items(payload: dict[str, Any]) -> list[dict[str, Any]]:
     if payload.get('schema', '').startswith('pybehaviorlog-'):
-        segments = payload.get('segments', [])
-        if isinstance(segments, dict):
-            segments = list(segments.values())
-        return [item for item in segments if isinstance(item, dict)]
-    observations = payload.get('observations')
-    if isinstance(observations, dict):
-        observations = list(observations.values())
-    if isinstance(observations, list) and observations:
-        merged_segments: list[dict[str, Any]] = []
-        for observation in observations:
-            if not isinstance(observation, dict):
-                continue
-            observation_segments = observation.get('segments', [])
-            if isinstance(observation_segments, dict):
-                observation_segments = list(observation_segments.values())
-            merged_segments.extend(
-                [item for item in observation_segments if isinstance(item, dict)]
-            )
-        return merged_segments
-    return []
+        return _dict_items(payload.get('segments', []))
+    return _merge_observation_items(payload, 'segments')
+
+
+def _normalize_event_item(item: dict[str, Any]) -> dict[str, Any]:
+    behavior = item.get('behavior') or item.get('code') or item.get('behavior_code') or item.get('event') or ''
+    frame_token = str(item.get('frame_index') or item.get('frame') or '').strip()
+    return {
+        'time': _normalize_time(item.get('time') or item.get('timestamp_seconds') or item.get('start')),
+        'behavior': str(behavior),
+        'event_kind': str(item.get('event_kind') or item.get('type') or 'point').lower(),
+        'modifiers': _string_list(item.get('modifiers')),
+        'subjects': _string_list(item.get('subjects') or item.get('subject')),
+        'comment': str(
+            item.get('comment') or item.get('comment_start') or item.get('image_path') or ''
+        ),
+        'frame_index': int(frame_token) if frame_token else None,
+    }
+
+
+def _normalize_annotation_item(item: dict[str, Any]) -> dict[str, Any]:
+    return {
+        'time': _normalize_time(item.get('timestamp_seconds') or item.get('time')),
+        'text': str(item.get('text') or item.get('note') or ''),
+    }
+
+
+def _normalize_segment_item(item: dict[str, Any]) -> dict[str, Any]:
+    return {
+        'title': str(item.get('title') or ''),
+        'start': _normalize_time(item.get('start_seconds') or item.get('start')),
+        'end': _normalize_time(item.get('end_seconds') or item.get('end')),
+        'status': str(item.get('status') or ''),
+    }
+
+
+def _normalize_variables(payload: dict[str, Any]) -> dict[str, str]:
+    variables = payload.get('variables') or payload.get('independent_variables') or {}
+    if not isinstance(variables, dict):
+        return {}
+    return {str(key): str(value) for key, value in sorted(variables.items())}
 
 
 def normalize_session_payload(payload: dict[str, Any]) -> dict[str, Any]:
     """Normalize BORIS / PyBehaviorLog / CowLog session-like payloads for round-trip checks."""
-    events = []
-    for item in _resolve_event_items(payload):
-        behavior = (
-            item.get('behavior')
-            or item.get('code')
-            or item.get('behavior_code')
-            or item.get('event')
-            or ''
-        )
-        event_kind = str(item.get('event_kind') or item.get('type') or 'point').lower()
-        events.append(
-            {
-                'time': _normalize_time(
-                    item.get('time') or item.get('timestamp_seconds') or item.get('start')
-                ),
-                'behavior': str(behavior),
-                'event_kind': event_kind,
-                'modifiers': _string_list(item.get('modifiers')),
-                'subjects': _string_list(item.get('subjects') or item.get('subject')),
-                'comment': str(
-                    item.get('comment') or item.get('comment_start') or item.get('image_path') or ''
-                ),
-                'frame_index': int(item.get('frame_index') or item.get('frame') or 0)
-                if str(item.get('frame_index') or item.get('frame') or '').strip()
-                else None,
-            }
-        )
+    events = [_normalize_event_item(item) for item in _resolve_event_items(payload)]
     events.sort(key=lambda item: (item['time'], item['behavior'], item['event_kind']))
-    annotations = []
-    for item in _resolve_annotation_items(payload):
-        annotations.append(
-            {
-                'time': _normalize_time(item.get('timestamp_seconds') or item.get('time')),
-                'text': str(item.get('text') or item.get('note') or ''),
-            }
-        )
+    annotations = [_normalize_annotation_item(item) for item in _resolve_annotation_items(payload)]
     annotations.sort(key=lambda item: (item['time'], item['text']))
-    segments = []
-    for item in _resolve_segment_items(payload):
-        segments.append(
-            {
-                'title': str(item.get('title') or ''),
-                'start': _normalize_time(item.get('start_seconds') or item.get('start')),
-                'end': _normalize_time(item.get('end_seconds') or item.get('end')),
-                'status': str(item.get('status') or ''),
-            }
-        )
+    segments = [_normalize_segment_item(item) for item in _resolve_segment_items(payload)]
     segments.sort(key=lambda item: (item['start'], item['end'], item['title']))
-    variables = payload.get('variables') or payload.get('independent_variables') or {}
-    if not isinstance(variables, dict):
-        variables = {}
     return {
         'schema_family': str(payload.get('schema') or 'unknown'),
         'events': events,
         'annotations': annotations,
-        'variables': {str(key): str(value) for key, value in sorted(variables.items())},
+        'variables': _normalize_variables(payload),
         'media_paths': sorted(
             _string_list(payload.get('media_paths') or payload.get('image_paths'))
         ),
@@ -210,43 +177,33 @@ def compare_session_payloads(expected: dict[str, Any], actual: dict[str, Any]) -
     }
 
 
-def normalize_project_payload(payload: dict[str, Any]) -> dict[str, Any]:
-    """Normalize project-like payloads for BORIS/PyBehaviorLog round-trip comparisons."""
-
-    def _item_names(value: Any, *, key: str = 'name', fallback: str = 'label') -> list[str]:
-        results = []
-        if isinstance(value, dict):
-            iterator = value.values()
-        elif isinstance(value, list):
-            iterator = value
+def _item_names(value: Any, *, key: str = 'name', fallback: str = 'label') -> list[str]:
+    results = []
+    for item in _as_list(value):
+        if isinstance(item, dict):
+            results.append(str(item.get(key) or item.get(fallback) or ''))
         else:
-            iterator = []
-        for item in iterator:
-            if isinstance(item, dict):
-                results.append(str(item.get(key) or item.get(fallback) or ''))
-            else:
-                results.append(str(item))
-        return sorted(item for item in results if item)
+            results.append(str(item))
+    return sorted(item for item in results if item)
 
+
+def _project_session_titles(payload: dict[str, Any]) -> list[str]:
     sessions = payload.get('sessions') or payload.get('observations') or []
-    if isinstance(sessions, dict):
-        sessions = list(sessions.values())
     session_titles = []
-    for item in sessions:
-        if not isinstance(item, dict):
-            continue
+    for item in _dict_items(sessions):
         if item.get('title') or item.get('description'):
             session_titles.append(str(item.get('title') or item.get('description') or ''))
             continue
         observations = item.get('observations')
-        if isinstance(observations, dict):
-            observations = list(observations.values())
-        if isinstance(observations, list):
-            for observation in observations:
-                if isinstance(observation, dict):
-                    session_titles.append(
-                        str(observation.get('title') or observation.get('description') or '')
-                    )
+        for observation in _dict_items(observations):
+            session_titles.append(
+                str(observation.get('title') or observation.get('description') or '')
+            )
+    return sorted(item for item in session_titles if item)
+
+
+def normalize_project_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    """Normalize project-like payloads for BORIS/PyBehaviorLog round-trip comparisons."""
     return {
         'schema_family': str(payload.get('schema') or 'unknown'),
         'categories': _item_names(payload.get('categories')),
@@ -260,7 +217,7 @@ def normalize_project_payload(payload: dict[str, Any]) -> dict[str, Any]:
             fallback='name',
         ),
         'templates': _item_names(payload.get('observation_templates')),
-        'sessions': sorted(item for item in session_titles if item),
+        'sessions': _project_session_titles(payload),
     }
 
 

@@ -75,6 +75,21 @@ from .models import (
     VideoAsset,
 )
 
+ALL_SUBJECTS_LABEL = 'All subjects'
+BORIS_PROJECT_JSON = 'boris_project.json'
+CSV_EXTENSION = '.csv'
+DELETE_CONFIRM_TEMPLATE = 'tracker/delete_confirm.html'
+INVALID_JSON_PAYLOAD = 'Invalid JSON payload.'
+JSON_CONTENT_TYPE = 'application/json; charset=utf-8'
+JSON_EXTENSION = '.json'
+OBSERVED_SPAN_SECONDS_LABEL = 'Observed span seconds'
+POINT_COUNT_LABEL = 'Point count'
+PROJECT_UPDATE_ROUTE = 'tracker:project_update'
+SYNCED_VIDEOS_LABEL = 'Synced videos'
+TEXT_CONTENT_TYPE = 'text/plain; charset=utf-8'
+TSV_EXTENSION = '.tsv'
+XLSX_EXTENSION = '.xlsx'
+
 
 def signup(request):  # pragma: no cover
     if request.user.is_authenticated:
@@ -617,7 +632,7 @@ def _decimal(
         seconds = Decimal((iso_match.group('seconds') or '0').replace(',', '.'))
         return (hours * Decimal('3600')) + (minutes * Decimal('60')) + seconds
     if ':' in token:
-        parts = [part.strip() for part in token.split(':')]
+        parts = list(map(str.strip, token.split(':')))
         if len(parts) in {2, 3, 4} and all(part for part in parts):
             try:
                 if len(parts) == 2:
@@ -1440,7 +1455,7 @@ def build_subject_statistics(
 
 
 def build_transition_rows(session: ObservationSession) -> list[dict]:
-    event_rows = [event for event in session.events.all().order_by('timestamp_seconds', 'pk')]
+    event_rows = list(session.events.all().order_by('timestamp_seconds', 'pk'))
     counters: dict[tuple[str, str], int] = defaultdict(int)
     previous_name = None
     for event in event_rows:
@@ -1848,7 +1863,7 @@ def build_reproducibility_bundle(project: Project) -> dict[str, bytes]:
     files: dict[str, bytes] = {
         'ethogram.json': json.dumps(ethogram_payload, indent=2, ensure_ascii=False).encode('utf-8'),
         'analytics.json': json.dumps(analytics, indent=2, ensure_ascii=False).encode('utf-8'),
-        'boris_project.json': json.dumps(boris_payload, indent=2, ensure_ascii=False).encode(
+        BORIS_PROJECT_JSON: json.dumps(boris_payload, indent=2, ensure_ascii=False).encode(
             'utf-8'
         ),
         'compatibility_report.json': json.dumps(
@@ -1913,7 +1928,9 @@ def _build_event_interval_rows(session: ObservationSession) -> list[dict]:
         .order_by('timestamp_seconds', 'pk')
     )
     for event in ordered_events:
-        subjects = [subject.name for subject in event.all_subjects_ordered] or ['All subjects']
+        subjects = [subject.name for subject in event.all_subjects_ordered] or [
+            ALL_SUBJECTS_LABEL
+        ]
         modifiers = [modifier.name for modifier in event.modifiers.order_by('sort_order', 'name')]
         base = {
             'event_id': event.id,
@@ -1996,7 +2013,7 @@ def build_behavioral_sequences_text(session: ObservationSession, separator: str 
     """Export a BORIS-style behavioral sequence text grouped by subject."""
     subject_map: dict[str, list[str]] = defaultdict(list)
     for row in _build_event_interval_rows(session):
-        for subject in row['subjects'] or ['All subjects']:
+        for subject in row['subjects'] or [ALL_SUBJECTS_LABEL]:
             subject_map[subject].append(row['behavior'])
     lines = [f'# observation id: {session.title}', f'# project: {session.project.name}', '']
     if not subject_map:
@@ -2019,7 +2036,7 @@ def build_textgrid_text(session: ObservationSession) -> str:
     tiers: list[tuple[str, list[dict]]] = []
     grouped: dict[str, list[dict]] = defaultdict(list)
     for row in rows:
-        for subject in row['subjects'] or ['All subjects']:
+        for subject in row['subjects'] or [ALL_SUBJECTS_LABEL]:
             grouped[subject].append(row)
     for subject, subject_rows in sorted(grouped.items()):
         intervals = []
@@ -2154,15 +2171,12 @@ def parse_cowlog_results_text(
                     )
                     if not annotation_time.is_nan():
                         title = metadata_parts[2] if len(metadata_parts) > 2 else _('Imported note')
-                        note = (
-                            ' '.join(metadata_parts[3:])
-                            if len(metadata_parts) > 3
-                            else (
-                                metadata_parts[2]
-                                if len(metadata_parts) > 2
-                                else _('Imported from CowLog metadata')
-                            )
-                        )
+                        if len(metadata_parts) > 3:
+                            note = ' '.join(metadata_parts[3:])
+                        elif len(metadata_parts) > 2:
+                            note = metadata_parts[2]
+                        else:
+                            note = _('Imported from CowLog metadata')
                         annotations.append(
                             {
                                 'time': float(annotation_time),
@@ -2436,7 +2450,7 @@ def _first_import_content_line(text_payload: str, *, skip_cowlog_metadata: bool 
         line = raw_line.strip()
         if not line:
             continue
-        if skip_cowlog_metadata and (line.startswith('#') or line.startswith(';')):
+        if skip_cowlog_metadata and line.startswith(('#', ';')):
             continue
         return line
     return ''
@@ -2444,12 +2458,12 @@ def _first_import_content_line(text_payload: str, *, skip_cowlog_metadata: bool 
 
 def _line_starts_with_import_time(line: str) -> bool:
     line = line.strip()
-    if not line or line.startswith('#') or line.startswith(';'):
+    if not line or line.startswith(('#', ';')):
         return False
     if '\t' in line:
         token = line.split('\t', 1)[0].strip()
     else:
-        smpte_semicolon_match = re.match(r'\d{1,3}:\d{1,2}:\d{1,2};\d{1,3}(?=$|[\s,;\t])', line)
+        smpte_semicolon_match = re.match(r'\d{1,3}:\d{1,2}:\d{1,2};\d{1,3}(?=$|[\s,;])', line)
         if smpte_semicolon_match:
             token = smpte_semicolon_match.group(0)
         elif ';' in line and line.count(';') >= 2:
@@ -2468,7 +2482,12 @@ def _line_starts_with_import_time(line: str) -> bool:
 def _looks_like_tabular_import_header(line: str) -> bool:
     if not line or not any(delimiter in line for delimiter in (',', ';', '\t')):
         return False
-    delimiter = '\t' if '\t' in line else ';' if line.count(';') >= line.count(',') else ','
+    if '\t' in line:
+        delimiter = '\t'
+    elif line.count(';') >= line.count(','):
+        delimiter = ';'
+    else:
+        delimiter = ','
     try:
         headers = next(csv.reader([line], delimiter=delimiter))
     except (csv.Error, StopIteration):
@@ -2497,7 +2516,7 @@ def parse_tabular_session_file(
 ) -> tuple[dict, dict]:
     """Parse CSV/TSV/XLSX tabular imports modeled on BORIS tabular exports."""
     filename = str(getattr(uploaded_file, 'name', '') or '').lower()
-    if filename.endswith('.xlsx'):
+    if filename.endswith(XLSX_EXTENSION):
         workbook = load_workbook(io.BytesIO(raw_bytes), data_only=True)
         sheet = workbook.active
         rows = list(sheet.iter_rows(values_only=True))
@@ -2518,11 +2537,8 @@ def parse_tabular_session_file(
     except UnicodeDecodeError as exc:
         raise ValueError(_('The uploaded tabular file is not valid UTF-8 text.')) from exc
     first_line = _first_import_content_line(text_payload)
-    delimiter = (
-        '	'
-        if ('	' in first_line if first_line else False) or filename.endswith('.tsv')
-        else ','
-    )
+    has_tab_delimiter = bool(first_line and '\t' in first_line)
+    delimiter = '\t' if has_tab_delimiter or filename.endswith(TSV_EXTENSION) else ','
     if delimiter == ',' and ';' in first_line and first_line.count(';') >= first_line.count(','):
         delimiter = ';'
     reader = csv.DictReader(io.StringIO(text_payload), delimiter=delimiter)
@@ -2546,16 +2562,18 @@ def load_session_import_payload(
     if zipfile.is_zipfile(buffer):
         with zipfile.ZipFile(buffer) as archive:
             names = archive.namelist()
-            candidate = next((name for name in names if name.endswith('.json')), None)
+            candidate = next((name for name in names if name.endswith(JSON_EXTENSION)), None)
             if candidate is None:
                 raise ValueError(_('The uploaded archive does not contain a session JSON file.'))
             payload = json.loads(archive.read(candidate).decode('utf-8'))
             report['detected_format'] = payload.get('schema', 'json')
             report['source_name'] = candidate
             return payload, report
-    if filename.endswith(('.csv', '.tsv', '.xlsx')):
+    if filename.endswith((CSV_EXTENSION, TSV_EXTENSION, XLSX_EXTENSION)):
         report['source_hint'] = (
-            'tabular_extension' if filename.endswith('.xlsx') else 'tabular_header_delimiter'
+            'tabular_extension'
+            if filename.endswith(XLSX_EXTENSION)
+            else 'tabular_header_delimiter'
         )
         payload, parsed_report = parse_tabular_session_file(
             session, uploaded_file, raw_bytes, strict=strict
@@ -2569,7 +2587,7 @@ def load_session_import_payload(
             _('The uploaded file is not valid UTF-8 text, spreadsheet, or JSON.')
         ) from exc
     stripped = text_payload.lstrip()
-    if stripped.startswith('{') or stripped.startswith('['):
+    if stripped.startswith(('{', '[')):
         payload = json.loads(text_payload)
         report['detected_format'] = payload.get('schema', 'json')
         return payload, report
@@ -2972,13 +2990,14 @@ def load_project_import_payload(uploaded_file) -> tuple[dict, dict[str, dict]]:
     if zipfile.is_zipfile(buffer):
         with zipfile.ZipFile(buffer) as archive:
             names = archive.namelist()
-            candidate = 'boris_project.json' if 'boris_project.json' in names else None
+            candidate = BORIS_PROJECT_JSON if BORIS_PROJECT_JSON in names else None
             if candidate is None:
                 candidate = next(
                     (
                         name
                         for name in names
-                        if name.endswith('.json') and ('project' in name or 'bundle' in name)
+                        if name.endswith(JSON_EXTENSION)
+                        and ('project' in name or 'bundle' in name)
                     ),
                     None,
                 )
@@ -2986,7 +3005,7 @@ def load_project_import_payload(uploaded_file) -> tuple[dict, dict[str, dict]]:
                 raise ValueError(_('The uploaded archive does not contain a project JSON file.'))
             payload = json.loads(archive.read(candidate).decode('utf-8'))
             for name in names:
-                if name.startswith('sessions/') and name.endswith('.json'):
+                if name.startswith('sessions/') and name.endswith(JSON_EXTENSION):
                     bundled_sessions[name] = json.loads(archive.read(name).decode('utf-8'))
             return payload, bundled_sessions
     try:
@@ -3892,7 +3911,7 @@ def project_import_create(request):  # pragma: no cover
                     )
                 messages.success(request, _('Project created from import package.'))
                 return redirect(project)
-        except (json.JSONDecodeError, ValueError) as exc:
+        except ValueError as exc:
             messages.error(request, str(exc))
     return render(request, 'tracker/project_import_create.html', {'form': form})
 
@@ -4079,7 +4098,7 @@ def project_export_xlsx(request, pk: int):  # pragma: no cover
     overview.append(['Behaviors', analytics['behavior_count']])
     overview.append(['Annotations', analytics['annotation_count']])
     overview.append(['Events', analytics['event_count']])
-    overview.append(['Observed span seconds', analytics['observed_span_seconds']])
+    overview.append([OBSERVED_SPAN_SECONDS_LABEL, analytics['observed_span_seconds']])
 
     _append_autosized_sheet(
         workbook,
@@ -4088,12 +4107,12 @@ def project_export_xlsx(request, pk: int):  # pragma: no cover
             'Session',
             'Observer',
             'Primary video',
-            'Synced videos',
+            SYNCED_VIDEOS_LABEL,
             'Event count',
             'Annotations',
-            'Point count',
+            POINT_COUNT_LABEL,
             'Open states',
-            'Observed span seconds',
+            OBSERVED_SPAN_SECONDS_LABEL,
             'State duration seconds',
         ],
         [
@@ -4120,7 +4139,7 @@ def project_export_xlsx(request, pk: int):  # pragma: no cover
             'Behavior',
             'Mode',
             'Sessions used',
-            'Point count',
+            POINT_COUNT_LABEL,
             'Start count',
             'Stop count',
             'Segments',
@@ -4144,7 +4163,7 @@ def project_export_xlsx(request, pk: int):  # pragma: no cover
     _append_autosized_sheet(
         workbook,
         'Subjects',
-        ['Subject', 'Behavior', 'Mode', 'Point count', 'Segment count', 'Duration seconds'],
+        ['Subject', 'Behavior', 'Mode', POINT_COUNT_LABEL, 'Segment count', 'Duration seconds'],
         [
             [
                 row['subject'],
@@ -4223,7 +4242,7 @@ def project_export_boris_json(request, pk: int):  # pragma: no cover
     filename = f'{slugify(project.name) or "project"}_boris_project.json'
     response = HttpResponse(
         json.dumps(payload, indent=2, ensure_ascii=False),
-        content_type='application/json; charset=utf-8',
+        content_type=JSON_CONTENT_TYPE,
     )
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
     return response
@@ -4235,7 +4254,7 @@ def project_export_compatibility_report(request, pk: int):  # pragma: no cover
     report = build_project_compatibility_report(project)
     response = HttpResponse(
         json.dumps(report, indent=2, ensure_ascii=False),
-        content_type='application/json; charset=utf-8',
+        content_type=JSON_CONTENT_TYPE,
     )
     response['Content-Disposition'] = (
         f'attachment; filename="project_{project.pk}_compatibility_report.json"'
@@ -4250,7 +4269,7 @@ def project_export_ethogram(request, pk: int):  # pragma: no cover
     filename = f'{slugify(project.name) or "project"}_ethogram.json'
     response = HttpResponse(
         json.dumps(payload, indent=2, ensure_ascii=False),
-        content_type='application/json; charset=utf-8',
+        content_type=JSON_CONTENT_TYPE,
     )
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
     return response
@@ -4306,7 +4325,7 @@ def project_import_boris_json(request, pk: int):  # pragma: no cover
                 create_live_sessions=create_live_sessions,
                 bundled_sessions=bundled_sessions,
             )
-        except (json.JSONDecodeError, ValueError) as exc:
+        except ValueError as exc:
             messages.error(request, str(exc))
         else:
             messages.success(
@@ -4342,7 +4361,7 @@ def project_membership_create(request, pk: int):  # pragma: no cover
         membership.project = project
         membership.save()
         messages.success(request, _('Project membership added.'))
-        return redirect('tracker:project_update', pk=project.pk)
+        return redirect(PROJECT_UPDATE_ROUTE, pk=project.pk)
     return render(
         request,
         'tracker/project_membership_form.html',
@@ -4363,7 +4382,7 @@ def project_membership_update(request, pk: int):  # pragma: no cover
     if request.method == 'POST' and form.is_valid():
         form.save()
         messages.success(request, _('Project membership updated.'))
-        return redirect('tracker:project_update', pk=membership.project.pk)
+        return redirect(PROJECT_UPDATE_ROUTE, pk=membership.project.pk)
     return render(
         request,
         'tracker/project_membership_form.html',
@@ -4382,10 +4401,10 @@ def project_membership_delete(request, pk: int):  # pragma: no cover
         project = membership.project
         membership.delete()
         messages.success(request, _('Project membership deleted.'))
-        return redirect('tracker:project_update', pk=project.pk)
+        return redirect(PROJECT_UPDATE_ROUTE, pk=project.pk)
     return render(
         request,
-        'tracker/delete_confirm.html',
+        DELETE_CONFIRM_TEMPLATE,
         {
             'form': form,
             'object_label': f'the membership for “{membership.user.username}”',
@@ -4407,7 +4426,7 @@ def keyboard_profile_create(request, pk: int):  # pragma: no cover
         profile.subject_bindings = snapshot['subject_bindings']
         profile.save()
         messages.success(request, _('Keyboard profile created from the current project bindings.'))
-        return redirect('tracker:project_update', pk=project.pk)
+        return redirect(PROJECT_UPDATE_ROUTE, pk=project.pk)
     return render(
         request,
         'tracker/keyboard_profile_form.html',
@@ -4430,7 +4449,7 @@ def keyboard_profile_update(request, pk: int):  # pragma: no cover
         messages.success(
             request, _('Keyboard profile refreshed from the current project bindings.')
         )
-        return redirect('tracker:project_update', pk=profile.project.pk)
+        return redirect(PROJECT_UPDATE_ROUTE, pk=profile.project.pk)
     return render(
         request,
         'tracker/keyboard_profile_form.html',
@@ -4447,10 +4466,10 @@ def keyboard_profile_delete(request, pk: int):  # pragma: no cover
         project = profile.project
         profile.delete()
         messages.success(request, _('Keyboard profile deleted.'))
-        return redirect('tracker:project_update', pk=project.pk)
+        return redirect(PROJECT_UPDATE_ROUTE, pk=project.pk)
     return render(
         request,
-        'tracker/delete_confirm.html',
+        DELETE_CONFIRM_TEMPLATE,
         {
             'form': form,
             'object_label': f'the keyboard profile “{profile.name}”',
@@ -4501,7 +4520,7 @@ def category_delete(request, pk: int):  # pragma: no cover
         return redirect(project)
     return render(
         request,
-        'tracker/delete_confirm.html',
+        DELETE_CONFIRM_TEMPLATE,
         {
             'form': form,
             'object_label': f'the category “{category.name}”',
@@ -4552,7 +4571,7 @@ def modifier_delete(request, pk: int):  # pragma: no cover
         return redirect(project)
     return render(
         request,
-        'tracker/delete_confirm.html',
+        DELETE_CONFIRM_TEMPLATE,
         {
             'form': form,
             'object_label': f'the modifier “{modifier.name}”',
@@ -4611,7 +4630,7 @@ def subject_group_delete(request, pk: int):  # pragma: no cover
         return redirect(project)
     return render(
         request,
-        'tracker/delete_confirm.html',
+        DELETE_CONFIRM_TEMPLATE,
         {
             'form': form,
             'object_label': f'the subject group “{group.name}”',
@@ -4669,7 +4688,7 @@ def subject_delete(request, pk: int):  # pragma: no cover
         return redirect(project)
     return render(
         request,
-        'tracker/delete_confirm.html',
+        DELETE_CONFIRM_TEMPLATE,
         {'form': form, 'object_label': f'the subject “{subject.name}”', 'project': subject.project},
     )
 
@@ -4732,7 +4751,7 @@ def independent_variable_delete(request, pk: int):  # pragma: no cover
         return redirect(project)
     return render(
         request,
-        'tracker/delete_confirm.html',
+        DELETE_CONFIRM_TEMPLATE,
         {
             'form': form,
             'object_label': f'the independent variable “{definition.label}”',
@@ -4798,7 +4817,7 @@ def observation_template_delete(request, pk: int):  # pragma: no cover
         return redirect(project)
     return render(
         request,
-        'tracker/delete_confirm.html',
+        DELETE_CONFIRM_TEMPLATE,
         {
             'form': form,
             'object_label': f'the observation template “{template.name}”',
@@ -4849,7 +4868,7 @@ def behavior_delete(request, pk: int):  # pragma: no cover
         return redirect(project)
     return render(
         request,
-        'tracker/delete_confirm.html',
+        DELETE_CONFIRM_TEMPLATE,
         {
             'form': form,
             'object_label': f'the behavior “{behavior.name}”',
@@ -4880,7 +4899,6 @@ def video_update(request, pk: int):  # pragma: no cover
     form = VideoAssetForm(request.POST or None, request.FILES or None, instance=video)
     if request.method == 'POST' and form.is_valid():
         video = form.save(commit=False)
-        video.project = video.project
         video.save()
         messages.success(request, _('Video updated.'))
         return redirect(video.project)
@@ -4905,7 +4923,7 @@ def video_delete(request, pk: int):  # pragma: no cover
         return redirect(project)
     return render(
         request,
-        'tracker/delete_confirm.html',
+        DELETE_CONFIRM_TEMPLATE,
         {'form': form, 'object_label': f'the video “{video.title}”', 'project': video.project},
     )
 
@@ -4969,7 +4987,7 @@ def session_delete(request, pk: int):  # pragma: no cover
         return redirect(project)
     return render(
         request,
-        'tracker/delete_confirm.html',
+        DELETE_CONFIRM_TEMPLATE,
         {
             'form': form,
             'object_label': f'the session “{session.title}”',
@@ -5078,7 +5096,7 @@ def session_workflow_action(request, pk: int):
     try:
         payload = json.loads(request.body.decode('utf-8')) if request.body else request.POST.dict()
     except json.JSONDecodeError:
-        return JsonResponse({'error': _('Invalid JSON payload.')}, status=400)
+        return JsonResponse({'error': _(INVALID_JSON_PAYLOAD)}, status=400)
     action = payload.get('action')
     review_notes = (payload.get('review_notes') or session.review_notes or '').strip()
     status_map = {
@@ -5492,7 +5510,7 @@ def segment_delete(request, pk: int):  # pragma: no cover
         return redirect(session)
     return render(
         request,
-        'tracker/delete_confirm.html',
+        DELETE_CONFIRM_TEMPLATE,
         {'form': form, 'object_name': segment.title, 'cancel_url': session.get_absolute_url()},
     )
 
@@ -5545,7 +5563,7 @@ def event_create_api(request, pk: int):
     try:
         payload = json.loads(request.body.decode('utf-8'))
     except json.JSONDecodeError:
-        return JsonResponse({'error': _('Invalid JSON payload.')}, status=400)
+        return JsonResponse({'error': _(INVALID_JSON_PAYLOAD)}, status=400)
 
     behavior = get_object_or_404(Behavior, pk=payload.get('behavior_id'), project=session.project)
     timestamp_seconds = _decimal(payload.get('timestamp_seconds'), default='0')
@@ -5617,7 +5635,7 @@ def event_update_api(request, pk: int):
     try:
         payload = json.loads(request.body.decode('utf-8'))
     except json.JSONDecodeError:
-        return JsonResponse({'error': _('Invalid JSON payload.')}, status=400)
+        return JsonResponse({'error': _(INVALID_JSON_PAYLOAD)}, status=400)
 
     behavior = get_object_or_404(
         Behavior, pk=payload.get('behavior_id', event.behavior_id), project=session.project
@@ -5804,7 +5822,7 @@ def annotation_create_api(request, pk: int):
     try:
         payload = json.loads(request.body.decode('utf-8'))
     except json.JSONDecodeError:
-        return JsonResponse({'error': _('Invalid JSON payload.')}, status=400)
+        return JsonResponse({'error': _(INVALID_JSON_PAYLOAD)}, status=400)
     annotation = SessionAnnotation.objects.create(
         session=session,
         timestamp_seconds=_decimal(payload.get('timestamp_seconds'), default='0'),
@@ -5838,7 +5856,7 @@ def annotation_update_api(request, pk: int):
     try:
         payload = json.loads(request.body.decode('utf-8'))
     except json.JSONDecodeError:
-        return JsonResponse({'error': _('Invalid JSON payload.')}, status=400)
+        return JsonResponse({'error': _(INVALID_JSON_PAYLOAD)}, status=400)
     annotation.timestamp_seconds = _decimal(
         payload.get('timestamp_seconds', annotation.timestamp_seconds), default='0'
     )
@@ -5946,7 +5964,7 @@ def session_export_compatibility_report(request, pk: int):  # pragma: no cover
     report = build_session_compatibility_report(session)
     response = HttpResponse(
         json.dumps(report, indent=2, ensure_ascii=False),
-        content_type='application/json; charset=utf-8',
+        content_type=JSON_CONTENT_TYPE,
     )
     response['Content-Disposition'] = (
         f'attachment; filename="session_{session.pk}_compatibility_report.json"'
@@ -5957,7 +5975,7 @@ def session_export_compatibility_report(request, pk: int):  # pragma: no cover
 @login_required
 def session_export_cowlog_txt(request, pk: int):  # pragma: no cover
     session = get_accessible_session(request.user, pk)
-    response = HttpResponse(content_type='text/plain; charset=utf-8')
+    response = HttpResponse(content_type=TEXT_CONTENT_TYPE)
     response['Content-Disposition'] = (
         f'attachment; filename="session_{session.pk}_cowlog_compatible.txt"'
     )
@@ -6015,7 +6033,7 @@ def session_export_cowlog_txt(request, pk: int):  # pragma: no cover
 @login_required
 def session_export_behavioral_sequences(request, pk: int):  # pragma: no cover
     session = get_accessible_session(request.user, pk)
-    response = HttpResponse(content_type='text/plain; charset=utf-8')
+    response = HttpResponse(content_type=TEXT_CONTENT_TYPE)
     response['Content-Disposition'] = (
         f'attachment; filename="session_{session.pk}_behavioral_sequences.txt"'
     )
@@ -6026,7 +6044,7 @@ def session_export_behavioral_sequences(request, pk: int):  # pragma: no cover
 @login_required
 def session_export_textgrid(request, pk: int):  # pragma: no cover
     session = get_accessible_session(request.user, pk)
-    response = HttpResponse(content_type='text/plain; charset=utf-8')
+    response = HttpResponse(content_type=TEXT_CONTENT_TYPE)
     response['Content-Disposition'] = f'attachment; filename="session_{session.pk}.TextGrid"'
     response.write(build_textgrid_text(session))
     return response
@@ -6147,7 +6165,7 @@ def session_export_json(request, pk: int):
     }
     response = HttpResponse(
         json.dumps(payload, indent=2, ensure_ascii=False),
-        content_type='application/json; charset=utf-8',
+        content_type=JSON_CONTENT_TYPE,
     )
     response['Content-Disposition'] = f'attachment; filename="session_{session.pk}_events.json"'
     return response
@@ -6159,7 +6177,7 @@ def session_export_boris_json(request, pk: int):  # pragma: no cover
     payload = build_boris_like_payload(session)
     response = HttpResponse(
         json.dumps(payload, indent=2, ensure_ascii=False),
-        content_type='application/json; charset=utf-8',
+        content_type=JSON_CONTENT_TYPE,
     )
     response['Content-Disposition'] = f'attachment; filename="session_{session.pk}_boris_like.json"'
     return response
@@ -6176,7 +6194,7 @@ def session_export_xlsx(request, pk: int):  # pragma: no cover
             'Project',
             'Session',
             'Primary video',
-            'Synced videos',
+            SYNCED_VIDEOS_LABEL,
             'Observer',
             'Category',
             'Behavior',
@@ -6210,14 +6228,14 @@ def session_export_xlsx(request, pk: int):  # pragma: no cover
     stats = build_statistics(session)
     stats_sheet = workbook.create_sheet('Summary')
     stats_sheet.append(['Session', session.title])
-    stats_sheet.append(['Observed span seconds', stats['observed_span_seconds']])
+    stats_sheet.append([OBSERVED_SPAN_SECONDS_LABEL, stats['observed_span_seconds']])
     stats_sheet.append(['Event count', stats['session_event_count']])
     stats_sheet.append(['Annotation count', stats['annotation_count']])
-    stats_sheet.append(['Point count', stats['point_event_count']])
+    stats_sheet.append([POINT_COUNT_LABEL, stats['point_event_count']])
     stats_sheet.append(['Open state count', stats['open_state_count']])
     stats_sheet.append(['State duration seconds', stats['state_duration_seconds']])
     stats_sheet.append(
-        ['Synced videos', ', '.join(video.title for video in session.all_videos_ordered)]
+        [SYNCED_VIDEOS_LABEL, ', '.join(video.title for video in session.all_videos_ordered)]
     )
     stats_sheet.append([])
     stats_sheet.append(
@@ -6225,7 +6243,7 @@ def session_export_xlsx(request, pk: int):  # pragma: no cover
             'Category',
             'Behavior',
             'Mode',
-            'Point count',
+            POINT_COUNT_LABEL,
             'Start count',
             'Stop count',
             'Segments',

@@ -162,8 +162,7 @@ kbd {
 .large-pill { padding: .55rem .95rem; }
 
 button,
-.button,
-[role="button"] {
+.button {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -180,8 +179,7 @@ button,
 
 button.secondary,
 .button.secondary,
-.button-ghost,
-[role="button"].secondary {
+.button-ghost {
     color: var(--ink);
     background: rgba(255,255,255,.7);
     border-color: var(--line);
@@ -189,8 +187,7 @@ button.secondary,
 }
 
 button:hover,
-.button:hover,
-[role="button"]:hover { transform: translateY(-1px); }
+.button:hover { transform: translateY(-1px); }
 
 button:disabled { opacity: .6; cursor: not-allowed; }
 
@@ -212,7 +209,7 @@ button:disabled { opacity: .6; cursor: not-allowed; }
 .card-grid { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
 .dashboard-grid { margin-bottom: 1rem; }
 .sync-grid { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
-.timeline-grid { grid-template-columns: repeat(auto-fit, minmax(72px, 1fr)); align-items: end; }
+.timeline-grid { grid-template-columns: repeat(auto-fit, minmax(72px, 1fr)); align-items: end; overflow-x: auto; }
 
 .player-layout,
 .grid.two-columns { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 1rem; align-items: start; }
@@ -331,6 +328,7 @@ tbody td {
 .track-container {
     display: grid;
     gap: .8rem;
+    overflow-x: auto;
 }
 
 .track-row {
@@ -360,6 +358,8 @@ tbody td {
     bottom: .3rem;
     border-radius: 999px;
     opacity: .9;
+    cursor: pointer;
+    border: 0;
 }
 
 .integrity-box {
@@ -405,7 +405,7 @@ select {
 
 form p { margin: 0 0 .9rem; }
 label { display: block; margin-bottom: .35rem; font-weight: 600; }
-helptext, .helptext { display: block; margin-top: .3rem; color: var(--ink-soft); font-size: .9rem; }
+.helptext { display: block; margin-top: .3rem; color: var(--ink-soft); font-size: .9rem; }
 
 .sr-only {
     position: absolute;
@@ -439,15 +439,6 @@ helptext, .helptext { display: block; margin-top: .3rem; color: var(--ink-soft);
 .stacked-form {
     display: grid;
     gap: .65rem;
-}
-
-.track-container {
-    overflow-x: auto;
-}
-
-.timeline-grid {
-    overflow-x: auto;
-    align-items: end;
 }
 
 .timeline-toolbar {
@@ -525,7 +516,6 @@ helptext, .helptext { display: block; margin-top: .3rem; color: var(--ink-soft);
 
 .event-editor { border-style: solid; }
 .is-selected-row td { background: color-mix(in srgb, var(--signal-soft) 72%, white 28%); }
-.track-segment { cursor: pointer; border: 0; }
 .open-segment { box-shadow: inset 0 0 0 2px rgba(255,255,255,.75); }
 .event-editor .timeline-toolbar { margin-bottom: .65rem; }
 

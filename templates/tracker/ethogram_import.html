@@ -1,4 +1,4 @@
 {% extends 'base.html' %}
 {% load i18n %}
 {% block title %}{% trans 'Import ethogram' %}{% endblock %}
-{% block content %}<article class="auth-card wide-card"><h1>{% trans 'Import ethogram' %}</h1><p>{% trans 'Project' %}: <a href="{{ project.get_absolute_url }}">{{ project.name }}</a></p><form method="post" enctype="multipart/form-data">{% csrf_token %}{{ form.as_p }}<div class="action-stack"><button type="submit">{% trans 'Import' %}</button><a href="{{ project.get_absolute_url }}" role="button" class="secondary">{% trans 'Back' %}</a></div></form></article>{% endblock %}
+{% block content %}<article class="auth-card wide-card"><h1>{% trans 'Import ethogram' %}</h1><p>{% trans 'Project' %}: <a href="{{ project.get_absolute_url }}">{{ project.name }}</a></p><form method="post" enctype="multipart/form-data">{% csrf_token %}{{ form.as_p }}<div class="action-stack"><button type="submit">{% trans 'Import' %}</button><a href="{{ project.get_absolute_url }}" class="button secondary">{% trans 'Back' %}</a></div></form></article>{% endblock %}

@@ -10,7 +10,7 @@
     <form method="post">{% csrf_token %}{{ form.as_p }}
         <div class="action-stack">
             <button type="submit">{% if mode == 'update' %}{% trans 'Update session' %}{% else %}{% trans 'Create session' %}{% endif %}</button>
-            <a href="{{ project.get_absolute_url }}" role="button" class="secondary">{% trans 'Back' %}</a>
+            <a href="{{ project.get_absolute_url }}" class="button secondary">{% trans 'Back' %}</a>
         </div>
     </form>
 </article>

@@ -12,8 +12,8 @@
         <p>{% trans 'Version 0.9.1 adds segment-level review queues on top of the 0.9 project lifecycle operations.' %}</p>
     </div>
     <div class="action-stack compact">
-        <a href="{% url 'tracker:project_create' %}" role="button">{% trans 'New project' %}</a>
-        <a href="{% url 'tracker:project_import_create' %}" role="button" class="secondary">{% trans 'Import as new project' %}</a>
+        <a href="{% url 'tracker:project_create' %}" class="button">{% trans 'New project' %}</a>
+        <a href="{% url 'tracker:project_import_create' %}" class="button secondary">{% trans 'Import as new project' %}</a>
     </div>
 </header>
 
@@ -31,7 +31,7 @@
             <span>{{ review_queue.counts.outstanding }} {% trans 'open segments' %}</span>
         </div>
         <div class="action-stack compact">
-            <a href="{% url 'tracker:review_queue' %}" role="button" class="secondary">{% trans 'Open queue' %}</a>
+            <a href="{% url 'tracker:review_queue' %}" class="button secondary">{% trans 'Open queue' %}</a>
         </div>
     </article>
 </section>
@@ -56,10 +56,10 @@
                 <span>{{ project.sessions.count }} {% trans 'sessions' %}</span>
             </div>
             <div class="action-stack compact">
-                <a href="{{ project.get_absolute_url }}" role="button" class="secondary">{% trans 'Open' %}</a>
-                <a href="{% url 'tracker:project_analytics' project.pk %}" role="button" class="outline">{% trans 'Analytics' %}</a>
-                <a href="{% url 'tracker:project_export_ethogram' project.pk %}" role="button" class="outline">{% trans 'Ethogram JSON' %}</a>
-                {% if project.owner_id == user.id %}<a href="{% url 'tracker:project_clone' project.pk %}" role="button" class="outline">{% trans 'Clone' %}</a>{% endif %}
+                <a href="{{ project.get_absolute_url }}" class="button secondary">{% trans 'Open' %}</a>
+                <a href="{% url 'tracker:project_analytics' project.pk %}" class="button outline">{% trans 'Analytics' %}</a>
+                <a href="{% url 'tracker:project_export_ethogram' project.pk %}" class="button outline">{% trans 'Ethogram JSON' %}</a>
+                {% if project.owner_id == user.id %}<a href="{% url 'tracker:project_clone' project.pk %}" class="button outline">{% trans 'Clone' %}</a>{% endif %}
             </div>
         </article>
     {% empty %}

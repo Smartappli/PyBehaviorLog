@@ -16,7 +16,7 @@
     {{ form.as_p }}
     <div class="action-stack">
         <button type="submit">{% trans 'Save' %}</button>
-        <a href="{{ session.get_absolute_url }}" role="button" class="secondary">{% trans 'Cancel' %}</a>
+        <a href="{{ session.get_absolute_url }}" class="button secondary">{% trans 'Cancel' %}</a>
     </div>
 </form>
 {% endblock %}

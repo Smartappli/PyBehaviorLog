@@ -5,6 +5,8 @@ import django.db.models.deletion
 from django.conf import settings
 from django.db import migrations, models
 
+TRACKER_PROJECT = 'tracker.project'
+
 
 class Migration(migrations.Migration):
     initial = True
@@ -43,7 +45,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='behaviorcategory',
             name='project',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='categories', to='tracker.project'),
+            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='categories', to=TRACKER_PROJECT),
         ),
         migrations.CreateModel(
             name='Modifier',
@@ -53,7 +55,7 @@ class Migration(migrations.Migration):
                 ('description', models.CharField(blank=True, max_length=255)),
                 ('key_binding', models.CharField(max_length=1)),
                 ('sort_order', models.PositiveIntegerField(default=0)),
-                ('project', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='modifiers', to='tracker.project')),
+                ('project', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='modifiers', to=TRACKER_PROJECT)),
             ],
             options={
                 'ordering': ['sort_order', 'name'],
@@ -70,7 +72,7 @@ class Migration(migrations.Migration):
                 ('mode', models.CharField(choices=[('point', 'Point'), ('state', 'State')], default='point', max_length=10)),
                 ('sort_order', models.PositiveIntegerField(default=0)),
                 ('category', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='behaviors', to='tracker.behaviorcategory')),
-                ('project', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='behaviors', to='tracker.project')),
+                ('project', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='behaviors', to=TRACKER_PROJECT)),
             ],
             options={
                 'ordering': ['sort_order', 'name'],
@@ -84,7 +86,7 @@ class Migration(migrations.Migration):
                 ('file', models.FileField(upload_to='videos/')),
                 ('notes', models.TextField(blank=True)),
                 ('uploaded_at', models.DateTimeField(auto_now_add=True)),
-                ('project', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='videos', to='tracker.project')),
+                ('project', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='videos', to=TRACKER_PROJECT)),
             ],
             options={
                 'ordering': ['title', '-uploaded_at'],
@@ -99,7 +101,7 @@ class Migration(migrations.Migration):
                 ('playback_rate', models.DecimalField(decimal_places=2, default=1.0, max_digits=4, validators=[django.core.validators.MinValueValidator(0.25), django.core.validators.MaxValueValidator(4.0)])),
                 ('created_at', models.DateTimeField(auto_now_add=True)),
                 ('observer', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='cowlog_sessions', to=settings.AUTH_USER_MODEL)),
-                ('project', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='sessions', to='tracker.project')),
+                ('project', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='sessions', to=TRACKER_PROJECT)),
                 ('video', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='sessions', to='tracker.videoasset')),
             ],
             options={

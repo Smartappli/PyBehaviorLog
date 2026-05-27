@@ -11,7 +11,7 @@
         {{ form.as_p }}
         <div class="action-stack">
             <button type="submit">{% if mode == 'update' %}{% trans 'Update profile' %}{% else %}{% trans 'Create profile' %}{% endif %}</button>
-            <a href="{% url 'tracker:project_update' project.pk %}" role="button" class="secondary">{% trans 'Back' %}</a>
+            <a href="{% url 'tracker:project_update' project.pk %}" class="button secondary">{% trans 'Back' %}</a>
         </div>
     </form>
 </article>

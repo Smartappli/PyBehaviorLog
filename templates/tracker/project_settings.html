@@ -11,7 +11,7 @@
             {{ form.as_p }}
             <div class="action-stack">
                 <button type="submit">{% trans 'Save' %}</button>
-                <a href="{{ project.get_absolute_url }}" role="button" class="secondary">{% trans 'Back' %}</a>
+                <a href="{{ project.get_absolute_url }}" class="button secondary">{% trans 'Back' %}</a>
             </div>
         </form>
     </article>
@@ -20,7 +20,7 @@
         <article>
             <div class="section-headline">
                 <h3>{% trans 'Project roles' %}</h3>
-                <a href="{% url 'tracker:project_membership_create' project.pk %}" role="button" class="secondary">{% trans 'Add member' %}</a>
+                <a href="{% url 'tracker:project_membership_create' project.pk %}" class="button secondary">{% trans 'Add member' %}</a>
             </div>
             <ul class="managed-list">
                 <li><div><strong>{{ project.owner.username }}</strong> <span class="pill">owner</span></div></li>
@@ -40,7 +40,7 @@
         <article>
             <div class="section-headline">
                 <h3>{% trans 'Keyboard profiles' %}</h3>
-                <a href="{% url 'tracker:keyboard_profile_create' project.pk %}" role="button" class="secondary">{% trans 'Create profile from current bindings' %}</a>
+                <a href="{% url 'tracker:keyboard_profile_create' project.pk %}" class="button secondary">{% trans 'Create profile from current bindings' %}</a>
             </div>
             <ul class="managed-list">
                 {% for profile in keyboard_profiles %}
