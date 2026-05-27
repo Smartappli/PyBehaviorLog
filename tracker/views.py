@@ -622,44 +622,57 @@ def _decimal(
         return Decimal(default)
     if re.fullmatch(r'\d{1,3}:\d{1,2}:\d{1,2};\d{1,3}', token):
         token = token.replace(';', ':')
-    iso_match = re.fullmatch(
-        r'(?i)pt(?:(?P<hours>\d+)h)?(?:(?P<minutes>\d+)m)?(?:(?P<seconds>\d+(?:[.,]\d+)?)s)?',
-        token,
-    )
-    if iso_match and any(iso_match.groupdict().values()):
-        hours = Decimal(iso_match.group('hours') or '0')
-        minutes = Decimal(iso_match.group('minutes') or '0')
-        seconds = Decimal((iso_match.group('seconds') or '0').replace(',', '.'))
-        return (hours * Decimal('3600')) + (minutes * Decimal('60')) + seconds
-    if ':' in token:
-        parts = list(map(str.strip, token.split(':')))
-        if len(parts) in {2, 3, 4} and all(parts):
-            try:
-                if len(parts) == 2:
-                    hours = Decimal('0')
-                    minutes = Decimal(parts[0])
-                    seconds = Decimal(parts[1].replace(',', '.'))
-                    return (hours * Decimal('3600')) + (minutes * Decimal('60')) + seconds
-                if len(parts) == 3:
-                    hours = Decimal(parts[0])
-                    minutes = Decimal(parts[1])
-                    seconds = Decimal(parts[2].replace(',', '.'))
-                    return (hours * Decimal('3600')) + (minutes * Decimal('60')) + seconds
-                # HH:MM:SS:FF (BORIS-style frame timecode; default 25 fps)
-                hours = Decimal(parts[0])
-                minutes = Decimal(parts[1])
-                seconds = Decimal(parts[2].replace(',', '.'))
-                frames = Decimal(parts[3])
-                fps = _normalize_frame_rate_token(frame_rate)
-                return (
-                    (hours * Decimal('3600')) + (minutes * Decimal('60')) + seconds + (frames / fps)
-                )
-            except (InvalidOperation, TypeError, ValueError):
-                pass
+    parsed_duration = _parse_iso_duration(token)
+    if parsed_duration is not None:
+        return parsed_duration
+    parsed_timecode = _parse_colon_timecode(token, frame_rate=frame_rate)
+    if parsed_timecode is not None:
+        return parsed_timecode
     try:
         return Decimal(token.replace(',', '.'))
     except (InvalidOperation, TypeError, ValueError):
         return Decimal(default)
+
+
+def _duration_from_hms(hours: Decimal, minutes: Decimal, seconds: Decimal) -> Decimal:
+    return (hours * Decimal('3600')) + (minutes * Decimal('60')) + seconds
+
+
+def _parse_iso_duration(token: str) -> Decimal | None:
+    iso_match = re.fullmatch(
+        r'(?i)pt(?:(?P<hours>\d+)h)?(?:(?P<minutes>\d+)m)?(?:(?P<seconds>\d+(?:[.,]\d+)?)s)?',
+        token,
+    )
+    if not iso_match or not any(iso_match.groupdict().values()):
+        return None
+    hours = Decimal(iso_match.group('hours') or '0')
+    minutes = Decimal(iso_match.group('minutes') or '0')
+    seconds = Decimal((iso_match.group('seconds') or '0').replace(',', '.'))
+    return _duration_from_hms(hours, minutes, seconds)
+
+
+def _parse_colon_timecode(
+    token: str, *, frame_rate: str | float | Decimal | None = None
+) -> Decimal | None:
+    if ':' not in token:
+        return None
+    parts = list(map(str.strip, token.split(':')))
+    if len(parts) not in {2, 3, 4} or not all(parts):
+        return None
+    try:
+        if len(parts) == 2:
+            return _duration_from_hms(
+                Decimal('0'), Decimal(parts[0]), Decimal(parts[1].replace(',', '.'))
+            )
+        hours = Decimal(parts[0])
+        minutes = Decimal(parts[1])
+        seconds = Decimal(parts[2].replace(',', '.'))
+        duration = _duration_from_hms(hours, minutes, seconds)
+        if len(parts) == 4:
+            duration += Decimal(parts[3]) / _normalize_frame_rate_token(frame_rate)
+        return duration
+    except (InvalidOperation, TypeError, ValueError):
+        return None
 
 
 def _session_duration(
