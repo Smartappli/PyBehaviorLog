@@ -96,10 +96,18 @@ def _resolve_segment_items(payload: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def _normalize_event_item(item: dict[str, Any]) -> dict[str, Any]:
-    behavior = item.get('behavior') or item.get('code') or item.get('behavior_code') or item.get('event') or ''
+    behavior = (
+        item.get('behavior')
+        or item.get('code')
+        or item.get('behavior_code')
+        or item.get('event')
+        or ''
+    )
     frame_token = str(item.get('frame_index') or item.get('frame') or '').strip()
     return {
-        'time': _normalize_time(item.get('time') or item.get('timestamp_seconds') or item.get('start')),
+        'time': _normalize_time(
+            item.get('time') or item.get('timestamp_seconds') or item.get('start')
+        ),
         'behavior': str(behavior),
         'event_kind': str(item.get('event_kind') or item.get('type') or 'point').lower(),
         'modifiers': _string_list(item.get('modifiers')),

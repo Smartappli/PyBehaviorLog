@@ -46,7 +46,6 @@ def backwards(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ('tracker', '0005_keyboardprofile_observationsession_keyboard_profile_and_more'),
     ]

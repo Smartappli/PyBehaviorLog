@@ -1876,9 +1876,7 @@ def build_reproducibility_bundle(project: Project) -> dict[str, bytes]:
     files: dict[str, bytes] = {
         'ethogram.json': json.dumps(ethogram_payload, indent=2, ensure_ascii=False).encode('utf-8'),
         'analytics.json': json.dumps(analytics, indent=2, ensure_ascii=False).encode('utf-8'),
-        BORIS_PROJECT_JSON: json.dumps(boris_payload, indent=2, ensure_ascii=False).encode(
-            'utf-8'
-        ),
+        BORIS_PROJECT_JSON: json.dumps(boris_payload, indent=2, ensure_ascii=False).encode('utf-8'),
         'compatibility_report.json': json.dumps(
             compatibility_payload, indent=2, ensure_ascii=False
         ).encode('utf-8'),
@@ -1941,9 +1939,7 @@ def _build_event_interval_rows(session: ObservationSession) -> list[dict]:
         .order_by('timestamp_seconds', 'pk')
     )
     for event in ordered_events:
-        subjects = [subject.name for subject in event.all_subjects_ordered] or [
-            ALL_SUBJECTS_LABEL
-        ]
+        subjects = [subject.name for subject in event.all_subjects_ordered] or [ALL_SUBJECTS_LABEL]
         modifiers = [modifier.name for modifier in event.modifiers.order_by('sort_order', 'name')]
         base = {
             'event_id': event.id,
@@ -2584,9 +2580,7 @@ def load_session_import_payload(
             return payload, report
     if filename.endswith((CSV_EXTENSION, TSV_EXTENSION, XLSX_EXTENSION)):
         report['source_hint'] = (
-            'tabular_extension'
-            if filename.endswith(XLSX_EXTENSION)
-            else 'tabular_header_delimiter'
+            'tabular_extension' if filename.endswith(XLSX_EXTENSION) else 'tabular_header_delimiter'
         )
         payload, parsed_report = parse_tabular_session_file(
             session, uploaded_file, raw_bytes, strict=strict
@@ -3009,8 +3003,7 @@ def load_project_import_payload(uploaded_file) -> tuple[dict, dict[str, dict]]:
                     (
                         name
                         for name in names
-                        if name.endswith(JSON_EXTENSION)
-                        and ('project' in name or 'bundle' in name)
+                        if name.endswith(JSON_EXTENSION) and ('project' in name or 'bundle' in name)
                     ),
                     None,
                 )
