@@ -2,4 +2,4 @@ Django[argon2]==6.0.5
 granian==2.7.5
 openpyxl==3.1.5
 psycopg[binary,pool]==3.3.4
-redis[hiredis]==7.4.0
+redis[hiredis]==8.0.0
