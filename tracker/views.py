@@ -26,7 +26,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.utils.text import slugify
 from django.utils.translation import gettext as _
-from django.views.decorators.csrf import ensure_csrf_cookie
+from django.views.decorators.csrf import csrf_protect, ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 from openpyxl import Workbook, load_workbook
 
@@ -91,7 +91,15 @@ TSV_EXTENSION = '.tsv'
 XLSX_EXTENSION = '.xlsx'
 
 
-@require_http_methods(['GET', 'POST'])
+FORM_METHODS = ('GET', 'POST')
+
+
+def require_form_methods(view_func):
+    protected_view = csrf_protect(view_func)
+    return require_http_methods(FORM_METHODS)(protected_view)  # NOSONAR
+
+
+@require_form_methods
 def signup(request):  # pragma: no cover
     if request.user.is_authenticated:
         return redirect('tracker:home')
@@ -3890,7 +3898,7 @@ def release_metadata_json(request):
 
 
 @login_required
-@require_http_methods(['GET', 'POST'])
+@require_form_methods
 def project_import_create(request):  # pragma: no cover
     form = ProjectImportCreateForm(request.POST or None, request.FILES or None)
     if request.method == 'POST' and form.is_valid():
@@ -3943,7 +3951,7 @@ def project_import_create(request):  # pragma: no cover
 
 
 @login_required
-@require_http_methods(['GET', 'POST'])
+@require_form_methods
 def project_clone(request, pk: int):  # pragma: no cover
     source = get_owned_project(request.user, pk)
     initial = {
@@ -3998,7 +4006,7 @@ def home(request):  # pragma: no cover
 
 
 @login_required
-@require_http_methods(['GET', 'POST'])
+@require_form_methods
 def project_create(request):  # pragma: no cover
     form = ProjectForm(request.POST or None)
     if request.method == 'POST' and form.is_valid():
@@ -4016,7 +4024,7 @@ def project_create(request):  # pragma: no cover
 
 
 @login_required
-@require_http_methods(['GET', 'POST'])
+@require_form_methods
 def project_update(request, pk: int):  # pragma: no cover
     project = get_owned_project(request.user, pk)
     form = ProjectSettingsForm(request.POST or None, instance=project)
@@ -4313,7 +4321,7 @@ def project_export_ethogram(request, pk: int):  # pragma: no cover
 
 
 @login_required
-@require_http_methods(['GET', 'POST'])
+@require_form_methods
 def project_import_ethogram(request, pk: int):  # pragma: no cover
     project = get_owned_project(request.user, pk)
     form = EthogramImportForm(request.POST or None, request.FILES or None)
@@ -4346,7 +4354,7 @@ def project_import_ethogram(request, pk: int):  # pragma: no cover
 
 
 @login_required
-@require_http_methods(['GET', 'POST'])
+@require_form_methods
 def project_import_boris_json(request, pk: int):  # pragma: no cover
     project = get_owned_project(request.user, pk)
     form = ProjectBORISImportForm(request.POST or None, request.FILES or None)
@@ -4392,7 +4400,7 @@ def project_import_boris_json(request, pk: int):  # pragma: no cover
 
 
 @login_required
-@require_http_methods(['GET', 'POST'])
+@require_form_methods
 def project_membership_create(request, pk: int):  # pragma: no cover
     project = get_owned_project(request.user, pk)
     form = ProjectMembershipForm(request.POST or None, project=project)
@@ -4410,7 +4418,7 @@ def project_membership_create(request, pk: int):  # pragma: no cover
 
 
 @login_required
-@require_http_methods(['GET', 'POST'])
+@require_form_methods
 def project_membership_update(request, pk: int):  # pragma: no cover
     membership = get_object_or_404(
         ProjectMembership.objects.select_related('project', 'user'), pk=pk
@@ -4432,7 +4440,7 @@ def project_membership_update(request, pk: int):  # pragma: no cover
 
 
 @login_required
-@require_http_methods(['GET', 'POST'])
+@require_form_methods
 def project_membership_delete(request, pk: int):  # pragma: no cover
     membership = get_object_or_404(
         ProjectMembership.objects.select_related('project', 'user'), pk=pk
@@ -4456,7 +4464,7 @@ def project_membership_delete(request, pk: int):  # pragma: no cover
 
 
 @login_required
-@require_http_methods(['GET', 'POST'])
+@require_form_methods
 def keyboard_profile_create(request, pk: int):  # pragma: no cover
     project = get_owned_project(request.user, pk)
     form = KeyboardProfileForm(request.POST or None)
@@ -4478,7 +4486,7 @@ def keyboard_profile_create(request, pk: int):  # pragma: no cover
 
 
 @login_required
-@require_http_methods(['GET', 'POST'])
+@require_form_methods
 def keyboard_profile_update(request, pk: int):  # pragma: no cover
     profile = get_object_or_404(KeyboardProfile.objects.select_related('project'), pk=pk)
     _require_project_owner(request.user, profile.project)
@@ -4502,7 +4510,7 @@ def keyboard_profile_update(request, pk: int):  # pragma: no cover
 
 
 @login_required
-@require_http_methods(['GET', 'POST'])
+@require_form_methods
 def keyboard_profile_delete(request, pk: int):  # pragma: no cover
     profile = get_object_or_404(KeyboardProfile.objects.select_related('project'), pk=pk)
     _require_project_owner(request.user, profile.project)
@@ -4524,7 +4532,7 @@ def keyboard_profile_delete(request, pk: int):  # pragma: no cover
 
 
 @login_required
-@require_http_methods(['GET', 'POST'])
+@require_form_methods
 def category_create(request, pk: int):  # pragma: no cover
     project = get_accessible_project(request.user, pk)
     _require_project_editor(request.user, project)
@@ -4541,7 +4549,7 @@ def category_create(request, pk: int):  # pragma: no cover
 
 
 @login_required
-@require_http_methods(['GET', 'POST'])
+@require_form_methods
 def category_update(request, pk: int):  # pragma: no cover
     category = _get_owned_category(request.user, pk)
     form = BehaviorCategoryForm(request.POST or None, instance=category)
@@ -4557,7 +4565,7 @@ def category_update(request, pk: int):  # pragma: no cover
 
 
 @login_required
-@require_http_methods(['GET', 'POST'])
+@require_form_methods
 def category_delete(request, pk: int):  # pragma: no cover
     category = _get_owned_category(request.user, pk)
     form = DeleteConfirmForm(request.POST or None)
@@ -4578,7 +4586,7 @@ def category_delete(request, pk: int):  # pragma: no cover
 
 
 @login_required
-@require_http_methods(['GET', 'POST'])
+@require_form_methods
 def modifier_create(request, pk: int):  # pragma: no cover
     project = get_accessible_project(request.user, pk)
     _require_project_editor(request.user, project)
@@ -4595,7 +4603,7 @@ def modifier_create(request, pk: int):  # pragma: no cover
 
 
 @login_required
-@require_http_methods(['GET', 'POST'])
+@require_form_methods
 def modifier_update(request, pk: int):  # pragma: no cover
     modifier = _get_owned_modifier(request.user, pk)
     form = ModifierForm(request.POST or None, instance=modifier)
@@ -4611,7 +4619,7 @@ def modifier_update(request, pk: int):  # pragma: no cover
 
 
 @login_required
-@require_http_methods(['GET', 'POST'])
+@require_form_methods
 def modifier_delete(request, pk: int):  # pragma: no cover
     modifier = _get_owned_modifier(request.user, pk)
     form = DeleteConfirmForm(request.POST or None)
@@ -4632,7 +4640,7 @@ def modifier_delete(request, pk: int):  # pragma: no cover
 
 
 @login_required
-@require_http_methods(['GET', 'POST'])
+@require_form_methods
 def subject_group_create(request, pk: int):  # pragma: no cover
     project = get_accessible_project(request.user, pk)
     _require_project_editor(request.user, project)
@@ -4651,7 +4659,7 @@ def subject_group_create(request, pk: int):  # pragma: no cover
 
 
 @login_required
-@require_http_methods(['GET', 'POST'])
+@require_form_methods
 def subject_group_update(request, pk: int):  # pragma: no cover
     group = get_object_or_404(SubjectGroup.objects.select_related('project'), pk=pk)
     _require_project_editor(
@@ -4670,7 +4678,7 @@ def subject_group_update(request, pk: int):  # pragma: no cover
 
 
 @login_required
-@require_http_methods(['GET', 'POST'])
+@require_form_methods
 def subject_group_delete(request, pk: int):  # pragma: no cover
     group = get_object_or_404(SubjectGroup.objects.select_related('project'), pk=pk)
     _require_project_editor(
@@ -4694,7 +4702,7 @@ def subject_group_delete(request, pk: int):  # pragma: no cover
 
 
 @login_required
-@require_http_methods(['GET', 'POST'])
+@require_form_methods
 def subject_create(request, pk: int):  # pragma: no cover
     project = get_accessible_project(request.user, pk)
     _require_project_editor(request.user, project)
@@ -4712,7 +4720,7 @@ def subject_create(request, pk: int):  # pragma: no cover
 
 
 @login_required
-@require_http_methods(['GET', 'POST'])
+@require_form_methods
 def subject_update(request, pk: int):  # pragma: no cover
     subject = get_object_or_404(Subject.objects.select_related('project'), pk=pk)
     _require_project_editor(
@@ -4731,7 +4739,7 @@ def subject_update(request, pk: int):  # pragma: no cover
 
 
 @login_required
-@require_http_methods(['GET', 'POST'])
+@require_form_methods
 def subject_delete(request, pk: int):  # pragma: no cover
     subject = get_object_or_404(Subject.objects.select_related('project'), pk=pk)
     _require_project_editor(
@@ -4751,7 +4759,7 @@ def subject_delete(request, pk: int):  # pragma: no cover
 
 
 @login_required
-@require_http_methods(['GET', 'POST'])
+@require_form_methods
 def independent_variable_create(request, pk: int):  # pragma: no cover
     project = get_accessible_project(request.user, pk)
     _require_project_editor(request.user, project)
@@ -4770,7 +4778,7 @@ def independent_variable_create(request, pk: int):  # pragma: no cover
 
 
 @login_required
-@require_http_methods(['GET', 'POST'])
+@require_form_methods
 def independent_variable_update(request, pk: int):  # pragma: no cover
     definition = get_object_or_404(
         IndependentVariableDefinition.objects.select_related('project'), pk=pk
@@ -4793,7 +4801,7 @@ def independent_variable_update(request, pk: int):  # pragma: no cover
 
 
 @login_required
-@require_http_methods(['GET', 'POST'])
+@require_form_methods
 def independent_variable_delete(request, pk: int):  # pragma: no cover
     definition = get_object_or_404(
         IndependentVariableDefinition.objects.select_related('project'), pk=pk
@@ -4821,7 +4829,7 @@ def independent_variable_delete(request, pk: int):  # pragma: no cover
 
 
 @login_required
-@require_http_methods(['GET', 'POST'])
+@require_form_methods
 def observation_template_create(request, pk: int):  # pragma: no cover
     project = get_accessible_project(request.user, pk)
     _require_project_editor(request.user, project)
@@ -4841,7 +4849,7 @@ def observation_template_create(request, pk: int):  # pragma: no cover
 
 
 @login_required
-@require_http_methods(['GET', 'POST'])
+@require_form_methods
 def observation_template_update(request, pk: int):  # pragma: no cover
     template = get_object_or_404(ObservationTemplate.objects.select_related('project'), pk=pk)
     _require_project_editor(
@@ -4864,7 +4872,7 @@ def observation_template_update(request, pk: int):  # pragma: no cover
 
 
 @login_required
-@require_http_methods(['GET', 'POST'])
+@require_form_methods
 def observation_template_delete(request, pk: int):  # pragma: no cover
     template = get_object_or_404(ObservationTemplate.objects.select_related('project'), pk=pk)
     _require_project_editor(
@@ -4890,7 +4898,7 @@ def observation_template_delete(request, pk: int):  # pragma: no cover
 
 
 @login_required
-@require_http_methods(['GET', 'POST'])
+@require_form_methods
 def behavior_create(request, pk: int):  # pragma: no cover
     project = get_accessible_project(request.user, pk)
     _require_project_editor(request.user, project)
@@ -4907,7 +4915,7 @@ def behavior_create(request, pk: int):  # pragma: no cover
 
 
 @login_required
-@require_http_methods(['GET', 'POST'])
+@require_form_methods
 def behavior_update(request, pk: int):  # pragma: no cover
     behavior = _get_owned_behavior(request.user, pk)
     form = BehaviorForm(request.POST or None, instance=behavior, project=behavior.project)
@@ -4923,7 +4931,7 @@ def behavior_update(request, pk: int):  # pragma: no cover
 
 
 @login_required
-@require_http_methods(['GET', 'POST'])
+@require_form_methods
 def behavior_delete(request, pk: int):  # pragma: no cover
     behavior = _get_owned_behavior(request.user, pk)
     form = DeleteConfirmForm(request.POST or None)
@@ -4944,7 +4952,7 @@ def behavior_delete(request, pk: int):  # pragma: no cover
 
 
 @login_required
-@require_http_methods(['GET', 'POST'])
+@require_form_methods
 def video_create(request, pk: int):  # pragma: no cover
     project = get_accessible_project(request.user, pk)
     _require_project_editor(request.user, project)
@@ -4961,7 +4969,7 @@ def video_create(request, pk: int):  # pragma: no cover
 
 
 @login_required
-@require_http_methods(['GET', 'POST'])
+@require_form_methods
 def video_update(request, pk: int):  # pragma: no cover
     video = _get_owned_video(request.user, pk)
     form = VideoAssetForm(request.POST or None, request.FILES or None, instance=video)
@@ -4978,7 +4986,7 @@ def video_update(request, pk: int):  # pragma: no cover
 
 
 @login_required
-@require_http_methods(['GET', 'POST'])
+@require_form_methods
 def video_delete(request, pk: int):  # pragma: no cover
     video = _get_owned_video(request.user, pk)
     if video.sessions.exists() or video.session_links.exists():
@@ -4998,7 +5006,7 @@ def video_delete(request, pk: int):  # pragma: no cover
 
 
 @login_required
-@require_http_methods(['GET', 'POST'])
+@require_form_methods
 def session_create(request, pk: int):  # pragma: no cover
     project = get_object_or_404(
         accessible_projects_qs(request.user).prefetch_related('videos', 'keyboard_profiles'), pk=pk
@@ -5025,7 +5033,7 @@ def session_create(request, pk: int):  # pragma: no cover
 
 
 @login_required
-@require_http_methods(['GET', 'POST'])
+@require_form_methods
 def session_update(request, pk: int):  # pragma: no cover
     session = get_accessible_session(request.user, pk)
     _require_project_editor(
@@ -5046,7 +5054,7 @@ def session_update(request, pk: int):  # pragma: no cover
 
 
 @login_required
-@require_http_methods(['GET', 'POST'])
+@require_form_methods
 def session_delete(request, pk: int):  # pragma: no cover
     session = get_accessible_session(request.user, pk)
     if not session.project.can_edit(request.user) and session.observer_id != request.user.id:
@@ -5069,7 +5077,7 @@ def session_delete(request, pk: int):  # pragma: no cover
 
 
 @login_required
-@require_http_methods(['GET', 'POST'])
+@require_form_methods
 def session_import_json(request, pk: int):  # pragma: no cover
     session = get_accessible_session(request.user, pk)
     _require_editable_session(session, request.user)
@@ -5500,7 +5508,7 @@ def segment_batch_assign(request, pk: int):  # pragma: no cover
 
 
 @login_required
-@require_http_methods(['GET', 'POST'])
+@require_form_methods
 def segment_create(request, pk: int):  # pragma: no cover
     session = get_accessible_session(request.user, pk)
     _require_project_reviewer(request.user, session.project)
@@ -5528,7 +5536,7 @@ def segment_create(request, pk: int):  # pragma: no cover
 
 
 @login_required
-@require_http_methods(['GET', 'POST'])
+@require_form_methods
 def segment_update(request, pk: int):  # pragma: no cover
     segment = get_object_or_404(
         ObservationSegment.objects.select_related('session__project'), pk=pk
@@ -5563,7 +5571,7 @@ def segment_update(request, pk: int):  # pragma: no cover
 
 
 @login_required
-@require_http_methods(['GET', 'POST'])
+@require_form_methods
 def segment_delete(request, pk: int):  # pragma: no cover
     segment = get_object_or_404(
         ObservationSegment.objects.select_related('session__project'), pk=pk
