@@ -14,7 +14,7 @@ dependencies = [
 dev = [
   "coverage[toml]>=7.14.1,<8",
   "pre-commit>=4.6.0,<5",
-  "ruff>=0.15.15,<1",
+  "ruff>=0.15.16,<1",
 ]
 
 [tool.uv]
