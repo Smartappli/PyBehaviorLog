@@ -1,0 +1,63 @@
+name: Feature request
+description: Suggest a focused enhancement for PyBehaviorLog.
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Keep requests focused on a concrete workflow or interoperability gap.
+        Do not attach private research data, credentials, or sensitive media.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or workflow gap
+      description: What are you trying to accomplish?
+      placeholder: Describe the research, coding, review, export, or deployment workflow this would improve.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: What would you like PyBehaviorLog to do?
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Affected area
+      multiple: true
+      options:
+        - Observation/session player
+        - Ethogram or keyboard profile
+        - BORIS compatibility
+        - CowLog compatibility
+        - Import/export
+        - Review workflow
+        - Analytics or reports
+        - Deployment or operations
+        - Localization
+        - Documentation
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: What workarounds or other approaches have you tried?
+    validations:
+      required: false
+  - type: textarea
+    id: validation
+    attributes:
+      label: Acceptance criteria
+      description: What behavior would make this complete?
+      placeholder: |
+        - ...
+        - ...
+    validations:
+      required: false
+

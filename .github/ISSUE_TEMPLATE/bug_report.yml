@@ -1,0 +1,92 @@
+name: Bug report
+description: Report a reproducible defect in PyBehaviorLog.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not include secrets, private research data, production database dumps, or sensitive media.
+        If this is a security issue, follow SECURITY.md instead of filing a public issue.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What went wrong?
+      placeholder: Describe the defect and the user-visible impact.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Provide a minimal sequence that reproduces the behavior.
+      placeholder: |
+        1. Go to ...
+        2. Import/create ...
+        3. Click/run ...
+        4. See ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What should have happened?
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: What happened instead?
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Affected area
+      multiple: true
+      options:
+        - Observation/session player
+        - Ethogram or keyboard profile
+        - BORIS import/export
+        - CowLog import/export
+        - Project membership or permissions
+        - Review workflow
+        - Analytics or reports
+        - Deployment or configuration
+        - Localization
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      placeholder: "0.9.5, main@<sha>, or your deployed image tag"
+    validations:
+      required: false
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Include relevant runtime details.
+      placeholder: |
+        Python:
+        Django:
+        Database:
+        Browser:
+        Deployment: local, Docker, Granian, other
+    validations:
+      required: false
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or screenshots
+      description: Paste relevant sanitized logs or attach screenshots.
+      render: text
+    validations:
+      required: false
+
