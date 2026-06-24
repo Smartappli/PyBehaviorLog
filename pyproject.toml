@@ -7,7 +7,7 @@ dependencies = [
   "granian==2.7.6",
   "openpyxl==3.1.5",
   "psycopg[binary,pool]==3.3.4",
-  "redis[hiredis]==8.0.0",
+  "redis[hiredis]==8.0.1",
 ]
 
 [dependency-groups]
