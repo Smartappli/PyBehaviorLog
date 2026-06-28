@@ -23,6 +23,7 @@ from tracker.views import (
     build_binary_table_rows,
     build_boris_aggregated_event_rows,
     build_feral_payload,
+    build_native_boris_project_payload,
     build_project_compatibility_report,
     build_session_compatibility_report,
     build_textgrid_text,
@@ -549,6 +550,62 @@ class CompatibilityTests(TestCase):
         self.assertFalse(report['cowcloud']['ready'])
         self.assertEqual(report['cowcloud']['status'], 'blocked_pending_format_contract')
 
+    def test_native_boris_export_profiles(self):
+        video = VideoAsset.objects.create(
+            project=self.project,
+            title='Clip',
+            file='videos/clip.mp4',
+        )
+        media_session = ObservationSession.objects.create(
+            project=self.project,
+            observer=self.user,
+            title='Media Session',
+            session_kind=ObservationSession.KIND_MEDIA,
+            video=video,
+        )
+        event = ObservationEvent.objects.create(
+            session=media_session,
+            behavior=self.point_behavior,
+            event_kind=ObservationEvent.KIND_POINT,
+            timestamp_seconds=Decimal('1.250'),
+            frame_index=38,
+            comment='native export',
+        )
+        event.subjects.add(self.subject)
+        event.modifiers.add(self.modifier)
+
+        payload7 = build_native_boris_project_payload(
+            self.project, profile='7', sessions=[media_session]
+        )
+        payload8 = build_native_boris_project_payload(
+            self.project, profile='8', sessions=[media_session]
+        )
+        payload9 = build_native_boris_project_payload(
+            self.project, profile='9', sessions=[media_session]
+        )
+
+        for payload in (payload7, payload8, payload9):
+            self.assertEqual(payload['project_format_version'], '7.0')
+            self.assertIn('subjects_conf', payload)
+            self.assertIn('behaviors_conf', payload)
+            self.assertIn('observations', payload)
+            observation = payload['observations']['Media Session']
+            self.assertEqual(observation['type'], 'MEDIA')
+            self.assertEqual(observation['file'], {'1': ['videos/clip.mp4']})
+            self.assertEqual(observation['events'][0][1], 'Cow 1')
+            self.assertEqual(observation['events'][0][2], 'Eat')
+            self.assertEqual(observation['events'][0][3], 'Near')
+
+        self.assertNotIn('scan_sampling_time', payload7['observations']['Media Session'])
+        self.assertEqual(len(payload7['observations']['Media Session']['events'][0]), 5)
+        self.assertIn('scan_sampling_time', payload8['observations']['Media Session'])
+        self.assertNotIn('visualize_waveform', payload8['observations']['Media Session'])
+        self.assertEqual(payload8['observations']['Media Session']['events'][0][5], 38)
+        self.assertIn('visualize_waveform', payload9['observations']['Media Session'])
+        self.assertIn('behavioral_categories_config', payload9)
+        normalized = normalize_native_boris_project_payload(payload9)
+        self.assertEqual(normalized['observations'][0]['events'][0]['frame_index'], 38)
+
     def test_export_endpoints_for_compatibility_formats(self):
         ObservationEvent.objects.create(
             session=self.session,
@@ -620,11 +677,27 @@ class CompatibilityTests(TestCase):
         self.assertEqual(response.status_code, 200)
         payload = json.loads(response.content.decode('utf-8'))
         self.assertEqual(payload['schema'], 'pybehaviorlog-0.9.5-session-compatibility-report')
+        response = self.client.get(
+            reverse('tracker:session_export_boris_native', args=[self.session.pk, '9'])
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('.boris', response['Content-Disposition'])
+        payload = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(payload['project_format_version'], '7.0')
+        self.assertIn('Session 1', payload['observations'])
+        response = self.client.get(
+            reverse('tracker:project_export_boris_native', args=[self.project.pk, '7'])
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('.boris', response['Content-Disposition'])
+        payload = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(payload['project_format_version'], '7.0')
 
     def test_project_compatibility_report_includes_schema_matrix(self):
         payload = build_project_compatibility_report(self.project)
         self.assertIn('supported_schema_matrix', payload)
         self.assertIn('session_patterns', payload['supported_schema_matrix'])
+        self.assertIn('native_boris_project_boris9', payload['supported_boris_exports'])
         self.assertIn('extension_profile', payload)
         self.assertIn('cowcloud', payload)
         self.assertFalse(payload['cowcloud']['ready'])
