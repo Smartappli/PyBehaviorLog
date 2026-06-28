@@ -9,6 +9,7 @@
 - Added native `.boris` export profiles for BORIS 7, BORIS 8, and BORIS 9 on project and session export screens.
 - Added a BORIS 9.x-style tabular events TSV export with observation metadata, variables, modifiers, event status, media name, and frame index fields.
 - Hardened native `.boris` imports for BORIS image-observation event rows and modifier values containing shortcut suffixes, spacing, or `None` placeholders.
+- Added native `.boris` `IMAGES` observation export for image-only sessions, including image directories, image indexes, and image paths.
 
 ## 0.9.4
 
