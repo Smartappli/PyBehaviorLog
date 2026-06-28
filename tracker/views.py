@@ -3678,6 +3678,8 @@ def _native_boris_media_entries(item: dict) -> list[dict[str, str]]:
         paths.append(('1', media_file))
     for path in _coerce_name_list(item.get('media_paths') or item.get('image_paths')):
         paths.append(('1', path))
+    for path in _coerce_name_list(item.get('directories_list')):
+        paths.append(('1', path))
     entries = []
     seen = set()
     for player, path in paths:
@@ -3703,7 +3705,9 @@ def _native_boris_event_items(
 ) -> list[dict]:
     rows = []
     open_states: dict[tuple[str, str, str], bool] = defaultdict(bool)
+    observation_type = str(observation.get('type') or '').upper()
     for raw_event in observation.get('events') or []:
+        image_path = None
         if isinstance(raw_event, dict):
             behavior_code = _resolve_behavior_name(raw_event)
             modifier_token = raw_event.get('modifiers') or raw_event.get('modifier') or ''
@@ -3714,21 +3718,33 @@ def _native_boris_event_items(
             time_value = raw_event.get('timestamp_seconds', raw_event.get('time'))
             comment = raw_event.get('comment') or raw_event.get('note') or raw_event.get('remarks') or ''
             frame_index = raw_event.get('frame_index') or raw_event.get('frame')
+            image_path = raw_event.get('image_path') or raw_event.get('frame_file')
         elif isinstance(raw_event, list) and len(raw_event) >= 3:
             time_value = raw_event[0]
             subject_token = str(raw_event[1] or '').strip()
             behavior_code = str(raw_event[2] or '').strip()
             modifier_token = raw_event[3] if len(raw_event) > 3 else ''
             comment = raw_event[4] if len(raw_event) > 4 else ''
-            extra_value = raw_event[5] if len(raw_event) > 5 else None
-            explicit_kind = _resolve_event_kind_token(extra_value)
-            frame_index = raw_event[6] if len(raw_event) > 6 else None
-            if frame_index is None and explicit_kind is None:
-                frame_index = extra_value
+            if observation_type == 'IMAGES':
+                explicit_kind = None
+                frame_index = raw_event[5] if len(raw_event) > 5 else None
+                image_path = raw_event[6] if len(raw_event) > 6 else None
+            else:
+                extra_value = raw_event[5] if len(raw_event) > 5 else None
+                explicit_kind = _resolve_event_kind_token(extra_value)
+                frame_index = raw_event[6] if len(raw_event) > 6 else None
+                if frame_index is None and explicit_kind is None:
+                    frame_index = extra_value
         else:
             continue
         if not behavior_code:
             continue
+        try:
+            frame_index = int(frame_index) if frame_index not in {None, ''} else None
+        except (TypeError, ValueError):
+            if image_path is None and frame_index not in {None, ''}:
+                image_path = frame_index
+            frame_index = None
         modifiers = _split_boris_modifier_tokens(modifier_token)
         subject_names = []
         if subject_token and subject_token.casefold() != NO_FOCAL_SUBJECT_LABEL.casefold():
@@ -3756,6 +3772,8 @@ def _native_boris_event_items(
         }
         if frame_index not in {None, ''}:
             event['frame_index'] = frame_index
+        if image_path not in {None, ''}:
+            event['image_path'] = str(image_path)
         if observation_label:
             event['observation_id'] = observation_label
         rows.append(event)
@@ -4884,7 +4902,14 @@ def import_session_payload(
                 frame_rate=item.get('fps') or item.get('frame_rate') or item.get('framerate'),
             ),
             frame_index=item.get('frame_index') or item.get('frame') or None,
-            comment=(item.get('comment') or item.get('note') or item.get('remarks') or '').strip(),
+            comment=str(
+                item.get('comment')
+                or item.get('note')
+                or item.get('remarks')
+                or item.get('image_path')
+                or item.get('frame_file')
+                or ''
+            ).strip(),
         )
         subject_names = _coerce_name_list(item.get('subjects'))
         if item.get('subject') and item.get('subject') not in subject_names:
