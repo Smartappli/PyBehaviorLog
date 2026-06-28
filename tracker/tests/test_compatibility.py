@@ -20,8 +20,8 @@ from tracker.models import (
 )
 from tracker.views import (
     build_behavioral_sequences_text,
-    build_boris_aggregated_event_rows,
     build_binary_table_rows,
+    build_boris_aggregated_event_rows,
     build_feral_payload,
     build_project_compatibility_report,
     build_session_compatibility_report,
@@ -361,13 +361,13 @@ class CompatibilityTests(TestCase):
         upload = SimpleUploadedFile(
             'boris_export.tsv',
             (
-                'Observation id\tObservation 1\n\n'
-                'Media file(s)\n\n'
-                'Time\tMedia file path\tTotal length\tFPS\tSubject\tBehavior\t'
-                'Behavioral category\tComment\tStatus\n'
-                '1.000\tclip.mp4\t10.000\t2.0\tCow 1\tStand\t\tbegin\tSTART\n'
-                '3.000\tclip.mp4\t10.000\t2.0\tCow 1\tStand\t\tend\tSTOP\n'
-            ).encode('utf-8'),
+                b'Observation id\tObservation 1\n\n'
+                b'Media file(s)\n\n'
+                b'Time\tMedia file path\tTotal length\tFPS\tSubject\tBehavior\t'
+                b'Behavioral category\tComment\tStatus\n'
+                b'1.000\tclip.mp4\t10.000\t2.0\tCow 1\tStand\t\tbegin\tSTART\n'
+                b'3.000\tclip.mp4\t10.000\t2.0\tCow 1\tStand\t\tend\tSTOP\n'
+            ),
             content_type='text/tab-separated-values',
         )
         payload, report = load_session_import_payload(upload, self.session)
