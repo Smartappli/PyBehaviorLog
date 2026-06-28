@@ -40,6 +40,7 @@ This version extends the earlier CowLog/BORIS-inspired foundations with:
 - more faithful BORIS-style tabular imports with start/stop intervals, annotation rows, and broader header aliases
 - deeper image-sequence diagnostics for picture-based observations and relative-path exports
 - BORIS 9.12.1 compatibility updates: native `.boris` project JSON import, BORIS tabular exports with metadata preambles, BORIS-style aggregated event TSV export, FERAL JSON export, and TextGrid point-event tiers
+- native `.boris` export profiles for BORIS 7, BORIS 8, and BORIS 9 from both project and session screens
 
 ## Runtime stack
 
