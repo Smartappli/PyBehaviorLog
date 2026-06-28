@@ -4,17 +4,17 @@ version = "0.9.5"
 requires-python = ">=3.13"
 dependencies = [
   "Django[argon2]==6.0.6",
-  "granian==2.7.6",
+  "granian==2.7.7",
   "openpyxl==3.1.5",
   "psycopg[binary,pool]==3.3.4",
-  "redis[hiredis]==8.0.0",
+  "redis[hiredis]==8.0.1",
 ]
 
 [dependency-groups]
 dev = [
-  "coverage[toml]>=7.14.1,<8",
+  "coverage[toml]>=7.14.3,<8",
   "pre-commit>=4.6.0,<5",
-  "ruff>=0.15.17,<1",
+  "ruff>=0.15.19,<1",
 ]
 
 [tool.uv]
