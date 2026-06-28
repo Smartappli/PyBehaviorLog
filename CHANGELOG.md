@@ -5,6 +5,7 @@
 - Unified export schema/version markers to 0.9.5 across session JSON, bundle manifest, compatibility report, SQL header and CowLog header.
 - Preserved backward import compatibility for 0.9.1 schemas while adding acceptance for 0.9.5 schemas.
 - Carried forward v0.9.3 review queue filtering/export consistency and batch assignment behavior.
+- Added BORIS 9.12.1 compatibility coverage for native `.boris` project JSON imports, BORIS tabular preambles, TextGrid point tiers, aggregated event TSV exports, and FERAL JSON exports.
 
 ## 0.9.4
 

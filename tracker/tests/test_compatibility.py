@@ -16,14 +16,19 @@ from tracker.models import (
     Project,
     SessionAnnotation,
     Subject,
+    VideoAsset,
 )
 from tracker.views import (
     build_behavioral_sequences_text,
+    build_boris_aggregated_event_rows,
     build_binary_table_rows,
+    build_feral_payload,
     build_project_compatibility_report,
     build_session_compatibility_report,
     build_textgrid_text,
+    import_project_payload,
     load_session_import_payload,
+    normalize_native_boris_project_payload,
     parse_cowlog_results_text,
     parse_tabular_session_rows,
 )
@@ -352,6 +357,103 @@ class CompatibilityTests(TestCase):
         self.assertEqual(payload['events'][1]['event_kind'], ObservationEvent.KIND_STOP)
         self.assertEqual(payload['events'][1]['time'], 12.5)
 
+    def test_load_session_import_payload_supports_boris_tabular_preamble(self):
+        upload = SimpleUploadedFile(
+            'boris_export.tsv',
+            (
+                'Observation id\tObservation 1\n\n'
+                'Media file(s)\n\n'
+                'Time\tMedia file path\tTotal length\tFPS\tSubject\tBehavior\t'
+                'Behavioral category\tComment\tStatus\n'
+                '1.000\tclip.mp4\t10.000\t2.0\tCow 1\tStand\t\tbegin\tSTART\n'
+                '3.000\tclip.mp4\t10.000\t2.0\tCow 1\tStand\t\tend\tSTOP\n'
+            ).encode('utf-8'),
+            content_type='text/tab-separated-values',
+        )
+        payload, report = load_session_import_payload(upload, self.session)
+        self.assertEqual(report['detected_format'], 'boris-tabular-tsv-v1')
+        self.assertEqual(len(payload['events']), 2)
+        self.assertEqual(payload['events'][0]['event_kind'], ObservationEvent.KIND_START)
+        self.assertEqual(payload['events'][1]['event_kind'], ObservationEvent.KIND_STOP)
+        self.assertEqual(payload['events'][0]['subjects'], ['Cow 1'])
+
+    def test_native_boris_project_payload_imports_ethogram_media_and_events(self):
+        target_project = Project.objects.create(owner=self.user, name='Native BORIS target')
+        native_payload = {
+            'project_name': 'Native BORIS source',
+            'project_description': 'Native project shape',
+            'project_format_version': '7.0',
+            'behavioral_categories': ['Activity'],
+            'subjects_conf': {
+                '0': {'key': '1', 'name': 'Subject A', 'description': 'Focal subject'}
+            },
+            'independent_variables': {
+                '0': {
+                    'label': 'Location',
+                    'description': 'Observation site',
+                    'type': 'text',
+                    'default value': '',
+                    'possible values': '',
+                }
+            },
+            'behaviors_conf': {
+                '0': {
+                    'type': 'Point event',
+                    'key': 'p',
+                    'code': 'Peck',
+                    'description': 'Pecking',
+                    'category': 'Activity',
+                    'modifiers': {
+                        '0': {
+                            'name': 'speed',
+                            'type': 0,
+                            'values': ['fast (f)', 'slow'],
+                        }
+                    },
+                },
+                '1': {
+                    'type': 'State event',
+                    'key': 'r',
+                    'code': 'Rest',
+                    'description': 'Resting',
+                    'category': 'Activity',
+                    'modifiers': {},
+                },
+            },
+            'observations': {
+                'Observation 1': {
+                    'file': {'1': ['clips/cam1.mp4']},
+                    'type': 'MEDIA',
+                    'date': '2026-06-26T12:00:00',
+                    'description': 'Native observation',
+                    'time offset': 0.0,
+                    'independent_variables': {'Location': 'Barn'},
+                    'media_info': {
+                        'length': {'clips/cam1.mp4': 10.0},
+                        'fps': {'clips/cam1.mp4': 2.0},
+                    },
+                    'events': [
+                        [1.0, 'Subject A', 'Peck', 'fast', 'visible'],
+                        [2.0, 'Subject A', 'Rest', '', ''],
+                        [4.0, 'Subject A', 'Rest', '', ''],
+                    ],
+                }
+            },
+        }
+        normalized = normalize_native_boris_project_payload(native_payload)
+        self.assertEqual(normalized['schema'], 'boris-project-v7')
+        summary = import_project_payload(target_project, native_payload, actor=self.user)
+        self.assertEqual(summary['sessions_imported'], 1)
+        self.assertEqual(target_project.behaviors.count(), 2)
+        self.assertEqual(target_project.subjects.get().name, 'Subject A')
+        self.assertTrue(VideoAsset.objects.filter(project=target_project, title='cam1.mp4').exists())
+        imported_session = target_project.sessions.get(title='Observation 1')
+        self.assertEqual(imported_session.session_kind, ObservationSession.KIND_MEDIA)
+        self.assertEqual(imported_session.variable_values.get().value, 'Barn')
+        imported_events = list(imported_session.events.order_by('timestamp_seconds'))
+        self.assertEqual([event.event_kind for event in imported_events], ['point', 'start', 'stop'])
+        self.assertEqual(imported_events[0].modifiers.get().name, 'fast')
+
     def test_session_undo_and_redo_endpoints_restore_event_state(self):
         response = self.client.post(
             reverse('tracker:event_create_api', args=[self.session.pk]),
@@ -409,7 +511,9 @@ class CompatibilityTests(TestCase):
         self.assertIn('Cow 1:', sequences)
         self.assertIn('Eat|Stand', sequences)
         self.assertIn('Object class = "TextGrid"', textgrid)
-        self.assertIn('name = "Cow 1"', textgrid)
+        self.assertIn('class = "TextTier"', textgrid)
+        self.assertIn('name = "Cow 1_Eat"', textgrid)
+        self.assertIn('name = "Cow 1_Stand"', textgrid)
 
     def test_binary_table_and_compatibility_report(self):
         ObservationEvent.objects.create(
@@ -432,9 +536,16 @@ class CompatibilityTests(TestCase):
         )
         rows = build_binary_table_rows(self.session, step_seconds=1.0)
         self.assertEqual(rows[1][1], 1)
+        headers, aggregated_rows = build_boris_aggregated_event_rows(self.session)
+        self.assertIn('FPS (frame/s)', headers)
+        self.assertIn('Media duration (s)', headers)
+        self.assertEqual(len(aggregated_rows), 2)
+        feral_payload = build_feral_payload(self.session)
+        self.assertIn('class_names', feral_payload)
         report = build_session_compatibility_report(self.session)
         self.assertFalse(report['cowlog']['ready'])
         self.assertTrue(report['cowlog']['warnings'])
+        self.assertIn('feral_json', report['boris']['documented_exports'])
         self.assertFalse(report['cowcloud']['ready'])
         self.assertEqual(report['cowcloud']['status'], 'blocked_pending_format_contract')
 
@@ -490,6 +601,19 @@ class CompatibilityTests(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertIn('time\tEat\tStand', response.content.decode('utf-8'))
+        response = self.client.get(
+            reverse('tracker:session_export_boris_aggregated_tsv', args=[self.session.pk])
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('Observation id\tObservation date', response.content.decode('utf-8'))
+        self.assertIn('FPS (frame/s)', response.content.decode('utf-8'))
+        response = self.client.get(
+            reverse('tracker:session_export_feral_json', args=[self.session.pk])
+        )
+        self.assertEqual(response.status_code, 200)
+        feral_payload = json.loads(response.content.decode('utf-8'))
+        self.assertFalse(feral_payload['is_multilabel'])
+        self.assertIn('class_names', feral_payload)
         response = self.client.get(
             reverse('tracker:session_export_compatibility_report', args=[self.session.pk])
         )

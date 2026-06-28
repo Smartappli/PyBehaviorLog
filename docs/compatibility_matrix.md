@@ -17,11 +17,14 @@ an external contract or a larger certification corpus.
 | Capability | Current status | Implementation | Main residual risk |
 | --- | --- | --- | --- |
 | Project JSON import/export | Certified baseline | `build_project_boris_payload`, `import_project_payload` | `boris-project-v*` is accepted by regex, so future schema drift must be tested with real files. |
+| Native `.boris` project import | Implemented | `normalize_native_boris_project_payload`, `import_project_payload` | Native BORIS files without `schema` are normalized from `project_format_version`, `subjects_conf`, `behaviors_conf`, and `observations`; unusual future event-list layouts still need gold files. |
 | Observation JSON import/export | Certified baseline | `build_boris_like_payload`, `import_session_payload` | Export is BORIS-compatible, not a formal native `.boris` writer. |
-| CSV/TSV/XLSX event import | Implemented | `parse_tabular_session_rows` | Header aliases are broad, but real exports can still contain unsupported columns. |
+| CSV/TSV/XLSX event import | Implemented | `parse_tabular_session_rows` | Header aliases include BORIS 9.x `Start (s)`, `Stop (s)`, `Duration (s)`, `FPS (frame/s)`, and metadata preambles; real exports can still contain unsupported columns. |
 | Behavioral sequences | Compatible profile | `build_behavioral_sequences_text` | Intended for downstream sequence tools, not lossless project exchange. |
-| Praat TextGrid | Compatible profile | `build_textgrid_text` | Good for intervals, not for full ethogram/project metadata. |
+| Praat TextGrid | Compatible profile | `build_textgrid_text` | Point events are exported as `TextTier`; full ethogram/project metadata still belongs in JSON. |
 | Binary table | Compatible profile | `build_binary_table_rows` | Sampling step can change analytical interpretation. |
+| Aggregated events TSV | Compatible profile | `build_boris_aggregated_event_rows` | Exposes BORIS 9.x plugin columns including media duration and FPS; values depend on stored variables or available media diagnostics. |
+| FERAL JSON | Compatible profile | `build_feral_payload` | Requires FPS and duration to generate frame labels; overlapping behaviors are reported in warnings. |
 | Picture/live observations | Partial | media paths, image paths, frame indices | Needs real BORIS gold files for certification. |
 
 ## CowLog

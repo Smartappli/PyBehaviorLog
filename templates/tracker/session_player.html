@@ -22,6 +22,8 @@
         <a href="{% url 'tracker:session_export_behavioral_sequences' session.pk %}" class="button secondary">{% trans 'Sequences' %}</a>
         <a href="{% url 'tracker:session_export_textgrid' session.pk %}" class="button secondary">TextGrid</a>
         <a href="{% url 'tracker:session_export_binary_table_tsv' session.pk %}" class="button secondary">{% trans 'Binary table' %}</a>
+        <a href="{% url 'tracker:session_export_boris_aggregated_tsv' session.pk %}" class="button secondary">{% trans 'BORIS aggregated' %}</a>
+        <a href="{% url 'tracker:session_export_feral_json' session.pk %}" class="button secondary">FERAL</a>
         <a href="{% url 'tracker:session_export_cowlog_txt' session.pk %}" class="button secondary">{% trans 'CowLog TXT' %}</a>
         <a href="{% url 'tracker:session_export_html' session.pk %}" class="button secondary">HTML</a>
         <a href="{% url 'tracker:session_export_sql' session.pk %}" class="button secondary">SQL</a>

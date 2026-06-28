@@ -39,6 +39,7 @@ This version extends the earlier CowLog/BORIS-inspired foundations with:
 - server-side undo/redo backed by database sessions for create/update/delete event operations
 - more faithful BORIS-style tabular imports with start/stop intervals, annotation rows, and broader header aliases
 - deeper image-sequence diagnostics for picture-based observations and relative-path exports
+- BORIS 9.12.1 compatibility updates: native `.boris` project JSON import, BORIS tabular exports with metadata preambles, BORIS-style aggregated event TSV export, FERAL JSON export, and TextGrid point-event tiers
 
 ## Runtime stack
 

@@ -131,7 +131,7 @@ class KeyboardProfileForm(forms.ModelForm):
 class EthogramImportForm(forms.Form):
     file = forms.FileField(
         label=_('File'),
-        help_text=_('JSON export from PyBehaviorLog 0.9.1 or BORIS-compatible JSON.'),
+        help_text=_('JSON export from PyBehaviorLog, BORIS-compatible JSON, or native .boris JSON.'),
     )
     replace_existing = forms.BooleanField(
         required=False,
@@ -166,7 +166,7 @@ class SessionImportForm(forms.Form):
     file = forms.FileField(
         label=_('File'),
         help_text=_(
-            'PyBehaviorLog 0.9.1 JSON, BORIS observation JSON, spreadsheet-like session tables, or CowLog plain-text coding results.'
+            'PyBehaviorLog JSON, BORIS observation/native .boris JSON, BORIS spreadsheet-like session tables, or CowLog plain-text coding results.'
         ),
     )
     clear_existing = forms.BooleanField(

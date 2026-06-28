@@ -76,7 +76,9 @@ from .models import (
 )
 
 ALL_SUBJECTS_LABEL = 'All subjects'
+NO_FOCAL_SUBJECT_LABEL = 'No focal subject'
 BORIS_PROJECT_JSON = 'boris_project.json'
+BORIS_LATEST_COMPATIBLE_VERSION = '9.12.1'
 CSV_EXTENSION = '.csv'
 DELETE_CONFIRM_TEMPLATE = 'tracker/delete_confirm.html'
 INVALID_JSON_PAYLOAD = 'Invalid JSON payload.'
@@ -89,6 +91,12 @@ SYNCED_VIDEOS_LABEL = 'Synced videos'
 TEXT_CONTENT_TYPE = 'text/plain; charset=utf-8'
 TSV_EXTENSION = '.tsv'
 XLSX_EXTENSION = '.xlsx'
+
+BORIS_EVENT_KIND_LABELS = {
+    ObservationEvent.KIND_POINT: 'Point event',
+    ObservationEvent.KIND_START: 'State event',
+    ObservationEvent.KIND_STOP: 'State event',
+}
 
 
 FORM_METHODS = ('GET', 'POST')
@@ -165,6 +173,7 @@ def build_release_metadata() -> dict:
         'cache': 'redis 8',
         'languages': ['en', 'ar', 'zh-hans', 'es', 'fr', 'ru'],
         'deployment_profiles': ['docker-compose', 'container-paas', 'dealhost-container'],
+        'boris_compatibility_target': BORIS_LATEST_COMPATIBLE_VERSION,
         'dealhost': build_dealhost_runtime_manifest(os.environ),
     }
 
@@ -710,6 +719,53 @@ def _relative_media_path(video: VideoAsset | None) -> str | None:
         return None
     name = str(video.file.name or '').replace('\\', '/')
     return name or None
+
+
+def _media_title_from_path(value: str | None) -> str:
+    token = str(value or '').strip().replace('\\', '/')
+    if not token:
+        return ''
+    return Path(token).name or token
+
+
+def _is_safe_import_media_path(value: str | None) -> bool:
+    token = str(value or '').strip().replace('\\', '/')
+    if not token or token.startswith('/'):
+        return False
+    if re.match(r'^[a-zA-Z]:/', token):
+        return False
+    return '..' not in Path(token).parts
+
+
+def _choose_unique_shortcut(name: str, used: set[str]) -> str:
+    for char in str(name or '').upper():
+        if char.isalnum() and char not in used:
+            used.add(char)
+            return char
+    for char in 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789':
+        if char not in used:
+            used.add(char)
+            return char
+    return ''
+
+
+def _get_or_create_imported_video(
+    project: Project, *, title: str, media_path: str | None
+) -> VideoAsset | None:
+    title = (title or _media_title_from_path(media_path))[:200]
+    if not title:
+        return None
+    existing = project.videos.filter(title=title).first()
+    if existing is not None:
+        return existing
+    if not _is_safe_import_media_path(media_path):
+        return None
+    return VideoAsset.objects.create(
+        project=project,
+        title=title,
+        file=str(media_path or title).replace('\\', '/'),
+        notes=_('Imported from BORIS project metadata.'),
+    )
 
 
 def _append_note_line(existing: str | None, line: str, *, max_length: int = 2000) -> str:
@@ -1818,6 +1874,7 @@ def build_project_boris_payload(project: Project) -> dict:
     payload.update(
         {
             'schema': 'boris-project-v3',
+            'boris_compatibility_target': BORIS_LATEST_COMPATIBLE_VERSION,
             'subjects': [
                 {
                     'name': subject.name,
@@ -1976,6 +2033,7 @@ def _build_event_interval_rows(session: ObservationSession) -> list[dict]:
             'subjects': subjects,
             'modifiers': modifiers,
             'comment': event.comment,
+            'frame_index': event.frame_index,
         }
         if (
             event.event_kind == ObservationEvent.KIND_POINT
@@ -2062,32 +2120,63 @@ def build_behavioral_sequences_text(session: ObservationSession, separator: str 
     return '\\n'.join(lines).rstrip() + '\\n'
 
 
+def _textgrid_safe(value: str) -> str:
+    return str(value or '').replace('"', "'")
+
+
+def _textgrid_row_label(row: dict) -> str:
+    label = row['behavior']
+    if row['modifiers']:
+        label = f'{label} [{"|".join(row["modifiers"])}]'
+    return _textgrid_safe(label)
+
+
+def _assign_textgrid_lanes(rows: list[dict]) -> list[list[dict]]:
+    lanes: list[list[dict]] = []
+    lane_ends: list[float] = []
+    for row in sorted(rows, key=lambda item: (item['start_seconds'], item['end_seconds'])):
+        placed = False
+        for index, lane_end in enumerate(lane_ends):
+            if row['start_seconds'] >= lane_end:
+                lanes[index].append(row)
+                lane_ends[index] = max(lane_end, row['end_seconds'])
+                placed = True
+                break
+        if not placed:
+            lanes.append([row])
+            lane_ends.append(row['end_seconds'])
+    return lanes
+
+
 def build_textgrid_text(session: ObservationSession) -> str:
-    """Export a simple Praat TextGrid from observation rows."""
+    """Export a BORIS 9.x-compatible Praat TextGrid from observation rows."""
     rows = _build_event_interval_rows(session)
     end_time = max(
         float(_session_duration(session)),
         max((row['end_seconds'] for row in rows), default=0.0),
     )
-    tiers: list[tuple[str, list[dict]]] = []
-    grouped: dict[str, list[dict]] = defaultdict(list)
+    tier_specs: list[dict] = []
+    grouped: dict[tuple[str, str, str], list[dict]] = defaultdict(list)
     for row in rows:
-        for subject in row['subjects'] or [ALL_SUBJECTS_LABEL]:
-            grouped[subject].append(row)
-    for subject, subject_rows in sorted(grouped.items()):
-        intervals = []
-        for row in sorted(subject_rows, key=lambda item: (item['start_seconds'], item['behavior'])):
-            start = row['start_seconds']
-            stop = row['end_seconds']
-            if stop < start:
-                stop = start
-            if stop == start:
-                stop = round(start + 0.001, 3)
-            label = row['behavior']
-            if row['modifiers']:
-                label = f'{label} [{", ".join(row["modifiers"])}]'
-            intervals.append({'xmin': start, 'xmax': stop, 'text': label.replace('"', "'")})
-        tiers.append((subject.replace('"', "'"), intervals))
+        for subject in row['subjects'] or [NO_FOCAL_SUBJECT_LABEL]:
+            tier_type = 'point' if row['mode'] == Behavior.MODE_POINT else 'interval'
+            grouped[(subject, row['behavior'], tier_type)].append(row)
+
+    for (subject, behavior, tier_type), grouped_rows in sorted(grouped.items()):
+        base_name = _textgrid_safe(f'{subject}_{behavior}')
+        if tier_type == 'point':
+            tier_specs.append(
+                {
+                    'kind': 'TextTier',
+                    'name': base_name,
+                    'points': sorted(grouped_rows, key=lambda item: item['start_seconds']),
+                }
+            )
+            continue
+        for lane_index, lane_rows in enumerate(_assign_textgrid_lanes(grouped_rows), start=1):
+            name = base_name if lane_index == 1 else f'{base_name}_{lane_index}'
+            tier_specs.append({'kind': 'IntervalTier', 'name': name, 'intervals': lane_rows})
+
     lines = [
         'File type = "ooTextFile"',
         'Object class = "TextGrid"',
@@ -2095,30 +2184,47 @@ def build_textgrid_text(session: ObservationSession) -> str:
         'xmin = 0',
         f'xmax = {_format_seconds_token(end_time)}',
         'tiers? <exists>',
-        f'size = {len(tiers)}',
+        f'size = {len(tier_specs)}',
         'item []:',
     ]
-    for index, (subject, intervals) in enumerate(tiers, start=1):
+    for index, tier in enumerate(tier_specs, start=1):
         lines.extend(
             [
                 f'    item [{index}]:',
-                '        class = "IntervalTier"',
-                f'        name = "{subject}"',
+                f'        class = "{tier["kind"]}"',
+                f'        name = "{tier["name"]}"',
                 '        xmin = 0',
                 f'        xmax = {_format_seconds_token(end_time)}',
-                f'        intervals: size = {len(intervals)}',
             ]
         )
+        if tier['kind'] == 'TextTier':
+            points = tier['points']
+            lines.append(f'        points: size = {len(points)}')
+            for point_index, point in enumerate(points, start=1):
+                lines.extend(
+                    [
+                        f'        points [{point_index}]:',
+                        f'            number = {_format_seconds_token(point["start_seconds"])}',
+                        f'            mark = "{_textgrid_row_label(point)}"',
+                    ]
+                )
+            continue
+        intervals = tier['intervals']
+        lines.append(f'        intervals: size = {len(intervals)}')
         for interval_index, interval in enumerate(intervals, start=1):
+            start = interval['start_seconds']
+            stop = max(interval['end_seconds'], start)
+            if stop == start:
+                stop = round(start + 0.001, 3)
             lines.extend(
                 [
                     f'        intervals [{interval_index}]:',
-                    f'            xmin = {_format_seconds_token(interval["xmin"])}',
-                    f'            xmax = {_format_seconds_token(interval["xmax"])}',
-                    f'            text = "{interval["text"]}"',
+                    f'            xmin = {_format_seconds_token(start)}',
+                    f'            xmax = {_format_seconds_token(stop)}',
+                    f'            text = "{_textgrid_row_label(interval)}"',
                 ]
             )
-    return '\\n'.join(lines) + '\\n'
+    return '\n'.join(lines) + '\n'
 
 
 def build_binary_table_rows(
@@ -2156,6 +2262,197 @@ def build_binary_table_rows(
         rows.append(line)
         time_value = round(time_value + step, 6)
     return rows
+
+
+def _session_variable_value(session: ObservationSession, aliases: set[str]) -> str:
+    for value in session.variable_values.select_related('definition').all():
+        label = value.definition.label.casefold().replace(' ', '_')
+        if label in aliases and str(value.value).strip():
+            return str(value.value).strip()
+    return ''
+
+
+def _session_frame_rate_value(session: ObservationSession) -> float | None:
+    raw_value = _session_variable_value(session, {'fps', 'frame_rate', 'framerate', 'fps_frame_s'})
+    if raw_value:
+        parsed = _normalize_frame_rate_token(raw_value)
+        return float(parsed) if parsed > 0 else None
+    for item in build_media_analysis(session):
+        waveform = item.get('waveform')
+        if isinstance(waveform, dict) and waveform.get('frame_rate'):
+            return float(waveform['frame_rate'])
+    return None
+
+
+def _session_media_duration_value(session: ObservationSession) -> float:
+    raw_value = _session_variable_value(
+        session,
+        {'duration', 'duration_s', 'duration_seconds', 'media_duration', 'media_duration_s'},
+    )
+    if raw_value:
+        duration = _decimal(raw_value, default='0')
+        if duration > 0:
+            return float(duration)
+    for item in build_media_analysis(session):
+        waveform = item.get('waveform')
+        if isinstance(waveform, dict) and waveform.get('duration_seconds'):
+            return float(waveform['duration_seconds'])
+    return float(_session_duration(session))
+
+
+def _session_source_label(session: ObservationSession) -> str:
+    paths = [
+        _relative_media_path(video) or video.title
+        for video in session.all_videos_ordered
+        if video is not None
+    ]
+    return ', '.join(paths) if paths else 'Live observation'
+
+
+def build_boris_aggregated_event_rows(session: ObservationSession) -> tuple[list[str], list[list]]:
+    """Build a BORIS 9.x-style aggregated events table used by analysis plugins."""
+    interval_rows = _build_event_interval_rows(session)
+    max_modifiers = max((len(row['modifiers']) for row in interval_rows), default=0)
+    variable_definitions = list(session.project.variable_definitions.order_by('sort_order', 'label'))
+    variable_values = {
+        value.definition_id: value.value
+        for value in session.variable_values.select_related('definition').all()
+    }
+    headers = [
+        'Observation id',
+        'Observation date',
+        'Description',
+        'Observation type',
+        'Source',
+        'Time offset (s)',
+        'Coding duration',
+        'Media duration (s)',
+        'FPS (frame/s)',
+        *[definition.label for definition in variable_definitions],
+        'Subject',
+        'Observation duration by subject by observation',
+        'Behavior',
+        'Behavioral category',
+        *[f'Modifier #{index}' for index in range(1, max_modifiers + 1)],
+        'Behavior type',
+        'Start (s)',
+        'Stop (s)',
+        'Duration (s)',
+        'Media file name',
+        'Image index start',
+        'Image index stop',
+        'Image file path start',
+        'Image file path stop',
+        'Comment start',
+        'Comment stop',
+    ]
+    duration = _session_media_duration_value(session)
+    fps = _session_frame_rate_value(session)
+    media_name = session.primary_label if session.session_kind == ObservationSession.KIND_MEDIA else ''
+    common = [
+        session.title,
+        session.recorded_at.isoformat(),
+        session.description,
+        'MEDIA' if session.session_kind == ObservationSession.KIND_MEDIA else 'LIVE',
+        _session_source_label(session),
+        '0',
+        round(float(_session_duration(session)), 3),
+        round(duration, 3) if duration else '',
+        round(fps, 6) if fps else '',
+        *[variable_values.get(definition.id, '') for definition in variable_definitions],
+    ]
+    output_rows: list[list] = []
+    for row in interval_rows:
+        subjects = row['subjects'] or [NO_FOCAL_SUBJECT_LABEL]
+        for subject in subjects:
+            modifier_values = row['modifiers'] + [''] * (max_modifiers - len(row['modifiers']))
+            is_point = row['mode'] == Behavior.MODE_POINT
+            frame_index = row.get('frame_index') or ''
+            output_rows.append(
+                [
+                    *common,
+                    subject,
+                    round(float(_session_duration(session)), 3),
+                    row['behavior'],
+                    row['category'],
+                    *modifier_values,
+                    'POINT' if is_point else 'STATE',
+                    _format_seconds_token(row['start_seconds']),
+                    _format_seconds_token(row['end_seconds']),
+                    'NA' if is_point else _format_seconds_token(row['duration_seconds']),
+                    media_name,
+                    frame_index,
+                    frame_index,
+                    '',
+                    '',
+                    row['comment'],
+                    '',
+                ]
+            )
+    return headers, output_rows
+
+
+def build_feral_payload(session: ObservationSession) -> dict:
+    """Build a FERAL-compatible per-frame label payload from a PyBehaviorLog session."""
+    behaviors = list(session.project.behaviors.order_by('sort_order', 'name'))
+    class_names = {'0': 'other'}
+    behavior_to_index = {}
+    for index, behavior in enumerate(behaviors, start=1):
+        class_names[str(index)] = behavior.name
+        behavior_to_index[behavior.name] = index
+    fps = _session_frame_rate_value(session)
+    duration = _session_media_duration_value(session)
+    video_name = _media_title_from_path(_relative_media_path(session.video) or session.primary_label)
+    warnings = []
+    labels: dict[str, list[int]] = {}
+    if not fps or fps <= 0:
+        warnings.append('Missing FPS; FERAL frame labels were not generated.')
+    elif not duration or duration <= 0:
+        warnings.append('Missing duration; FERAL frame labels were not generated.')
+    else:
+        frame_count = max(int(round(duration * fps)), 1)
+        frame_labels = [0] * frame_count
+        intervals = _build_event_interval_rows(session)
+        for frame_index in range(frame_count):
+            time_seconds = frame_index / fps
+            active = [
+                row
+                for row in intervals
+                if (
+                    row['mode'] == Behavior.MODE_STATE
+                    and row['start_seconds'] <= time_seconds <= row['end_seconds']
+                )
+                or (
+                    row['mode'] == Behavior.MODE_POINT
+                    and int(round(row['start_seconds'] * fps)) == frame_index
+                )
+            ]
+            if len(active) > 1:
+                warnings.append(
+                    f'Overlapping behaviors at frame {frame_index}; first behavior was used.'
+                )
+            if active:
+                frame_labels[frame_index] = behavior_to_index.get(active[0]['behavior'], 0)
+        labels[video_name or f'session_{session.pk}'] = frame_labels
+    return {
+        'is_multilabel': False,
+        'class_names': class_names,
+        'splits': {
+            'train': list(labels.keys()),
+            'val': [],
+            'test': [],
+            'inference': [],
+        },
+        'labels': labels,
+        'metadata': {
+            'source': 'PyBehaviorLog',
+            'boris_compatibility_target': BORIS_LATEST_COMPATIBLE_VERSION,
+            'session': session.title,
+            'fps': fps,
+            'duration_seconds': duration,
+        },
+        'warnings': warnings,
+    }
 
 
 def _token_lookup_map(queryset, *, include_keys: bool = True) -> dict[str, object]:
@@ -2332,18 +2629,35 @@ def parse_tabular_session_rows(
         row = {_normalize_import_header(key): value for key, value in raw_row.items()}
         time_token = (
             row.get('time')
+            or row.get('time_s')
             or row.get('timestamp_seconds')
             or row.get('timestamp')
             or row.get('start')
+            or row.get('start_s')
             or row.get('start_time')
             or row.get('elapsed_time')
             or row.get('media_time')
         )
         stop_token = (
-            row.get('stop') or row.get('end') or row.get('stop_time') or row.get('end_time')
+            row.get('stop')
+            or row.get('stop_s')
+            or row.get('end')
+            or row.get('end_s')
+            or row.get('stop_time')
+            or row.get('end_time')
         )
-        duration_token = row.get('duration') or row.get('duration_seconds') or row.get('delta')
-        frame_rate_token = row.get('fps') or row.get('frame_rate') or row.get('framerate')
+        duration_token = (
+            row.get('duration')
+            or row.get('duration_s')
+            or row.get('duration_seconds')
+            or row.get('delta')
+        )
+        frame_rate_token = (
+            row.get('fps')
+            or row.get('fps_frame_s')
+            or row.get('frame_rate')
+            or row.get('framerate')
+        )
         behavior_token = (
             row.get('behavior')
             or row.get('code')
@@ -2409,6 +2723,7 @@ def parse_tabular_session_rows(
                 or row.get('kind')
                 or row.get('status')
                 or row.get('behavior_type')
+                or row.get('behavioral_type')
                 or ''
             )
         )
@@ -2439,6 +2754,8 @@ def parse_tabular_session_rows(
             frame_index = None
         comment = str(
             row.get('comment')
+            or row.get('comment_start')
+            or row.get('comment_stop')
             or row.get('remarks')
             or row.get('remark')
             or row.get('details')
@@ -2531,20 +2848,48 @@ def _looks_like_tabular_import_header(line: str) -> bool:
     normalized_headers = {_normalize_import_header(header) for header in headers if header}
     time_headers = {
         'time',
+        'time_s',
         'timestamp',
         'timestamp_seconds',
         'start',
+        'start_s',
         'start_time',
         'elapsed_time',
         'media_time',
     }
     behavior_headers = {'behavior', 'code', 'behavior_code', 'event', 'behavior_name'}
     note_headers = {'annotation', 'note', 'text'}
-    interval_headers = {'stop', 'end', 'stop_time', 'end_time', 'duration', 'duration_seconds'}
+    interval_headers = {
+        'stop',
+        'stop_s',
+        'end',
+        'end_s',
+        'stop_time',
+        'end_time',
+        'duration',
+        'duration_s',
+        'duration_seconds',
+    }
     return bool(
         normalized_headers & time_headers
         and normalized_headers & (behavior_headers | note_headers | interval_headers)
     )
+
+
+def _trim_tabular_preamble(text_payload: str) -> str:
+    lines = text_payload.splitlines()
+    for index, line in enumerate(lines):
+        if _looks_like_tabular_import_header(line):
+            return '\n'.join(lines[index:])
+    return text_payload
+
+
+def _find_tabular_header_row(rows: list[tuple | list]) -> int:
+    for index, row in enumerate(rows):
+        header_line = '\t'.join('' if value is None else str(value) for value in row)
+        if _looks_like_tabular_import_header(header_line):
+            return index
+    return 0
 
 
 def parse_tabular_session_file(
@@ -2558,9 +2903,10 @@ def parse_tabular_session_file(
         rows = list(sheet.iter_rows(values_only=True))
         if not rows:
             raise ValueError(_('The uploaded workbook is empty.'))
-        headers = [_normalize_import_header(value) for value in rows[0]]
+        header_index = _find_tabular_header_row(rows)
+        headers = [_normalize_import_header(value) for value in rows[header_index]]
         row_dicts = []
-        for row in rows[1:]:
+        for row in rows[header_index + 1 :]:
             row_dicts.append(
                 {headers[index]: row[index] for index in range(min(len(headers), len(row)))}
             )
@@ -2572,6 +2918,7 @@ def parse_tabular_session_file(
         text_payload = raw_bytes.decode('utf-8-sig')
     except UnicodeDecodeError as exc:
         raise ValueError(_('The uploaded tabular file is not valid UTF-8 text.')) from exc
+    text_payload = _trim_tabular_preamble(text_payload)
     first_line = _first_import_content_line(text_payload)
     has_tab_delimiter = bool(first_line and '\t' in first_line)
     delimiter = '\t' if has_tab_delimiter or filename.endswith(TSV_EXTENSION) else ','
@@ -2602,6 +2949,8 @@ def load_session_import_payload(
             if candidate is None:
                 raise ValueError(_('The uploaded archive does not contain a session JSON file.'))
             payload = json.loads(archive.read(candidate).decode('utf-8'))
+            if _is_native_boris_project_payload(payload):
+                payload = normalize_native_boris_project_payload(payload)
             report['detected_format'] = payload.get('schema', 'json')
             report['source_name'] = candidate
             return payload, report
@@ -2623,6 +2972,8 @@ def load_session_import_payload(
     stripped = text_payload.lstrip()
     if stripped.startswith(('{', '[')):
         payload = json.loads(text_payload)
+        if _is_native_boris_project_payload(payload):
+            payload = normalize_native_boris_project_payload(payload)
         report['detected_format'] = payload.get('schema', 'json')
         return payload, report
     first_line = _first_import_content_line(text_payload)
@@ -2657,6 +3008,7 @@ def build_session_compatibility_report(session: ObservationSession) -> dict:
     report = {
         'schema': 'pybehaviorlog-0.9.5-session-compatibility-report',
         'version': '0.9.5',
+        'boris_compatibility_target': BORIS_LATEST_COMPATIBLE_VERSION,
         'session': session.title,
         'boris': {
             'documented_exports': [
@@ -2664,13 +3016,22 @@ def build_session_compatibility_report(session: ObservationSession) -> dict:
                 'behavioral_sequences',
                 'textgrid',
                 'binary_table',
+                'aggregated_events',
+                'feral_json',
                 'csv',
                 'tsv',
                 'xlsx',
                 'html',
                 'sql',
             ],
-            'documented_imports': ['json_project', 'json_observation', 'csv', 'tsv', 'xlsx'],
+            'documented_imports': [
+                'native_boris_project_json',
+                'json_project',
+                'json_observation',
+                'csv',
+                'tsv',
+                'xlsx',
+            ],
             'ready': True,
             'warnings': [],
         },
@@ -2705,6 +3066,8 @@ def build_session_compatibility_report(session: ObservationSession) -> dict:
             'state_event_count': state_event_count,
             'modifier_event_count': modifier_event_count,
             'multi_subject_event_count': multi_subject_event_count,
+            'fps': _session_frame_rate_value(session),
+            'media_duration_seconds': _session_media_duration_value(session),
         },
         'certification': {
             'roundtrip_tested_families': ['boris_observation_json', 'cowlog_plain_text_results'],
@@ -2731,6 +3094,7 @@ def build_project_compatibility_report(project: Project) -> dict:
     return {
         'schema': 'pybehaviorlog-0.9.5-project-compatibility-report',
         'version': '0.9.5',
+        'boris_compatibility_target': BORIS_LATEST_COMPATIBLE_VERSION,
         'project': project.name,
         'counts': {
             'sessions': project.sessions.count(),
@@ -2746,6 +3110,8 @@ def build_project_compatibility_report(project: Project) -> dict:
             'behavioral_sequences',
             'textgrid',
             'binary_table',
+            'aggregated_events',
+            'feral_json',
             'csv',
             'tsv',
             'xlsx',
@@ -2754,7 +3120,14 @@ def build_project_compatibility_report(project: Project) -> dict:
         ],
         'supported_cowlog_exports': ['plain_text_results'],
         'supported_cowcloud_exports': [],
-        'supported_boris_imports': ['json_project', 'json_observation', 'csv', 'tsv', 'xlsx'],
+        'supported_boris_imports': [
+            'native_boris_project_json',
+            'json_project',
+            'json_observation',
+            'csv',
+            'tsv',
+            'xlsx',
+        ],
         'supported_cowcloud_imports': [],
         'cowcloud': {
             'ready': False,
@@ -2872,6 +3245,307 @@ def _coerce_name_list(value) -> list[str]:
     return [str(value)]
 
 
+def _is_native_boris_project_payload(payload: dict) -> bool:
+    return isinstance(payload, dict) and (
+        'behaviors_conf' in payload
+        or 'subjects_conf' in payload
+        or 'project_format_version' in payload
+    )
+
+
+def _native_boris_schema(payload: dict) -> str:
+    version_token = str(payload.get('project_format_version') or '').strip()
+    version_match = re.match(r'(\d+)', version_token)
+    return f'boris-project-v{version_match.group(1) if version_match else "9"}'
+
+
+def _clean_boris_modifier_value(value: object) -> tuple[str, str]:
+    token = str(value or '').strip()
+    if not token or token.casefold() == 'none':
+        return '', ''
+    match = re.fullmatch(r'(?P<name>.*?)\s*\((?P<key>[^)]+)\)\s*', token)
+    if match:
+        return match.group('name').strip(), match.group('key').strip()[:1]
+    return token.strip(), ''
+
+
+def _split_boris_modifier_tokens(value: object) -> list[str]:
+    results = []
+    for token in _coerce_name_list(value):
+        cleaned, _key = _clean_boris_modifier_value(token)
+        if cleaned:
+            results.append(cleaned)
+    return list(dict.fromkeys(results))
+
+
+def _map_boris_variable_type(value: object) -> str:
+    token = str(value or '').strip().casefold().replace('_', ' ')
+    if 'numeric' in token or token == 'duration':
+        return IndependentVariableDefinition.TYPE_NUMERIC
+    if 'set' in token:
+        return IndependentVariableDefinition.TYPE_SET
+    if 'bool' in token:
+        return IndependentVariableDefinition.TYPE_BOOLEAN
+    if 'timestamp' in token or 'date' in token:
+        return IndependentVariableDefinition.TYPE_TIMESTAMP
+    if 'long' in token:
+        return IndependentVariableDefinition.TYPE_LONGTEXT
+    return IndependentVariableDefinition.TYPE_TEXT
+
+
+def _native_boris_media_entries(item: dict) -> list[dict[str, str]]:
+    media_file = item.get('file')
+    paths: list[tuple[str, str]] = []
+    if isinstance(media_file, dict):
+        for player in sorted(media_file, key=lambda value: str(value)):
+            for path in _coerce_name_list(media_file.get(player)):
+                paths.append((str(player), path))
+    elif isinstance(media_file, list):
+        paths.extend(('1', path) for path in _coerce_name_list(media_file))
+    elif isinstance(media_file, str):
+        paths.append(('1', media_file))
+    for path in _coerce_name_list(item.get('media_paths') or item.get('image_paths')):
+        paths.append(('1', path))
+    entries = []
+    seen = set()
+    for player, path in paths:
+        normalized_path = str(path).strip().replace('\\', '/')
+        if not normalized_path or normalized_path in seen:
+            continue
+        seen.add(normalized_path)
+        entries.append(
+            {
+                'player': player,
+                'path': normalized_path,
+                'title': _media_title_from_path(normalized_path),
+            }
+        )
+    return entries
+
+
+def _native_boris_event_items(
+    observation: dict,
+    *,
+    behavior_modes: dict[str, str],
+    observation_label: str,
+) -> list[dict]:
+    rows = []
+    open_states: dict[tuple[str, str, str], bool] = defaultdict(bool)
+    for raw_event in observation.get('events') or []:
+        if isinstance(raw_event, dict):
+            behavior_code = _resolve_behavior_name(raw_event)
+            modifier_token = raw_event.get('modifiers') or raw_event.get('modifier') or ''
+            subject_token = str(raw_event.get('subject') or '').strip()
+            explicit_kind = _resolve_event_kind_token(
+                raw_event.get('event_kind') or raw_event.get('status') or raw_event.get('type')
+            )
+            time_value = raw_event.get('timestamp_seconds', raw_event.get('time'))
+            comment = raw_event.get('comment') or raw_event.get('note') or raw_event.get('remarks') or ''
+            frame_index = raw_event.get('frame_index') or raw_event.get('frame')
+        elif isinstance(raw_event, list) and len(raw_event) >= 3:
+            time_value = raw_event[0]
+            subject_token = str(raw_event[1] or '').strip()
+            behavior_code = str(raw_event[2] or '').strip()
+            modifier_token = raw_event[3] if len(raw_event) > 3 else ''
+            comment = raw_event[4] if len(raw_event) > 4 else ''
+            explicit_kind = _resolve_event_kind_token(raw_event[5] if len(raw_event) > 5 else None)
+            frame_index = raw_event[6] if len(raw_event) > 6 else None
+        else:
+            continue
+        if not behavior_code:
+            continue
+        modifiers = _split_boris_modifier_tokens(modifier_token)
+        subject_names = []
+        if subject_token and subject_token.casefold() != NO_FOCAL_SUBJECT_LABEL.casefold():
+            subject_names.append(subject_token)
+        behavior_mode = behavior_modes.get(behavior_code, Behavior.MODE_POINT)
+        if behavior_mode == Behavior.MODE_POINT:
+            event_kind = ObservationEvent.KIND_POINT
+        elif explicit_kind in {ObservationEvent.KIND_START, ObservationEvent.KIND_STOP}:
+            event_kind = explicit_kind
+        else:
+            state_key = (subject_token, behavior_code, '|'.join(modifiers))
+            event_kind = (
+                ObservationEvent.KIND_STOP
+                if open_states[state_key]
+                else ObservationEvent.KIND_START
+            )
+            open_states[state_key] = not open_states[state_key]
+        event = {
+            'time': time_value,
+            'behavior': behavior_code,
+            'event_kind': event_kind,
+            'modifiers': modifiers,
+            'subjects': subject_names,
+            'comment': str(comment or ''),
+        }
+        if frame_index not in {None, ''}:
+            event['frame_index'] = frame_index
+        if observation_label:
+            event['observation_id'] = observation_label
+        rows.append(event)
+    return rows
+
+
+def normalize_native_boris_project_payload(payload: dict) -> dict:
+    """Convert a native BORIS .boris JSON project into the internal exchange profile."""
+    category_names = [
+        str(item).strip()
+        for item in _coerce_name_list(payload.get('behavioral_categories'))
+        if str(item).strip()
+    ]
+    category_set = set(category_names)
+    used_behavior_keys: set[str] = set()
+    used_modifier_keys: set[str] = set()
+    behaviors = []
+    modifiers: dict[str, dict] = {}
+    behavior_modes: dict[str, str] = {}
+    for index, item in enumerate(_coerce_named_items(payload.get('behaviors_conf')), start=1):
+        code = str(item.get('code') or item.get('name') or '').strip()
+        if not code:
+            continue
+        raw_type = str(item.get('type') or '').casefold()
+        mode = Behavior.MODE_STATE if 'state' in raw_type else Behavior.MODE_POINT
+        behavior_modes[code] = mode
+        category = str(item.get('category') or '').strip()
+        if category:
+            category_set.add(category)
+        key_binding = str(item.get('key') or '').strip()[:1].upper()
+        if not key_binding or key_binding in used_behavior_keys:
+            key_binding = _choose_unique_shortcut(code, used_behavior_keys)
+        else:
+            used_behavior_keys.add(key_binding)
+        behaviors.append(
+            {
+                'name': code,
+                'description': item.get('description', ''),
+                'key_binding': key_binding,
+                'mode': mode,
+                'category': category or None,
+                'sort_order': index,
+            }
+        )
+        modifier_sets = item.get('modifiers') if isinstance(item.get('modifiers'), dict) else {}
+        for modifier_set in modifier_sets.values():
+            if not isinstance(modifier_set, dict):
+                continue
+            for raw_value in modifier_set.get('values') or []:
+                modifier_name, modifier_key = _clean_boris_modifier_value(raw_value)
+                if not modifier_name or modifier_name in modifiers:
+                    continue
+                key = (modifier_key or '').upper()
+                if not key or key in used_modifier_keys:
+                    key = _choose_unique_shortcut(modifier_name, used_modifier_keys)
+                else:
+                    used_modifier_keys.add(key)
+                modifiers[modifier_name] = {
+                    'name': modifier_name,
+                    'description': modifier_set.get('name', ''),
+                    'key_binding': key,
+                    'sort_order': len(modifiers) + 1,
+                }
+
+    observations = []
+    for observation_label, observation in (payload.get('observations') or {}).items():
+        if not isinstance(observation, dict):
+            continue
+        for raw_event in observation.get('events') or []:
+            modifier_source = raw_event.get('modifiers') if isinstance(raw_event, dict) else (
+                raw_event[3] if isinstance(raw_event, list) and len(raw_event) > 3 else ''
+            )
+            for modifier_name in _split_boris_modifier_tokens(modifier_source):
+                if modifier_name not in modifiers:
+                    key = _choose_unique_shortcut(modifier_name, used_modifier_keys)
+                    modifiers[modifier_name] = {
+                        'name': modifier_name,
+                        'description': '',
+                        'key_binding': key,
+                        'sort_order': len(modifiers) + 1,
+                    }
+
+        media_entries = _native_boris_media_entries(observation)
+        media_paths = [item['path'] for item in media_entries]
+        media_titles = [item['title'] for item in media_entries]
+        media_info = observation.get('media_info') if isinstance(observation.get('media_info'), dict) else {}
+        observations.append(
+            {
+                'title': str(observation_label),
+                'description': observation.get('description', ''),
+                'date': observation.get('date'),
+                'observation_type': observation.get('type'),
+                'time_offset_seconds': observation.get('time offset', 0),
+                'primary_video': media_titles[0] if media_titles else '',
+                'primary_media_path': media_paths[0] if media_paths else '',
+                'synced_videos': media_titles,
+                'media_paths': media_paths,
+                'media_info': media_info,
+                'variables': observation.get('independent_variables', {}),
+                'events': _native_boris_event_items(
+                    observation,
+                    behavior_modes=behavior_modes,
+                    observation_label=str(observation_label),
+                ),
+            }
+        )
+
+    variables = []
+    for index, item in enumerate(
+        _coerce_named_items(payload.get('independent_variables'), label_mode=True), start=1
+    ):
+        label = item.get('label') or item.get('name')
+        if not label:
+            continue
+        variables.append(
+            {
+                'label': label,
+                'description': item.get('description', ''),
+                'value_type': _map_boris_variable_type(item.get('type')),
+                'set_values': [
+                    value.strip()
+                    for value in str(item.get('possible values') or '').split(',')
+                    if value.strip()
+                ],
+                'default_value': item.get('default value', ''),
+                'sort_order': index,
+            }
+        )
+
+    subjects = []
+    for index, item in enumerate(_coerce_named_items(payload.get('subjects_conf')), start=1):
+        name = str(item.get('name') or '').strip()
+        if not name:
+            continue
+        subjects.append(
+            {
+                'name': name,
+                'description': item.get('description', ''),
+                'key_binding': str(item.get('key') or '')[:1],
+                'sort_order': index,
+            }
+        )
+
+    return {
+        'schema': _native_boris_schema(payload),
+        'source_application': 'BORIS',
+        'source_application_version': BORIS_LATEST_COMPATIBLE_VERSION,
+        'source_project_format_version': payload.get('project_format_version', ''),
+        'project': {
+            'name': payload.get('project_name') or 'Imported BORIS project',
+            'description': payload.get('project_description', ''),
+        },
+        'categories': [
+            {'name': name, 'sort_order': index}
+            for index, name in enumerate(sorted(category_set), start=1)
+            if name
+        ],
+        'subjects': subjects,
+        'behaviors': behaviors,
+        'modifiers': list(modifiers.values()),
+        'variables': variables,
+        'observations': observations,
+    }
+
+
 def _extract_observation_entries(payload: dict) -> list[dict]:
     """Extract project session/observation payloads from multiple BORIS-like shapes."""
     candidates = payload.get('sessions')
@@ -2915,9 +3589,11 @@ SUPPORTED_SCHEMA_MATRIX = {
         r'cowlog-results-v\d+',
         r'boris-tabular-(?:csv|tsv|xlsx)-v\d+',
         r'boris-tabular-spreadsheet-v\d+',
+        r'boris-tabular-aggregated-v\d+',
     ],
     'observation_patterns': [r'boris-observation-v\d+'],
     'project_patterns': [r'boris-project-v\d+', r'pybehaviorlog-0(?:\.\d+)*-bundle'],
+    'native_project_signatures': ['project_format_version', 'subjects_conf', 'behaviors_conf'],
     'ethogram_patterns': [
         r'cowlog-django-v\d+-ethogram',
         r'pybehaviorlog-0(?:\.\d+)*-ethogram',
@@ -2934,6 +3610,10 @@ EXTENSION_PROFILE = {
         'cowlog_export_observer_fps': '1.0',
         'boris_observation_merge_notes': '1.0',
         'schema_regex_families': '1.0',
+        'native_boris_project_import': BORIS_LATEST_COMPATIBLE_VERSION,
+        'boris_aggregated_events_export': BORIS_LATEST_COMPATIBLE_VERSION,
+        'feral_json_export': BORIS_LATEST_COMPATIBLE_VERSION,
+        'textgrid_texttier_points': BORIS_LATEST_COMPATIBLE_VERSION,
     },
 }
 
@@ -3004,16 +3684,50 @@ def _extract_media_labels(item: dict) -> list[str]:
         'frames',
     ):
         labels.extend(_coerce_name_list(item.get(key)))
-    primary = item.get('primary_video') or item.get('media_file') or item.get('media_path')
+    if item.get('file') is not None:
+        for media_entry in _native_boris_media_entries(item):
+            labels.append(media_entry['title'])
+    primary = (
+        item.get('primary_video')
+        or item.get('primary_media_path')
+        or item.get('media_file')
+        or item.get('media_path')
+    )
     if primary:
-        labels.insert(0, str(primary))
+        labels.insert(0, _media_title_from_path(str(primary)))
     seen = set()
     results = []
     for label in labels:
-        if label and label not in seen:
-            seen.add(label)
-            results.append(label)
+        label_text = str(label).strip().replace('\\', '/')
+        if label_text and label_text not in seen:
+            seen.add(label_text)
+            results.append(label_text)
     return results
+
+
+def _extract_media_import_entries(item: dict) -> list[dict[str, str]]:
+    entries = _native_boris_media_entries(item)
+    if not entries:
+        paths = _coerce_name_list(item.get('media_paths') or item.get('image_paths'))
+        entries = [
+            {'player': '1', 'path': str(path), 'title': _media_title_from_path(str(path))}
+            for path in paths
+        ]
+    primary = item.get('primary_media_path') or item.get('media_path')
+    if primary:
+        primary_path = str(primary).strip().replace('\\', '/')
+        primary_title = item.get('primary_video') or _media_title_from_path(primary_path)
+        entries.insert(0, {'player': '1', 'path': primary_path, 'title': str(primary_title)})
+    seen = set()
+    unique_entries = []
+    for entry in entries:
+        title = _media_title_from_path(entry.get('title') or entry.get('path'))
+        path = str(entry.get('path') or title).strip().replace('\\', '/')
+        key = (title, path)
+        if title and key not in seen:
+            seen.add(key)
+            unique_entries.append({'player': entry.get('player', '1'), 'title': title, 'path': path})
+    return unique_entries
 
 
 def load_project_import_payload(uploaded_file) -> tuple[dict, dict[str, dict]]:
@@ -3058,6 +3772,8 @@ def import_project_payload(
 ) -> dict[str, int]:
     """Import a richer BORIS-like project payload into an existing project."""
     bundled_sessions = bundled_sessions or {}
+    if _is_native_boris_project_payload(payload):
+        payload = normalize_native_boris_project_payload(payload)
     schema = payload.get('schema')
     if not _is_supported_project_schema(schema):
         raise ValueError(_('Unsupported project payload format.'))
@@ -3202,10 +3918,22 @@ def import_project_payload(
             synced_titles = _extract_media_labels(observation) or _extract_media_labels(
                 session_payload
             )
+            media_entries = _extract_media_import_entries(observation) or _extract_media_import_entries(
+                session_payload
+            )
             primary_label = synced_titles[0] if synced_titles else ''
+            if not primary_label and media_entries:
+                primary_label = media_entries[0]['title']
             existing_video = (
                 project.videos.filter(title=primary_label).first() if primary_label else None
             )
+            if existing_video is None and media_entries:
+                primary_entry = media_entries[0]
+                existing_video = _get_or_create_imported_video(
+                    project,
+                    title=primary_entry['title'],
+                    media_path=primary_entry['path'],
+                )
             if existing_video is None and not create_live_sessions and primary_label:
                 continue
             session_kind = (
@@ -3224,6 +3952,15 @@ def import_project_payload(
                     _('Imported media titles: %(titles)s')
                     % {'titles': ', '.join(dict.fromkeys(synced_titles))}
                 )
+            if media_entries:
+                notes_parts.append(
+                    _('Imported BORIS media paths: %(paths)s')
+                    % {
+                        'paths': ', '.join(
+                            dict.fromkeys(entry['path'] for entry in media_entries if entry['path'])
+                        )
+                    }
+                )
             session, _created = ObservationSession.objects.update_or_create(
                 project=project,
                 title=title,
@@ -3239,7 +3976,14 @@ def import_project_payload(
                     ),
                 },
             )
-            matched_videos = list(project.videos.filter(title__in=synced_titles))
+            for media_entry in media_entries:
+                _get_or_create_imported_video(
+                    project,
+                    title=media_entry['title'],
+                    media_path=media_entry['path'],
+                )
+            matched_titles = synced_titles + [entry['title'] for entry in media_entries]
+            matched_videos = list(project.videos.filter(title__in=matched_titles))
             if matched_videos:
                 _sync_session_videos(session, matched_videos)
             event_count, annotation_count = import_session_payload(
@@ -3584,6 +4328,8 @@ def build_boris_like_payload(session: ObservationSession) -> dict:  # pragma: no
             picture_directory = next(iter(parents))
     return {
         'schema': 'boris-observation-v3',
+        'source_application': 'PyBehaviorLog',
+        'boris_compatibility_target': BORIS_LATEST_COMPATIBLE_VERSION,
         'project_name': session.project.name,
         'ethogram': build_ethogram_payload(session.project),
         'workflow_status': session.workflow_status,
@@ -3598,6 +4344,11 @@ def build_boris_like_payload(session: ObservationSession) -> dict:  # pragma: no
                 'media_paths': media_paths,
                 'image_paths': image_paths,
                 'picture_directory': picture_directory,
+                'media_info': {
+                    'duration_seconds': _session_media_duration_value(session),
+                    'fps': _session_frame_rate_value(session),
+                    'source': _session_source_label(session),
+                },
                 'observer': session.observer.username if session.observer else None,
                 'events': [
                     {
@@ -3909,11 +4660,13 @@ def project_import_create(request):  # pragma: no cover
             payload, bundled_sessions = load_project_import_payload(uploaded)
             inferred_name = (
                 (payload.get('project') or {}).get('name')
+                or payload.get('project_name')
                 or payload.get('name')
                 or _('Imported project')
             )
             inferred_description = (
                 (payload.get('project') or {}).get('description')
+                or payload.get('project_description')
                 or payload.get('description')
                 or ''
             )
@@ -6170,6 +6923,35 @@ def session_export_binary_table_tsv(request, pk: int):  # pragma: no cover
 
 @login_required
 @require_GET
+def session_export_boris_aggregated_tsv(request, pk: int):  # pragma: no cover
+    session = get_accessible_session(request.user, pk)
+    headers, rows = build_boris_aggregated_event_rows(session)
+    response = HttpResponse(content_type='text/tab-separated-values; charset=utf-8')
+    response['Content-Disposition'] = (
+        f'attachment; filename="session_{session.pk}_boris_aggregated_events.tsv"'
+    )
+    writer = csv.writer(response, delimiter='\t')
+    writer.writerow(headers)
+    for row in rows:
+        writer.writerow(row)
+    return response
+
+
+@login_required
+@require_GET
+def session_export_feral_json(request, pk: int):  # pragma: no cover
+    session = get_accessible_session(request.user, pk)
+    payload = build_feral_payload(session)
+    response = HttpResponse(
+        json.dumps(payload, indent=2, ensure_ascii=False),
+        content_type=JSON_CONTENT_TYPE,
+    )
+    response['Content-Disposition'] = f'attachment; filename="session_{session.pk}_feral.json"'
+    return response
+
+
+@login_required
+@require_GET
 def session_export_csv(request, pk: int):  # pragma: no cover
     session = get_accessible_session(request.user, pk)
     response = HttpResponse(content_type='text/csv; charset=utf-8')
@@ -6227,9 +7009,12 @@ def session_export_json(request, pk: int):
     session = get_accessible_session(request.user, pk)
     payload = {
         'schema': 'pybehaviorlog-0.9.5-session',
+        'boris_compatibility_target': BORIS_LATEST_COMPATIBLE_VERSION,
         'project': session.project.name,
         'session': session.title,
         'video': session.primary_label,
+        'media_duration_seconds': _session_media_duration_value(session),
+        'fps': _session_frame_rate_value(session),
         'primary_media_path': _relative_media_path(
             session.all_videos_ordered[0] if session.all_videos_ordered else None
         ),

@@ -4,6 +4,14 @@ PyBehaviorLog 0.9.1 strengthens interoperability with BORIS and CowLog around th
 
 ## BORIS coverage
 
+### BORIS 9.12.1 compatibility additions
+
+- Native `.boris` project JSON files are detected by BORIS signatures such as `project_format_version`, `subjects_conf`, and `behaviors_conf`, then normalized into the PyBehaviorLog import profile.
+- BORIS tabular CSV/TSV/XLSX imports now tolerate metadata preambles before the event header and accept recent aliases such as `Start (s)`, `Stop (s)`, `Duration (s)`, and `FPS (frame/s)`.
+- TextGrid exports now emit point events as `TextTier` tiers and split overlapping state intervals into separate subject/behavior tiers.
+- Session exports include a BORIS-style aggregated events TSV with `Media duration (s)` and `FPS (frame/s)` columns for BORIS 9.x analysis plugins.
+- Session exports include a FERAL-compatible JSON label payload modeled on the BORIS FERAL export plugin.
+
 ### Implemented in 0.9
 
 - BORIS-compatible observation JSON export

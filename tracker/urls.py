@@ -200,6 +200,16 @@ urlpatterns = [
         views.session_export_binary_table_tsv,
         name='session_export_binary_table_tsv',
     ),
+    path(
+        'sessions/<int:pk>/export/boris-aggregated-events/',
+        views.session_export_boris_aggregated_tsv,
+        name='session_export_boris_aggregated_tsv',
+    ),
+    path(
+        'sessions/<int:pk>/export/feral-json/',
+        views.session_export_feral_json,
+        name='session_export_feral_json',
+    ),
     path('sessions/<int:pk>/export/csv/', views.session_export_csv, name='session_export_csv'),
     path('sessions/<int:pk>/export/tsv/', views.session_export_tsv, name='session_export_tsv'),
     path('sessions/<int:pk>/export/json/', views.session_export_json, name='session_export_json'),
