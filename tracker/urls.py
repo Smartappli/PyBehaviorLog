@@ -35,6 +35,11 @@ urlpatterns = [
         name='project_export_boris_json',
     ),
     path(
+        'projects/<int:pk>/export/boris/<str:profile>/',
+        views.project_export_boris_native,
+        name='project_export_boris_native',
+    ),
+    path(
         'projects/<int:pk>/export/compatibility-report/',
         views.project_export_compatibility_report,
         name='project_export_compatibility_report',
@@ -217,6 +222,11 @@ urlpatterns = [
         'sessions/<int:pk>/export/boris-json/',
         views.session_export_boris_json,
         name='session_export_boris_json',
+    ),
+    path(
+        'sessions/<int:pk>/export/boris/<str:profile>/',
+        views.session_export_boris_native,
+        name='session_export_boris_native',
     ),
     path('sessions/<int:pk>/export/xlsx/', views.session_export_xlsx, name='session_export_xlsx'),
 ]

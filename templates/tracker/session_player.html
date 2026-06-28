@@ -19,6 +19,9 @@
         <a href="{% url 'tracker:session_export_tsv' session.pk %}" class="button secondary">TSV</a>
         <a href="{% url 'tracker:session_export_json' session.pk %}" class="button secondary">JSON</a>
         <a href="{% url 'tracker:session_export_boris_json' session.pk %}" class="button secondary">{% trans 'BORIS JSON' %}</a>
+        <a href="{% url 'tracker:session_export_boris_native' session.pk '7' %}" class="button secondary">{% trans 'BORIS 7' %}</a>
+        <a href="{% url 'tracker:session_export_boris_native' session.pk '8' %}" class="button secondary">{% trans 'BORIS 8' %}</a>
+        <a href="{% url 'tracker:session_export_boris_native' session.pk '9' %}" class="button secondary">{% trans 'BORIS 9' %}</a>
         <a href="{% url 'tracker:session_export_behavioral_sequences' session.pk %}" class="button secondary">{% trans 'Sequences' %}</a>
         <a href="{% url 'tracker:session_export_textgrid' session.pk %}" class="button secondary">TextGrid</a>
         <a href="{% url 'tracker:session_export_binary_table_tsv' session.pk %}" class="button secondary">{% trans 'Binary table' %}</a>

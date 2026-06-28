@@ -3260,6 +3260,9 @@ def build_session_compatibility_report(session: ObservationSession) -> dict:
         'boris': {
             'documented_exports': [
                 'json',
+                'native_boris_project_boris7',
+                'native_boris_project_boris8',
+                'native_boris_project_boris9',
                 'behavioral_sequences',
                 'textgrid',
                 'binary_table',
@@ -3354,6 +3357,9 @@ def build_project_compatibility_report(project: Project) -> dict:
         'supported_boris_exports': [
             'project_json',
             'session_json',
+            'native_boris_project_boris7',
+            'native_boris_project_boris8',
+            'native_boris_project_boris9',
             'behavioral_sequences',
             'textgrid',
             'binary_table',
@@ -3861,6 +3867,7 @@ EXTENSION_PROFILE = {
         'boris_observation_merge_notes': '1.0',
         'schema_regex_families': '1.0',
         'native_boris_project_import': BORIS_LATEST_COMPATIBLE_VERSION,
+        'native_boris_project_export_profiles': '7,8,9',
         'boris_aggregated_events_export': BORIS_LATEST_COMPATIBLE_VERSION,
         'feral_json_export': BORIS_LATEST_COMPATIBLE_VERSION,
         'textgrid_texttier_points': BORIS_LATEST_COMPATIBLE_VERSION,

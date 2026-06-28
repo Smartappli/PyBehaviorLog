@@ -17,6 +17,9 @@
         <a href="{% url 'tracker:project_export_xlsx' project.pk %}" class="button secondary">{% trans 'Project XLSX' %}</a>
         <a href="{% url 'tracker:project_export_ethogram' project.pk %}" class="button secondary">{% trans 'Export ethogram' %}</a>
         <a href="{% url 'tracker:project_export_boris_json' project.pk %}" class="button secondary">{% trans 'Export BORIS project' %}</a>
+        <a href="{% url 'tracker:project_export_boris_native' project.pk '7' %}" class="button secondary">{% trans 'BORIS 7' %}</a>
+        <a href="{% url 'tracker:project_export_boris_native' project.pk '8' %}" class="button secondary">{% trans 'BORIS 8' %}</a>
+        <a href="{% url 'tracker:project_export_boris_native' project.pk '9' %}" class="button secondary">{% trans 'BORIS 9' %}</a>
         <a href="{% url 'tracker:project_export_compatibility_report' project.pk %}" class="button secondary">{% trans 'Compatibility report' %}</a>
         <a href="{% url 'tracker:project_export_bundle' project.pk %}" class="button secondary">{% trans 'Reproducibility bundle' %}</a>
         {% if can_edit_project %}
