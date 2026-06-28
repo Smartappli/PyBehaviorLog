@@ -456,6 +456,56 @@ class CompatibilityTests(TestCase):
         self.assertEqual([event.event_kind for event in imported_events], ['point', 'start', 'stop'])
         self.assertEqual(imported_events[0].modifiers.get().name, 'fast')
 
+    def test_native_boris_image_observation_preserves_image_index_and_path(self):
+        target_project = Project.objects.create(owner=self.user, name='Native BORIS images')
+        native_payload = {
+            'project_name': 'Native BORIS image source',
+            'project_format_version': '7.0',
+            'subjects_conf': {},
+            'behaviors_conf': {
+                '0': {
+                    'type': 'Point event',
+                    'key': 'p',
+                    'code': 'Peck',
+                    'description': '',
+                    'category': '',
+                    'modifiers': {},
+                }
+            },
+            'observations': {
+                'Image observation': {
+                    'file': {},
+                    'type': 'IMAGES',
+                    'date': '2026-06-26T12:00:00',
+                    'description': 'Images from one directory',
+                    'time offset': 0.0,
+                    'directories_list': ['pictures/session1'],
+                    'independent_variables': {},
+                    'events': [
+                        [1.0, '', 'Peck', '', '', 3, 'pictures/session1/img003.jpg'],
+                    ],
+                }
+            },
+            'behavioral_categories': [],
+            'independent_variables': {},
+            'coding_map': {},
+            'behaviors_coding_map': [],
+            'converters': {},
+        }
+        normalized = normalize_native_boris_project_payload(native_payload)
+        observation = normalized['observations'][0]
+        self.assertEqual(observation['media_paths'], ['pictures/session1'])
+        self.assertEqual(observation['events'][0]['frame_index'], 3)
+        self.assertEqual(observation['events'][0]['image_path'], 'pictures/session1/img003.jpg')
+
+        summary = import_project_payload(target_project, native_payload, actor=self.user)
+        self.assertEqual(summary['sessions_imported'], 1)
+        imported_session = target_project.sessions.get(title='Image observation')
+        imported_event = imported_session.events.get()
+        self.assertEqual(imported_event.frame_index, 3)
+        self.assertEqual(imported_event.comment, 'pictures/session1/img003.jpg')
+        self.assertIn('pictures/session1', imported_session.notes)
+
     def test_session_undo_and_redo_endpoints_restore_event_state(self):
         response = self.client.post(
             reverse('tracker:event_create_api', args=[self.session.pk]),
