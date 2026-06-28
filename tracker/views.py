@@ -2116,6 +2116,8 @@ def _boris_native_media_info(session: ObservationSession) -> dict:
         'hasAudio': {},
         'offset': {str(index): 0.0 for index, _path in enumerate(media_paths, start=1)},
     }
+    if fps and duration:
+        media_info['frames'] = dict.fromkeys(media_paths, max(int(round(duration * fps)), 0))
     for path in media_paths:
         media_kind = _media_kind_from_name(path)
         media_info['hasVideo'][path] = media_kind in {'video', 'image'}

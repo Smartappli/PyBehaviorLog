@@ -44,6 +44,7 @@ This version extends the earlier CowLog/BORIS-inspired foundations with:
 - BORIS 9.x-style tabular event TSV export from the session screen
 - hardened native BORIS imports for image observations and modifier tokens with shortcut suffixes or `None` placeholders
 - native `.boris` `IMAGES` export for image-only observation sessions
+- native `.boris` media frame counts when FPS and media duration are known
 
 ## Runtime stack
 

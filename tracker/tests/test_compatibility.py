@@ -663,6 +663,47 @@ class CompatibilityTests(TestCase):
         normalized = normalize_native_boris_project_payload(payload9)
         self.assertEqual(normalized['observations'][0]['events'][0]['frame_index'], 38)
 
+    def test_native_boris_export_includes_media_frame_count_when_known(self):
+        video = VideoAsset.objects.create(
+            project=self.project,
+            title='Clip',
+            file='videos/clip.mp4',
+        )
+        media_session = ObservationSession.objects.create(
+            project=self.project,
+            observer=self.user,
+            title='Media Session',
+            session_kind=ObservationSession.KIND_MEDIA,
+            video=video,
+        )
+        fps_definition = IndependentVariableDefinition.objects.create(
+            project=self.project,
+            label='fps',
+            value_type=IndependentVariableDefinition.TYPE_NUMERIC,
+        )
+        duration_definition = IndependentVariableDefinition.objects.create(
+            project=self.project,
+            label='duration',
+            value_type=IndependentVariableDefinition.TYPE_NUMERIC,
+        )
+        ObservationVariableValue.objects.create(
+            session=media_session,
+            definition=fps_definition,
+            value='30',
+        )
+        ObservationVariableValue.objects.create(
+            session=media_session,
+            definition=duration_definition,
+            value='2',
+        )
+
+        payload = build_native_boris_project_payload(
+            self.project, profile='9', sessions=[media_session]
+        )
+        media_info = payload['observations']['Media Session']['media_info']
+
+        self.assertEqual(media_info['frames']['videos/clip.mp4'], 60)
+
     def test_native_boris_export_uses_images_observation_for_image_sequences(self):
         first_image = VideoAsset.objects.create(
             project=self.project,

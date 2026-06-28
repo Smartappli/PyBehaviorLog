@@ -8,6 +8,7 @@ PyBehaviorLog 0.9.1 strengthens interoperability with BORIS and CowLog around th
 
 - Native `.boris` project JSON files are detected by BORIS signatures such as `project_format_version`, `subjects_conf`, and `behaviors_conf`, then normalized into the PyBehaviorLog import profile.
 - Project and session screens expose native `.boris` exports for BORIS 7, BORIS 8, and BORIS 9 profiles. BORIS 9.12.1 still declares native project files with `project_format_version` set to `7.0`; PyBehaviorLog keeps that value and varies optional observation/media fields by profile.
+- Native `.boris` exports include `media_info.frames` when FPS and media duration are known, matching the frame-count field consumed by recent BORIS analysis/export plugins.
 - Native `.boris` exports write sessions backed only by image files as BORIS `IMAGES` observations with `directories_list`, image index, and image path event fields.
 - BORIS tabular CSV/TSV/XLSX imports now tolerate metadata preambles before the event header and accept recent aliases such as `Start (s)`, `Stop (s)`, `Duration (s)`, and `FPS (frame/s)`.
 - Session exports include a BORIS 9.x-style tabular events TSV with observation metadata, media duration/FPS fields, independent variables, modifiers, event status, media file name, and frame index.
