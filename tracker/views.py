@@ -2085,7 +2085,7 @@ def _boris_native_media_info(session: ObservationSession) -> dict:
     duration = _session_media_duration_value(session)
     fps = _session_frame_rate_value(session)
     media_info = {
-        'length': {path: duration for path in media_paths},
+        'length': dict.fromkeys(media_paths, duration),
         'fps': {path: fps for path in media_paths if fps},
         'hasVideo': {},
         'hasAudio': {},
@@ -3904,8 +3904,8 @@ def _is_supported_ethogram_schema(value: str | None) -> bool:
     )
 
 
-def _resolve_event_kind_token(value: str | None) -> str | None:
-    token = (value or '').strip().lower().replace('_', ' ')
+def _resolve_event_kind_token(value: object) -> str | None:
+    token = str(value or '').strip().lower().replace('_', ' ')
     mapping = {
         'point': ObservationEvent.KIND_POINT,
         'p': ObservationEvent.KIND_POINT,
