@@ -15,6 +15,7 @@ from tracker.models import (
     ObservationVariableValue,
     Project,
     SessionAnnotation,
+    SessionVideoLink,
     Subject,
     VideoAsset,
 )
