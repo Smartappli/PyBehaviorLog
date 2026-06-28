@@ -657,8 +657,13 @@ class CompatibilityTests(TestCase):
         self.assertEqual(len(payload7['observations']['Media Session']['events'][0]), 5)
         self.assertIn('scan_sampling_time', payload8['observations']['Media Session'])
         self.assertNotIn('visualize_waveform', payload8['observations']['Media Session'])
+        self.assertNotIn('display', payload8['observations']['Media Session']['media_info'])
         self.assertEqual(payload8['observations']['Media Session']['events'][0][5], 38)
         self.assertIn('visualize_waveform', payload9['observations']['Media Session'])
+        self.assertEqual(
+            payload9['observations']['Media Session']['media_info']['display'],
+            {'videos/clip.mp4': 'Nothing'},
+        )
         self.assertIn('behavioral_categories_config', payload9)
         normalized = normalize_native_boris_project_payload(payload9)
         self.assertEqual(normalized['observations'][0]['events'][0]['frame_index'], 38)
@@ -741,6 +746,7 @@ class CompatibilityTests(TestCase):
         self.assertEqual(observation['type'], 'IMAGES')
         self.assertEqual(observation['file'], {})
         self.assertEqual(observation['directories_list'], ['pictures/session1'])
+        self.assertNotIn('display', observation['media_info'])
         self.assertEqual(
             observation['events'][0],
             [

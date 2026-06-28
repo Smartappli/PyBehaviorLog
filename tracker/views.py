@@ -86,6 +86,7 @@ BORIS_NATIVE_EXPORT_PROFILES = {
         'include_frame_index': False,
         'include_scan_sampling_time': False,
         'include_waveform_flags': False,
+        'include_player_plot_display': False,
         'include_category_config': False,
     },
     '8': {
@@ -93,6 +94,7 @@ BORIS_NATIVE_EXPORT_PROFILES = {
         'include_frame_index': True,
         'include_scan_sampling_time': True,
         'include_waveform_flags': False,
+        'include_player_plot_display': False,
         'include_category_config': False,
     },
     '9': {
@@ -100,6 +102,7 @@ BORIS_NATIVE_EXPORT_PROFILES = {
         'include_frame_index': True,
         'include_scan_sampling_time': True,
         'include_waveform_flags': True,
+        'include_player_plot_display': True,
         'include_category_config': True,
     },
 }
@@ -2103,7 +2106,9 @@ def _boris_native_media_file_map(session: ObservationSession) -> dict[str, list[
     return {str(index): [path] for index, path in enumerate(media_paths, start=1)}
 
 
-def _boris_native_media_info(session: ObservationSession) -> dict:
+def _boris_native_media_info(
+    session: ObservationSession, *, include_player_plot_display: bool = False
+) -> dict:
     media_paths = _boris_native_media_paths(session)
     if not media_paths:
         return {'offset': {}}
@@ -2118,6 +2123,8 @@ def _boris_native_media_info(session: ObservationSession) -> dict:
     }
     if fps and duration:
         media_info['frames'] = dict.fromkeys(media_paths, max(int(round(duration * fps)), 0))
+    if include_player_plot_display and not _boris_native_is_image_observation(session):
+        media_info['display'] = dict.fromkeys(media_paths, 'Nothing')
     for path in media_paths:
         media_kind = _media_kind_from_name(path)
         media_info['hasVideo'][path] = media_kind in {'video', 'image'}
@@ -2193,7 +2200,10 @@ def _boris_native_observation(
             session, include_frame_index=profile_options['include_frame_index']
         ),
         'description': session.description,
-        'media_info': _boris_native_media_info(session),
+        'media_info': _boris_native_media_info(
+            session,
+            include_player_plot_display=profile_options['include_player_plot_display'],
+        ),
     }
     if _boris_native_is_image_observation(session):
         observation['directories_list'] = _boris_native_image_directories(session)
