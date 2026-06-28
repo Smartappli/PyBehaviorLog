@@ -663,6 +663,65 @@ class CompatibilityTests(TestCase):
         normalized = normalize_native_boris_project_payload(payload9)
         self.assertEqual(normalized['observations'][0]['events'][0]['frame_index'], 38)
 
+    def test_native_boris_export_uses_images_observation_for_image_sequences(self):
+        first_image = VideoAsset.objects.create(
+            project=self.project,
+            title='Image 001',
+            file='pictures/session1/img001.jpg',
+        )
+        second_image = VideoAsset.objects.create(
+            project=self.project,
+            title='Image 002',
+            file='pictures/session1/img002.jpg',
+        )
+        image_session = ObservationSession.objects.create(
+            project=self.project,
+            observer=self.user,
+            title='Image Session',
+            session_kind=ObservationSession.KIND_MEDIA,
+            video=first_image,
+        )
+        SessionVideoLink.objects.create(session=image_session, video=first_image, sort_order=0)
+        SessionVideoLink.objects.create(session=image_session, video=second_image, sort_order=1)
+        event = ObservationEvent.objects.create(
+            session=image_session,
+            behavior=self.point_behavior,
+            event_kind=ObservationEvent.KIND_POINT,
+            timestamp_seconds=Decimal('1.000'),
+            frame_index=1,
+            comment='pictures/session1/img002.jpg',
+        )
+        event.subjects.add(self.subject)
+
+        payload = build_native_boris_project_payload(
+            self.project, profile='9', sessions=[image_session]
+        )
+        observation = payload['observations']['Image Session']
+        self.assertEqual(observation['type'], 'IMAGES')
+        self.assertEqual(observation['file'], {})
+        self.assertEqual(observation['directories_list'], ['pictures/session1'])
+        self.assertEqual(
+            observation['events'][0],
+            [
+                1.0,
+                'Cow 1',
+                'Eat',
+                '',
+                'pictures/session1/img002.jpg',
+                1,
+                'pictures/session1/img002.jpg',
+            ],
+        )
+
+        normalized = normalize_native_boris_project_payload(payload)
+        normalized_observation = normalized['observations'][0]
+        self.assertEqual(normalized_observation['media_paths'], ['pictures/session1'])
+        self.assertEqual(normalized_observation['events'][0]['frame_index'], 1)
+        self.assertEqual(
+            normalized_observation['events'][0]['image_path'],
+            'pictures/session1/img002.jpg',
+        )
+
     def test_boris_tabular_event_export_rows(self):
         video = VideoAsset.objects.create(
             project=self.project,
