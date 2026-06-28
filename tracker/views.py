@@ -88,6 +88,7 @@ BORIS_NATIVE_EXPORT_PROFILES = {
         'include_observation_time_interval': False,
         'include_waveform_flags': False,
         'include_player_plot_display': False,
+        'include_media_playback_defaults': False,
         'include_category_config': False,
     },
     '8': {
@@ -97,6 +98,7 @@ BORIS_NATIVE_EXPORT_PROFILES = {
         'include_observation_time_interval': True,
         'include_waveform_flags': False,
         'include_player_plot_display': False,
+        'include_media_playback_defaults': False,
         'include_category_config': False,
     },
     '9': {
@@ -106,6 +108,7 @@ BORIS_NATIVE_EXPORT_PROFILES = {
         'include_observation_time_interval': True,
         'include_waveform_flags': True,
         'include_player_plot_display': True,
+        'include_media_playback_defaults': True,
         'include_category_config': True,
     },
 }
@@ -2217,6 +2220,10 @@ def _boris_native_observation(
     if profile_options['include_waveform_flags']:
         observation['visualize_waveform'] = False
         observation['start_from_current_time'] = False
+    if profile_options['include_media_playback_defaults']:
+        observation['media_creation_date_as_offset'] = False
+        observation['media_scan_sampling_duration'] = 0
+        observation['image_display_duration'] = 1
     return observation
 
 
