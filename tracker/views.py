@@ -5296,6 +5296,24 @@ def project_export_boris_json(request, pk: int):  # pragma: no cover
 
 @login_required
 @require_GET
+def project_export_boris_native(request, pk: int, profile: str):  # pragma: no cover
+    project = get_accessible_project(request.user, pk)
+    try:
+        profile_key = _normalize_boris_native_export_profile(profile)
+    except ValueError as exc:
+        raise Http404(str(exc)) from exc
+    payload = build_native_boris_project_payload(project, profile=profile_key)
+    filename = f'{slugify(project.name) or "project"}_boris_{profile_key}.boris'
+    response = HttpResponse(
+        json.dumps(payload, indent=2, ensure_ascii=False),
+        content_type=JSON_CONTENT_TYPE,
+    )
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
+
+
+@login_required
+@require_GET
 def project_export_compatibility_report(request, pk: int):  # pragma: no cover
     project = get_accessible_project(request.user, pk)
     report = build_project_compatibility_report(project)
@@ -7311,6 +7329,27 @@ def session_export_boris_json(request, pk: int):  # pragma: no cover
         content_type=JSON_CONTENT_TYPE,
     )
     response['Content-Disposition'] = f'attachment; filename="session_{session.pk}_boris_like.json"'
+    return response
+
+
+@login_required
+@require_GET
+def session_export_boris_native(request, pk: int, profile: str):  # pragma: no cover
+    session = get_accessible_session(request.user, pk)
+    try:
+        profile_key = _normalize_boris_native_export_profile(profile)
+    except ValueError as exc:
+        raise Http404(str(exc)) from exc
+    payload = build_native_boris_project_payload(
+        session.project, profile=profile_key, sessions=[session]
+    )
+    response = HttpResponse(
+        json.dumps(payload, indent=2, ensure_ascii=False),
+        content_type=JSON_CONTENT_TYPE,
+    )
+    response['Content-Disposition'] = (
+        f'attachment; filename="session_{session.pk}_boris_{profile_key}.boris"'
+    )
     return response
 
 
