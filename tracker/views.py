@@ -79,6 +79,30 @@ ALL_SUBJECTS_LABEL = 'All subjects'
 NO_FOCAL_SUBJECT_LABEL = 'No focal subject'
 BORIS_PROJECT_JSON = 'boris_project.json'
 BORIS_LATEST_COMPATIBLE_VERSION = '9.12.1'
+BORIS_NATIVE_PROJECT_FORMAT_VERSION = '7.0'
+BORIS_NATIVE_EXPORT_PROFILES = {
+    '7': {
+        'label': 'BORIS 7',
+        'include_frame_index': False,
+        'include_scan_sampling_time': False,
+        'include_waveform_flags': False,
+        'include_category_config': False,
+    },
+    '8': {
+        'label': 'BORIS 8',
+        'include_frame_index': True,
+        'include_scan_sampling_time': True,
+        'include_waveform_flags': False,
+        'include_category_config': False,
+    },
+    '9': {
+        'label': 'BORIS 9',
+        'include_frame_index': True,
+        'include_scan_sampling_time': True,
+        'include_waveform_flags': True,
+        'include_category_config': True,
+    },
+}
 CSV_EXTENSION = '.csv'
 DELETE_CONFIRM_TEMPLATE = 'tracker/delete_confirm.html'
 INVALID_JSON_PAYLOAD = 'Invalid JSON payload.'
@@ -1951,6 +1975,229 @@ def build_project_boris_payload(project: Project) -> dict:
     return payload
 
 
+def _normalize_boris_native_export_profile(profile: str | int | None) -> str:
+    token = str(profile or '9').strip().lower()
+    token = token.removeprefix('boris').removeprefix('v').strip('-_ ')
+    if token in BORIS_NATIVE_EXPORT_PROFILES:
+        return token
+    raise ValueError(_('Unsupported BORIS export profile.'))
+
+
+def _boris_native_variable_type(definition: IndependentVariableDefinition) -> str:
+    mapping = {
+        IndependentVariableDefinition.TYPE_NUMERIC: 'numeric',
+        IndependentVariableDefinition.TYPE_SET: 'value from set',
+        IndependentVariableDefinition.TYPE_TIMESTAMP: 'timestamp',
+    }
+    return mapping.get(definition.value_type, 'text')
+
+
+def _boris_native_subjects(project: Project) -> dict[str, dict]:
+    return {
+        str(index): {
+            'key': subject.key_binding or '',
+            'name': subject.name,
+            'description': subject.description,
+        }
+        for index, subject in enumerate(project.subjects.order_by('sort_order', 'name'))
+    }
+
+
+def _boris_native_modifier_set(project: Project) -> dict[str, dict]:
+    values = []
+    for modifier in project.modifiers.order_by('sort_order', 'name'):
+        value = modifier.name
+        if modifier.key_binding:
+            value = f'{modifier.name} ({modifier.key_binding})'
+        values.append(value)
+    if not values:
+        return {}
+    return {'0': {'name': 'Modifiers', 'type': 0, 'values': values}}
+
+
+def _boris_native_behaviors(project: Project) -> dict[str, dict]:
+    modifier_set = _boris_native_modifier_set(project)
+    return {
+        str(index): {
+            'type': (
+                BORIS_EVENT_KIND_LABELS[ObservationEvent.KIND_START]
+                if behavior.mode == Behavior.MODE_STATE
+                else BORIS_EVENT_KIND_LABELS[ObservationEvent.KIND_POINT]
+            ),
+            'key': behavior.key_binding or '',
+            'code': behavior.name,
+            'description': behavior.description,
+            'color': behavior.color,
+            'category': behavior.category.name if behavior.category else '',
+            'modifiers': modifier_set,
+            'excluded': '',
+            'coding map': '',
+        }
+        for index, behavior in enumerate(
+            project.behaviors.select_related('category').order_by('sort_order', 'name')
+        )
+    }
+
+
+def _boris_native_independent_variables(project: Project) -> dict[str, dict]:
+    return {
+        str(index): {
+            'label': definition.label,
+            'description': definition.description,
+            'type': _boris_native_variable_type(definition),
+            'default value': definition.default_value,
+            'possible values': ','.join(definition.value_options),
+        }
+        for index, definition in enumerate(
+            project.variable_definitions.order_by('sort_order', 'label')
+        )
+    }
+
+
+def _boris_native_category_config(project: Project) -> dict[str, dict]:
+    return {
+        str(index): {'name': category.name, 'color': category.color}
+        for index, category in enumerate(project.categories.order_by('sort_order', 'name'))
+    }
+
+
+def _boris_native_media_file_map(session: ObservationSession) -> dict[str, list[str]] | list:
+    if session.session_kind == ObservationSession.KIND_LIVE:
+        return []
+    media_paths = [
+        _relative_media_path(video)
+        for video in session.all_videos_ordered
+        if _relative_media_path(video)
+    ]
+    if not media_paths:
+        return {'1': []}
+    return {str(index): [path] for index, path in enumerate(media_paths, start=1)}
+
+
+def _boris_native_media_info(session: ObservationSession) -> dict:
+    media_paths = [
+        _relative_media_path(video)
+        for video in session.all_videos_ordered
+        if _relative_media_path(video)
+    ]
+    if not media_paths:
+        return {'offset': {}}
+    duration = _session_media_duration_value(session)
+    fps = _session_frame_rate_value(session)
+    media_info = {
+        'length': {path: duration for path in media_paths},
+        'fps': {path: fps for path in media_paths if fps},
+        'hasVideo': {},
+        'hasAudio': {},
+        'offset': {str(index): 0.0 for index, _path in enumerate(media_paths, start=1)},
+    }
+    for path in media_paths:
+        media_kind = _media_kind_from_name(path)
+        media_info['hasVideo'][path] = media_kind in {'video', 'image'}
+        media_info['hasAudio'][path] = media_kind in {'audio', 'video'}
+    return media_info
+
+
+def _boris_native_event_rows(session: ObservationSession, *, include_frame_index: bool) -> list:
+    rows = []
+    events = (
+        session.events.select_related('behavior')
+        .prefetch_related('subjects', 'modifiers')
+        .order_by('timestamp_seconds', 'pk')
+    )
+    for event in events:
+        subject_names = [subject.name for subject in event.all_subjects_ordered] or ['']
+        modifier_names = [
+            modifier.name for modifier in event.modifiers.order_by('sort_order', 'name')
+        ]
+        modifier_token = '|'.join(modifier_names)
+        for subject_name in subject_names:
+            row = [
+                float(event.timestamp_seconds),
+                subject_name,
+                event.behavior.name,
+                modifier_token,
+                event.comment,
+            ]
+            if (
+                include_frame_index
+                and session.session_kind == ObservationSession.KIND_MEDIA
+                and event.frame_index is not None
+            ):
+                row.append(event.frame_index)
+            rows.append(row)
+    return rows
+
+
+def _boris_native_observation(
+    session: ObservationSession, *, profile_options: dict
+) -> dict:
+    variable_values = {
+        value.definition.label: value.value
+        for value in session.variable_values.select_related('definition').all()
+    }
+    observation = {
+        'date': session.recorded_at.isoformat(),
+        'file': _boris_native_media_file_map(session),
+        'type': 'LIVE' if session.session_kind == ObservationSession.KIND_LIVE else 'MEDIA',
+        'visualize_spectrogram': False,
+        'time offset': 0.0,
+        'independent_variables': variable_values,
+        'close_behaviors_between_videos': False,
+        'events': _boris_native_event_rows(
+            session, include_frame_index=profile_options['include_frame_index']
+        ),
+        'description': session.description,
+        'media_info': _boris_native_media_info(session),
+    }
+    if profile_options['include_scan_sampling_time']:
+        observation['scan_sampling_time'] = 0
+    if profile_options['include_waveform_flags']:
+        observation['visualize_waveform'] = False
+        observation['start_from_current_time'] = False
+    return observation
+
+
+def build_native_boris_project_payload(
+    project: Project, *, profile: str | int | None = '9', sessions=None
+) -> dict:
+    """Build a native BORIS .boris project payload for BORIS 7/8/9 export profiles."""
+    profile_key = _normalize_boris_native_export_profile(profile)
+    profile_options = BORIS_NATIVE_EXPORT_PROFILES[profile_key]
+    if sessions is None:
+        sessions = project.sessions.select_related('observer', 'video').prefetch_related(
+            'events__behavior',
+            'events__subjects',
+            'events__modifiers',
+            'variable_values__definition',
+            'video_links__video',
+        )
+    observations = {
+        session.title: _boris_native_observation(session, profile_options=profile_options)
+        for session in sessions
+    }
+    payload = {
+        'time_format': 'hh:mm:ss',
+        'project_name': project.name,
+        'project_date': project.created_at.isoformat(),
+        'project_description': project.description,
+        'project_format_version': BORIS_NATIVE_PROJECT_FORMAT_VERSION,
+        'subjects_conf': _boris_native_subjects(project),
+        'behaviors_conf': _boris_native_behaviors(project),
+        'observations': observations,
+        'behavioral_categories': list(
+            project.categories.order_by('sort_order', 'name').values_list('name', flat=True)
+        ),
+        'independent_variables': _boris_native_independent_variables(project),
+        'coding_map': {},
+        'behaviors_coding_map': {},
+        'converters': {},
+    }
+    if profile_options['include_category_config']:
+        payload['behavioral_categories_config'] = _boris_native_category_config(project)
+    return payload
+
+
 def build_reproducibility_bundle(project: Project) -> dict[str, bytes]:
     """Assemble a reproducible export bundle with checksums and rich metadata."""
     analytics = build_project_statistics(project)
@@ -3348,8 +3595,11 @@ def _native_boris_event_items(
             behavior_code = str(raw_event[2] or '').strip()
             modifier_token = raw_event[3] if len(raw_event) > 3 else ''
             comment = raw_event[4] if len(raw_event) > 4 else ''
-            explicit_kind = _resolve_event_kind_token(raw_event[5] if len(raw_event) > 5 else None)
+            extra_value = raw_event[5] if len(raw_event) > 5 else None
+            explicit_kind = _resolve_event_kind_token(extra_value)
             frame_index = raw_event[6] if len(raw_event) > 6 else None
+            if frame_index is None and explicit_kind is None:
+                frame_index = extra_value
         else:
             continue
         if not behavior_code:
