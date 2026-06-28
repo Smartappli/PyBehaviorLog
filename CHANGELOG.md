@@ -12,6 +12,7 @@
 - Added native `.boris` `IMAGES` observation export for image-only sessions, including image directories, image indexes, and image paths.
 - Added native `.boris` `media_info.frames` output when FPS and media duration are available.
 - Added BORIS 9 native `media_info.display` output for media player visualization compatibility.
+- Added BORIS 8/9 native `observation time interval` metadata while omitting it from the BORIS 7 profile.
 
 ## 0.9.4
 

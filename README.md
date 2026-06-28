@@ -46,6 +46,7 @@ This version extends the earlier CowLog/BORIS-inspired foundations with:
 - native `.boris` `IMAGES` export for image-only observation sessions
 - native `.boris` media frame counts when FPS and media duration are known
 - BORIS 9 native `media_info.display` output for player visualization compatibility
+- BORIS 8/9 native observation interval metadata while keeping BORIS 7 output lean
 
 ## Runtime stack
 

@@ -85,6 +85,7 @@ BORIS_NATIVE_EXPORT_PROFILES = {
         'label': 'BORIS 7',
         'include_frame_index': False,
         'include_scan_sampling_time': False,
+        'include_observation_time_interval': False,
         'include_waveform_flags': False,
         'include_player_plot_display': False,
         'include_category_config': False,
@@ -93,6 +94,7 @@ BORIS_NATIVE_EXPORT_PROFILES = {
         'label': 'BORIS 8',
         'include_frame_index': True,
         'include_scan_sampling_time': True,
+        'include_observation_time_interval': True,
         'include_waveform_flags': False,
         'include_player_plot_display': False,
         'include_category_config': False,
@@ -101,6 +103,7 @@ BORIS_NATIVE_EXPORT_PROFILES = {
         'label': 'BORIS 9',
         'include_frame_index': True,
         'include_scan_sampling_time': True,
+        'include_observation_time_interval': True,
         'include_waveform_flags': True,
         'include_player_plot_display': True,
         'include_category_config': True,
@@ -2209,6 +2212,8 @@ def _boris_native_observation(
         observation['directories_list'] = _boris_native_image_directories(session)
     if profile_options['include_scan_sampling_time']:
         observation['scan_sampling_time'] = 0
+    if profile_options['include_observation_time_interval']:
+        observation['observation time interval'] = [0, 0]
     if profile_options['include_waveform_flags']:
         observation['visualize_waveform'] = False
         observation['start_from_current_time'] = False

@@ -654,12 +654,15 @@ class CompatibilityTests(TestCase):
             self.assertEqual(observation['events'][0][3], 'Near')
 
         self.assertNotIn('scan_sampling_time', payload7['observations']['Media Session'])
+        self.assertNotIn('observation time interval', payload7['observations']['Media Session'])
         self.assertEqual(len(payload7['observations']['Media Session']['events'][0]), 5)
         self.assertIn('scan_sampling_time', payload8['observations']['Media Session'])
+        self.assertEqual(payload8['observations']['Media Session']['observation time interval'], [0, 0])
         self.assertNotIn('visualize_waveform', payload8['observations']['Media Session'])
         self.assertNotIn('display', payload8['observations']['Media Session']['media_info'])
         self.assertEqual(payload8['observations']['Media Session']['events'][0][5], 38)
         self.assertIn('visualize_waveform', payload9['observations']['Media Session'])
+        self.assertEqual(payload9['observations']['Media Session']['observation time interval'], [0, 0])
         self.assertEqual(
             payload9['observations']['Media Session']['media_info']['display'],
             {'videos/clip.mp4': 'Nothing'},
