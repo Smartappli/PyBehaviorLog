@@ -112,6 +112,26 @@ class RoundTripCertificationTests(TestCase):
         comparison = build_roundtrip_report(payload, exported_payload, family='project')
         self.assertTrue(comparison['equivalent'], comparison)
 
+    def test_native_boris_modifier_spacing_fixture_import(self):
+        project = Project.objects.create(owner=self.user, name='Native Modifier Fixture')
+        payload = json.loads(
+            (FIXTURES / 'boris_native_modifiers_v9_12_1.boris').read_text(encoding='utf-8')
+        )
+        counts = import_project_payload(project, payload, actor=self.user, import_sessions=True)
+        self.assertEqual(counts['sessions_imported'], 1)
+        self.assertEqual(
+            list(project.modifiers.order_by('sort_order', 'name').values_list('name', flat=True)),
+            ['a', 'c', 'd', '111'],
+        )
+        session = project.sessions.get(title='test1 live')
+        events = list(session.events.order_by('timestamp_seconds', 'pk'))
+        self.assertEqual(len(events), 4)
+        self.assertEqual(events[0].modifiers_display, 'a, c')
+        self.assertEqual(events[1].modifiers_display, 'a')
+        self.assertEqual(events[2].modifiers_display, '111')
+        self.assertEqual(events[3].modifiers_display, 'c')
+        self.assertFalse(project.modifiers.filter(name__iexact='None').exists())
+
     def test_roundtrip_report_flags_mismatch(self):
         left = {
             'schema': 'boris-observation-v3',
