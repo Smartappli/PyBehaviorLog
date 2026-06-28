@@ -95,6 +95,13 @@ class BorisNativeExportProfile:
     include_category_config: bool = False
 
 
+@dataclass(frozen=True, slots=True)
+class BorisNativeMediaContext:
+    media_paths: tuple[str, ...]
+    image_paths: tuple[str, ...]
+    is_image_observation: bool
+
+
 BORIS_NATIVE_EXPORT_PROFILES: dict[str, BorisNativeExportProfile] = {
     '7': BorisNativeExportProfile(label='BORIS 7'),
     '8': BorisNativeExportProfile(
@@ -2072,52 +2079,52 @@ def _boris_native_category_config(project: Project) -> dict[str, dict]:
     }
 
 
-def _boris_native_media_paths(session: ObservationSession) -> list[str]:
-    return [
-        _relative_media_path(video)
-        for video in session.all_videos_ordered
-        if _relative_media_path(video)
-    ]
-
-
-def _boris_native_image_paths(session: ObservationSession) -> list[str]:
-    return [
+def _boris_native_media_context(session: ObservationSession) -> BorisNativeMediaContext:
+    media_paths = tuple(
         path
-        for path in _boris_native_media_paths(session)
-        if _media_kind_from_name(path) == 'image'
-    ]
+        for video in session.all_videos_ordered
+        if (path := _relative_media_path(video))
+    )
+    image_paths = tuple(path for path in media_paths if _media_kind_from_name(path) == 'image')
+    is_image_observation = (
+        session.session_kind != ObservationSession.KIND_LIVE
+        and bool(media_paths)
+        and len(media_paths) == len(image_paths)
+    )
+    return BorisNativeMediaContext(
+        media_paths=media_paths,
+        image_paths=image_paths,
+        is_image_observation=is_image_observation,
+    )
 
 
-def _boris_native_is_image_observation(session: ObservationSession) -> bool:
-    if session.session_kind == ObservationSession.KIND_LIVE:
-        return False
-    media_paths = _boris_native_media_paths(session)
-    return bool(media_paths) and len(media_paths) == len(_boris_native_image_paths(session))
-
-
-def _boris_native_image_directories(session: ObservationSession) -> list[str]:
+def _boris_native_image_directories(media_context: BorisNativeMediaContext) -> list[str]:
     directories = []
-    for path in _boris_native_image_paths(session):
+    for path in media_context.image_paths:
         directory = str(Path(path).parent).replace('\\', '/')
         directories.append('' if directory == '.' else directory)
     return list(dict.fromkeys(directories))
 
 
-def _boris_native_media_file_map(session: ObservationSession) -> dict[str, list[str]] | list:
+def _boris_native_media_file_map(
+    session: ObservationSession, media_context: BorisNativeMediaContext
+) -> dict[str, list[str]] | list:
     if session.session_kind == ObservationSession.KIND_LIVE:
         return []
-    if _boris_native_is_image_observation(session):
+    if media_context.is_image_observation:
         return {}
-    media_paths = _boris_native_media_paths(session)
-    if not media_paths:
+    if not media_context.media_paths:
         return {'1': []}
-    return {str(index): [path] for index, path in enumerate(media_paths, start=1)}
+    return {str(index): [path] for index, path in enumerate(media_context.media_paths, start=1)}
 
 
 def _boris_native_media_info(
-    session: ObservationSession, *, include_player_plot_display: bool = False
+    session: ObservationSession,
+    media_context: BorisNativeMediaContext,
+    *,
+    include_player_plot_display: bool = False,
 ) -> dict:
-    media_paths = _boris_native_media_paths(session)
+    media_paths = media_context.media_paths
     if not media_paths:
         return {'offset': {}}
     duration = _session_media_duration_value(session)
@@ -2131,7 +2138,7 @@ def _boris_native_media_info(
     }
     if fps and duration:
         media_info['frames'] = dict.fromkeys(media_paths, max(int(round(duration * fps)), 0))
-    if include_player_plot_display and not _boris_native_is_image_observation(session):
+    if include_player_plot_display and not media_context.is_image_observation:
         media_info['display'] = dict.fromkeys(media_paths, 'Nothing')
     for path in media_paths:
         media_kind = _media_kind_from_name(path)
@@ -2140,10 +2147,15 @@ def _boris_native_media_info(
     return media_info
 
 
-def _boris_native_event_rows(session: ObservationSession, *, include_frame_index: bool) -> list:
+def _boris_native_event_rows(
+    session: ObservationSession,
+    media_context: BorisNativeMediaContext,
+    *,
+    include_frame_index: bool,
+) -> list:
     rows = []
-    image_paths = _boris_native_image_paths(session)
-    is_image_observation = _boris_native_is_image_observation(session)
+    image_paths = media_context.image_paths
+    is_image_observation = media_context.is_image_observation
     events = (
         session.events.select_related('behavior')
         .prefetch_related('subjects', 'modifiers')
@@ -2188,33 +2200,37 @@ def _boris_native_event_rows(session: ObservationSession, *, include_frame_index
 def _boris_native_observation(
     session: ObservationSession, *, profile_options: BorisNativeExportProfile
 ) -> dict:
+    media_context = _boris_native_media_context(session)
     variable_values = {
         value.definition.label: value.value
         for value in session.variable_values.select_related('definition').all()
     }
     observation = {
         'date': session.recorded_at.isoformat(),
-        'file': _boris_native_media_file_map(session),
+        'file': _boris_native_media_file_map(session, media_context),
         'type': (
             'LIVE'
             if session.session_kind == ObservationSession.KIND_LIVE
-            else ('IMAGES' if _boris_native_is_image_observation(session) else 'MEDIA')
+            else ('IMAGES' if media_context.is_image_observation else 'MEDIA')
         ),
         'visualize_spectrogram': False,
         'time offset': 0.0,
         'independent_variables': variable_values,
         'close_behaviors_between_videos': False,
         'events': _boris_native_event_rows(
-            session, include_frame_index=profile_options.include_frame_index
+            session,
+            media_context,
+            include_frame_index=profile_options.include_frame_index,
         ),
         'description': session.description,
         'media_info': _boris_native_media_info(
             session,
+            media_context,
             include_player_plot_display=profile_options.include_player_plot_display,
         ),
     }
-    if _boris_native_is_image_observation(session):
-        observation['directories_list'] = _boris_native_image_directories(session)
+    if media_context.is_image_observation:
+        observation['directories_list'] = _boris_native_image_directories(media_context)
     if profile_options.include_scan_sampling_time:
         observation['scan_sampling_time'] = 0
     if profile_options.include_observation_time_interval:
