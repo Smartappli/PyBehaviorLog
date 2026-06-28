@@ -12,6 +12,7 @@ import shlex
 import wave
 import zipfile
 from collections import defaultdict
+from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
@@ -80,37 +81,38 @@ NO_FOCAL_SUBJECT_LABEL = 'No focal subject'
 BORIS_PROJECT_JSON = 'boris_project.json'
 BORIS_LATEST_COMPATIBLE_VERSION = '9.12.1'
 BORIS_NATIVE_PROJECT_FORMAT_VERSION = '7.0'
-BORIS_NATIVE_EXPORT_PROFILES = {
-    '7': {
-        'label': 'BORIS 7',
-        'include_frame_index': False,
-        'include_scan_sampling_time': False,
-        'include_observation_time_interval': False,
-        'include_waveform_flags': False,
-        'include_player_plot_display': False,
-        'include_media_playback_defaults': False,
-        'include_category_config': False,
-    },
-    '8': {
-        'label': 'BORIS 8',
-        'include_frame_index': True,
-        'include_scan_sampling_time': True,
-        'include_observation_time_interval': True,
-        'include_waveform_flags': False,
-        'include_player_plot_display': False,
-        'include_media_playback_defaults': False,
-        'include_category_config': False,
-    },
-    '9': {
-        'label': 'BORIS 9',
-        'include_frame_index': True,
-        'include_scan_sampling_time': True,
-        'include_observation_time_interval': True,
-        'include_waveform_flags': True,
-        'include_player_plot_display': True,
-        'include_media_playback_defaults': True,
-        'include_category_config': True,
-    },
+
+
+@dataclass(frozen=True, slots=True)
+class BorisNativeExportProfile:
+    label: str
+    include_frame_index: bool = False
+    include_scan_sampling_time: bool = False
+    include_observation_time_interval: bool = False
+    include_waveform_flags: bool = False
+    include_player_plot_display: bool = False
+    include_media_playback_defaults: bool = False
+    include_category_config: bool = False
+
+
+BORIS_NATIVE_EXPORT_PROFILES: dict[str, BorisNativeExportProfile] = {
+    '7': BorisNativeExportProfile(label='BORIS 7'),
+    '8': BorisNativeExportProfile(
+        label='BORIS 8',
+        include_frame_index=True,
+        include_scan_sampling_time=True,
+        include_observation_time_interval=True,
+    ),
+    '9': BorisNativeExportProfile(
+        label='BORIS 9',
+        include_frame_index=True,
+        include_scan_sampling_time=True,
+        include_observation_time_interval=True,
+        include_waveform_flags=True,
+        include_player_plot_display=True,
+        include_media_playback_defaults=True,
+        include_category_config=True,
+    ),
 }
 CSV_EXTENSION = '.csv'
 DELETE_CONFIRM_TEMPLATE = 'tracker/delete_confirm.html'
@@ -2184,7 +2186,7 @@ def _boris_native_event_rows(session: ObservationSession, *, include_frame_index
 
 
 def _boris_native_observation(
-    session: ObservationSession, *, profile_options: dict
+    session: ObservationSession, *, profile_options: BorisNativeExportProfile
 ) -> dict:
     variable_values = {
         value.definition.label: value.value
@@ -2203,24 +2205,24 @@ def _boris_native_observation(
         'independent_variables': variable_values,
         'close_behaviors_between_videos': False,
         'events': _boris_native_event_rows(
-            session, include_frame_index=profile_options['include_frame_index']
+            session, include_frame_index=profile_options.include_frame_index
         ),
         'description': session.description,
         'media_info': _boris_native_media_info(
             session,
-            include_player_plot_display=profile_options['include_player_plot_display'],
+            include_player_plot_display=profile_options.include_player_plot_display,
         ),
     }
     if _boris_native_is_image_observation(session):
         observation['directories_list'] = _boris_native_image_directories(session)
-    if profile_options['include_scan_sampling_time']:
+    if profile_options.include_scan_sampling_time:
         observation['scan_sampling_time'] = 0
-    if profile_options['include_observation_time_interval']:
+    if profile_options.include_observation_time_interval:
         observation['observation time interval'] = [0, 0]
-    if profile_options['include_waveform_flags']:
+    if profile_options.include_waveform_flags:
         observation['visualize_waveform'] = False
         observation['start_from_current_time'] = False
-    if profile_options['include_media_playback_defaults']:
+    if profile_options.include_media_playback_defaults:
         observation['media_creation_date_as_offset'] = False
         observation['media_scan_sampling_duration'] = 0
         observation['image_display_duration'] = 1
@@ -2262,7 +2264,7 @@ def build_native_boris_project_payload(
         'behaviors_coding_map': {},
         'converters': {},
     }
-    if profile_options['include_category_config']:
+    if profile_options.include_category_config:
         payload['behavioral_categories_config'] = _boris_native_category_config(project)
     return payload
 
