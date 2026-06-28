@@ -13,6 +13,8 @@ PyBehaviorLog 0.9.1 strengthens interoperability with BORIS and CowLog around th
 - TextGrid exports now emit point events as `TextTier` tiers and split overlapping state intervals into separate subject/behavior tiers.
 - Session exports include a BORIS-style aggregated events TSV with `Media duration (s)` and `FPS (frame/s)` columns for BORIS 9.x analysis plugins.
 - Session exports include a FERAL-compatible JSON label payload modeled on the BORIS FERAL export plugin.
+- Native `.boris` imports normalize BORIS image-observation event rows by preserving the image index as PyBehaviorLog `frame_index` and keeping the image path as event context when no explicit comment is present.
+- Native `.boris` imports trim modifier values with BORIS shortcut suffixes such as `fast (f)` and ignore `None` placeholder modifier tokens.
 
 ### Implemented in 0.9
 
