@@ -27,7 +27,7 @@ an external contract or a larger certification corpus.
 | Binary table | Compatible profile | `build_binary_table_rows` | Sampling step can change analytical interpretation. |
 | Aggregated events TSV | Compatible profile | `build_boris_aggregated_event_rows` | Exposes BORIS 9.x plugin columns including media duration and FPS; values depend on stored variables or available media diagnostics. |
 | FERAL JSON | Compatible profile | `build_feral_payload` | Requires FPS and duration to generate frame labels; overlapping behaviors are reported in warnings. |
-| Picture/live observations | Partial | native image event indexes, image paths, media paths, frame indices | Native BORIS image observations are imported as PyBehaviorLog media sessions with directory paths retained; a larger gold corpus is still needed for certification. |
+| Picture/live observations | Partial | native image event indexes, image paths, media paths, frame indices | Native BORIS image observations are imported as PyBehaviorLog media sessions with directory paths retained; image-only PyBehaviorLog sessions export as BORIS `IMAGES`; a larger gold corpus is still needed for certification. |
 
 ## CowLog
 
