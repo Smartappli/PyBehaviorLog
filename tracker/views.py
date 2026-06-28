@@ -2556,6 +2556,123 @@ def _session_source_label(session: ObservationSession) -> str:
     return ', '.join(paths) if paths else 'Live observation'
 
 
+def _boris_media_source_fields(session: ObservationSession) -> tuple[str, str, str, str]:
+    """Return BORIS tabular source, per-media duration, FPS, and event media name."""
+    if session.session_kind == ObservationSession.KIND_LIVE:
+        return 'Live observation', 'NA', 'NA', 'NA'
+    media_paths = [
+        _relative_media_path(video)
+        for video in session.all_videos_ordered
+        if _relative_media_path(video)
+    ]
+    if not media_paths:
+        return 'Media file(s)', 'NA', 'NA', 'Not found'
+    source = '|'.join(
+        f'player #{index}:{path}' for index, path in enumerate(media_paths, start=1)
+    )
+    duration = _session_media_duration_value(session)
+    duration_token = ';'.join(
+        _format_seconds_token(duration) if duration else 'NA' for _path in media_paths
+    )
+    fps = _session_frame_rate_value(session)
+    fps_token = ';'.join(f'{fps:.3f}' if fps else 'NA' for _path in media_paths)
+    return source, duration_token, fps_token, media_paths[0]
+
+
+def build_boris_tabular_event_rows(session: ObservationSession) -> tuple[list[str], list[list]]:
+    """Build a BORIS 9.x-style tabular event export with one row per coded event."""
+    ordered_events = list(
+        session.events.select_related('behavior', 'behavior__category')
+        .prefetch_related('subjects', 'modifiers')
+        .order_by('timestamp_seconds', 'pk')
+    )
+    max_modifiers = max(
+        (event.modifiers.count() for event in ordered_events),
+        default=0,
+    )
+    variable_definitions = list(session.project.variable_definitions.order_by('sort_order', 'label'))
+    variable_values = {
+        value.definition_id: value.value
+        for value in session.variable_values.select_related('definition').all()
+    }
+    source, media_durations, fps, event_media_name = _boris_media_source_fields(session)
+    observation_type = (
+        'Live observation'
+        if session.session_kind == ObservationSession.KIND_LIVE
+        else 'Media file(s)'
+    )
+    common = [
+        session.title,
+        session.recorded_at.isoformat().replace('T', ' '),
+        session.description.replace('\n', ' '),
+        _format_seconds_token(_session_duration(session)),
+        observation_type,
+        source,
+        '0',
+        media_durations,
+        fps,
+        *[variable_values.get(definition.id, '') for definition in variable_definitions],
+    ]
+    headers = [
+        'Observation id',
+        'Observation date',
+        'Description',
+        'Observation duration',
+        'Observation type',
+        'Source',
+        'Time offset (s)',
+        'Media duration (s)',
+        'FPS',
+        *[definition.label for definition in variable_definitions],
+        'Subject',
+        'Behavior',
+        'Behavioral category',
+        *[f'Modifier #{index}' for index in range(1, max_modifiers + 1)],
+        'Behavior type',
+        'Time',
+        'Media file name',
+        'Image index',
+        'Image file path',
+        'Comment',
+    ]
+    status_map = {
+        ObservationEvent.KIND_POINT: 'POINT',
+        ObservationEvent.KIND_START: 'START',
+        ObservationEvent.KIND_STOP: 'STOP',
+    }
+    rows: list[list] = []
+    for event in ordered_events:
+        subjects = [subject.name for subject in event.all_subjects_ordered] or ['']
+        modifiers = [
+            modifier.name for modifier in event.modifiers.order_by('sort_order', 'name')
+        ]
+        modifier_values = modifiers + [''] * (max_modifiers - len(modifiers))
+        frame_index = (
+            event.frame_index
+            if event.frame_index is not None
+            and session.session_kind == ObservationSession.KIND_MEDIA
+            else 'NA'
+        )
+        image_path = 'NA'
+        for subject in subjects:
+            rows.append(
+                [
+                    *common,
+                    subject,
+                    event.behavior.name,
+                    event.behavior.category.name if event.behavior.category else '',
+                    *modifier_values,
+                    status_map.get(event.event_kind, 'POINT'),
+                    _format_seconds_token(event.timestamp_seconds),
+                    event_media_name,
+                    frame_index,
+                    image_path,
+                    event.comment.replace('\n', ' '),
+                ]
+            )
+    return headers, rows
+
+
 def build_boris_aggregated_event_rows(session: ObservationSession) -> tuple[list[str], list[list]]:
     """Build a BORIS 9.x-style aggregated events table used by analysis plugins."""
     interval_rows = _build_event_interval_rows(session)
@@ -3266,6 +3383,7 @@ def build_session_compatibility_report(session: ObservationSession) -> dict:
                 'behavioral_sequences',
                 'textgrid',
                 'binary_table',
+                'tabular_events',
                 'aggregated_events',
                 'feral_json',
                 'csv',
@@ -3363,6 +3481,7 @@ def build_project_compatibility_report(project: Project) -> dict:
             'behavioral_sequences',
             'textgrid',
             'binary_table',
+            'tabular_events',
             'aggregated_events',
             'feral_json',
             'csv',
@@ -3868,6 +3987,7 @@ EXTENSION_PROFILE = {
         'schema_regex_families': '1.0',
         'native_boris_project_import': BORIS_LATEST_COMPATIBLE_VERSION,
         'native_boris_project_export_profiles': '7,8,9',
+        'boris_tabular_events_export': BORIS_LATEST_COMPATIBLE_VERSION,
         'boris_aggregated_events_export': BORIS_LATEST_COMPATIBLE_VERSION,
         'feral_json_export': BORIS_LATEST_COMPATIBLE_VERSION,
         'textgrid_texttier_points': BORIS_LATEST_COMPATIBLE_VERSION,
@@ -7204,6 +7324,22 @@ def session_export_boris_aggregated_tsv(request, pk: int):  # pragma: no cover
     response = HttpResponse(content_type='text/tab-separated-values; charset=utf-8')
     response['Content-Disposition'] = (
         f'attachment; filename="session_{session.pk}_boris_aggregated_events.tsv"'
+    )
+    writer = csv.writer(response, delimiter='\t')
+    writer.writerow(headers)
+    for row in rows:
+        writer.writerow(row)
+    return response
+
+
+@login_required
+@require_GET
+def session_export_boris_tabular_tsv(request, pk: int):  # pragma: no cover
+    session = get_accessible_session(request.user, pk)
+    headers, rows = build_boris_tabular_event_rows(session)
+    response = HttpResponse(content_type='text/tab-separated-values; charset=utf-8')
+    response['Content-Disposition'] = (
+        f'attachment; filename="session_{session.pk}_boris_tabular_events.tsv"'
     )
     writer = csv.writer(response, delimiter='\t')
     writer.writerow(headers)

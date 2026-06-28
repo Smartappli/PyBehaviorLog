@@ -211,6 +211,11 @@ urlpatterns = [
         name='session_export_boris_aggregated_tsv',
     ),
     path(
+        'sessions/<int:pk>/export/boris-tabular-events/',
+        views.session_export_boris_tabular_tsv,
+        name='session_export_boris_tabular_tsv',
+    ),
+    path(
         'sessions/<int:pk>/export/feral-json/',
         views.session_export_feral_json,
         name='session_export_feral_json',

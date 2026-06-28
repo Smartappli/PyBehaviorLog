@@ -7,6 +7,7 @@
 - Carried forward v0.9.3 review queue filtering/export consistency and batch assignment behavior.
 - Added BORIS 9.12.1 compatibility coverage for native `.boris` project JSON imports, BORIS tabular preambles, TextGrid point tiers, aggregated event TSV exports, and FERAL JSON exports.
 - Added native `.boris` export profiles for BORIS 7, BORIS 8, and BORIS 9 on project and session export screens.
+- Added a BORIS 9.x-style tabular events TSV export with observation metadata, variables, modifiers, event status, media name, and frame index fields.
 
 ## 0.9.4
 

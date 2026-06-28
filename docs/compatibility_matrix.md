@@ -21,6 +21,7 @@ an external contract or a larger certification corpus.
 | Native `.boris` project/session export | Compatible profile | `build_native_boris_project_payload`, `project_export_boris_native`, `session_export_boris_native` | BORIS 9.12.1 still writes `project_format_version` as `7.0`; export profiles target BORIS 7/8/9 by adjusting optional media and observation fields. |
 | Observation JSON import/export | Certified baseline | `build_boris_like_payload`, `import_session_payload` | Export is BORIS-compatible, not a formal native `.boris` writer. |
 | CSV/TSV/XLSX event import | Implemented | `parse_tabular_session_rows` | Header aliases include BORIS 9.x `Start (s)`, `Stop (s)`, `Duration (s)`, `FPS (frame/s)`, and metadata preambles; real exports can still contain unsupported columns. |
+| Tabular events TSV export | Compatible profile | `build_boris_tabular_event_rows` | Mirrors BORIS 9.x event-row columns; media file attribution is based on stored PyBehaviorLog media links. |
 | Behavioral sequences | Compatible profile | `build_behavioral_sequences_text` | Intended for downstream sequence tools, not lossless project exchange. |
 | Praat TextGrid | Compatible profile | `build_textgrid_text` | Point events are exported as `TextTier`; full ethogram/project metadata still belongs in JSON. |
 | Binary table | Compatible profile | `build_binary_table_rows` | Sampling step can change analytical interpretation. |

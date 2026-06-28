@@ -22,6 +22,7 @@ from tracker.views import (
     build_behavioral_sequences_text,
     build_binary_table_rows,
     build_boris_aggregated_event_rows,
+    build_boris_tabular_event_rows,
     build_feral_payload,
     build_native_boris_project_payload,
     build_project_compatibility_report,
@@ -606,6 +607,68 @@ class CompatibilityTests(TestCase):
         normalized = normalize_native_boris_project_payload(payload9)
         self.assertEqual(normalized['observations'][0]['events'][0]['frame_index'], 38)
 
+    def test_boris_tabular_event_export_rows(self):
+        video = VideoAsset.objects.create(
+            project=self.project,
+            title='Clip',
+            file='videos/clip.mp4',
+        )
+        media_session = ObservationSession.objects.create(
+            project=self.project,
+            observer=self.user,
+            title='Media Session',
+            session_kind=ObservationSession.KIND_MEDIA,
+            video=video,
+        )
+        fps_definition = IndependentVariableDefinition.objects.create(
+            project=self.project,
+            label='fps',
+            value_type=IndependentVariableDefinition.TYPE_NUMERIC,
+        )
+        ObservationVariableValue.objects.create(
+            session=media_session,
+            definition=fps_definition,
+            value='30',
+        )
+        point_event = ObservationEvent.objects.create(
+            session=media_session,
+            behavior=self.point_behavior,
+            event_kind=ObservationEvent.KIND_POINT,
+            timestamp_seconds=Decimal('1.250'),
+            frame_index=38,
+            comment='tabular point',
+        )
+        point_event.subjects.add(self.subject)
+        point_event.modifiers.add(self.modifier)
+        ObservationEvent.objects.create(
+            session=media_session,
+            behavior=self.state_behavior,
+            event_kind=ObservationEvent.KIND_START,
+            timestamp_seconds=Decimal('2.000'),
+        )
+        ObservationEvent.objects.create(
+            session=media_session,
+            behavior=self.state_behavior,
+            event_kind=ObservationEvent.KIND_STOP,
+            timestamp_seconds=Decimal('3.000'),
+        )
+
+        headers, rows = build_boris_tabular_event_rows(media_session)
+        self.assertIn('Observation id', headers)
+        self.assertIn('Media duration (s)', headers)
+        self.assertIn('FPS', headers)
+        self.assertIn('Modifier #1', headers)
+        self.assertIn('Behavior type', headers)
+        self.assertEqual(len(rows), 3)
+        status_index = headers.index('Behavior type')
+        frame_index = headers.index('Image index')
+        fps_index = headers.index('FPS')
+        media_index = headers.index('Media file name')
+        self.assertEqual([row[status_index] for row in rows], ['POINT', 'START', 'STOP'])
+        self.assertEqual(rows[0][frame_index], 38)
+        self.assertEqual(rows[0][fps_index], '30.000')
+        self.assertEqual(rows[0][media_index], 'videos/clip.mp4')
+
     def test_export_endpoints_for_compatibility_formats(self):
         ObservationEvent.objects.create(
             session=self.session,
@@ -665,6 +728,16 @@ class CompatibilityTests(TestCase):
         self.assertIn('Observation id\tObservation date', response.content.decode('utf-8'))
         self.assertIn('FPS (frame/s)', response.content.decode('utf-8'))
         response = self.client.get(
+            reverse('tracker:session_export_boris_tabular_tsv', args=[self.session.pk])
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(
+            f'session_{self.session.pk}_boris_tabular_events.tsv',
+            response['Content-Disposition'],
+        )
+        self.assertIn('Observation id\tObservation date', response.content.decode('utf-8'))
+        self.assertIn('Behavior type\tTime', response.content.decode('utf-8'))
+        response = self.client.get(
             reverse('tracker:session_export_feral_json', args=[self.session.pk])
         )
         self.assertEqual(response.status_code, 200)
@@ -698,6 +771,7 @@ class CompatibilityTests(TestCase):
         self.assertIn('supported_schema_matrix', payload)
         self.assertIn('session_patterns', payload['supported_schema_matrix'])
         self.assertIn('native_boris_project_boris9', payload['supported_boris_exports'])
+        self.assertIn('tabular_events', payload['supported_boris_exports'])
         self.assertIn('extension_profile', payload)
         self.assertIn('cowcloud', payload)
         self.assertFalse(payload['cowcloud']['ready'])
