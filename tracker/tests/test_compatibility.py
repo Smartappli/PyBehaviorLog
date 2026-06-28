@@ -386,6 +386,9 @@ class CompatibilityTests(TestCase):
             'project_description': 'Native project shape',
             'project_format_version': '7.0',
             'behavioral_categories': ['Activity'],
+            'behavioral_categories_config': {
+                '0': {'name': 'Activity', 'color': '#123456'},
+            },
             'subjects_conf': {
                 '0': {'key': '1', 'name': 'Subject A', 'description': 'Focal subject'}
             },
@@ -444,9 +447,11 @@ class CompatibilityTests(TestCase):
         }
         normalized = normalize_native_boris_project_payload(native_payload)
         self.assertEqual(normalized['schema'], 'boris-project-v7')
+        self.assertEqual(normalized['categories'][0]['color'], '#123456')
         summary = import_project_payload(target_project, native_payload, actor=self.user)
         self.assertEqual(summary['sessions_imported'], 1)
         self.assertEqual(target_project.behaviors.count(), 2)
+        self.assertEqual(target_project.categories.get(name='Activity').color, '#123456')
         self.assertEqual(target_project.subjects.get().name, 'Subject A')
         self.assertTrue(VideoAsset.objects.filter(project=target_project, title='cam1.mp4').exists())
         imported_session = target_project.sessions.get(title='Observation 1')

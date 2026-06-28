@@ -3665,6 +3665,37 @@ def _map_boris_variable_type(value: object) -> str:
     return IndependentVariableDefinition.TYPE_TEXT
 
 
+def _clean_boris_color(value: object, default: str = '#0f766e') -> str:
+    token = str(value or '').strip()
+    if re.fullmatch(r'#[0-9a-fA-F]{6}', token):
+        return token
+    return default
+
+
+def _native_boris_category_items(payload: dict) -> dict[str, dict]:
+    categories: dict[str, dict] = {}
+    for index, item in enumerate(
+        _coerce_named_items(payload.get('behavioral_categories_config')), start=1
+    ):
+        name = str(item.get('name') or '').strip()
+        if not name:
+            continue
+        categories[name] = {
+            'name': name,
+            'color': _clean_boris_color(item.get('color')),
+            'sort_order': index,
+        }
+    for index, name in enumerate(_coerce_name_list(payload.get('behavioral_categories')), start=1):
+        category_name = str(name).strip()
+        if not category_name:
+            continue
+        categories.setdefault(
+            category_name,
+            {'name': category_name, 'color': '#0f766e', 'sort_order': index},
+        )
+    return categories
+
+
 def _native_boris_media_entries(item: dict) -> list[dict[str, str]]:
     media_file = item.get('file')
     paths: list[tuple[str, str]] = []
@@ -3782,12 +3813,7 @@ def _native_boris_event_items(
 
 def normalize_native_boris_project_payload(payload: dict) -> dict:
     """Convert a native BORIS .boris JSON project into the internal exchange profile."""
-    category_names = [
-        str(item).strip()
-        for item in _coerce_name_list(payload.get('behavioral_categories'))
-        if str(item).strip()
-    ]
-    category_set = set(category_names)
+    category_items = _native_boris_category_items(payload)
     used_behavior_keys: set[str] = set()
     used_modifier_keys: set[str] = set()
     behaviors = []
@@ -3802,7 +3828,14 @@ def normalize_native_boris_project_payload(payload: dict) -> dict:
         behavior_modes[code] = mode
         category = str(item.get('category') or '').strip()
         if category:
-            category_set.add(category)
+            category_items.setdefault(
+                category,
+                {
+                    'name': category,
+                    'color': '#0f766e',
+                    'sort_order': len(category_items) + 1,
+                },
+            )
         key_binding = str(item.get('key') or '').strip()[:1].upper()
         if not key_binding or key_binding in used_behavior_keys:
             key_binding = _choose_unique_shortcut(code, used_behavior_keys)
@@ -3926,11 +3959,9 @@ def normalize_native_boris_project_payload(payload: dict) -> dict:
             'name': payload.get('project_name') or 'Imported BORIS project',
             'description': payload.get('project_description', ''),
         },
-        'categories': [
-            {'name': name, 'sort_order': index}
-            for index, name in enumerate(sorted(category_set), start=1)
-            if name
-        ],
+        'categories': sorted(
+            category_items.values(), key=lambda item: (item.get('sort_order', 0), item['name'])
+        ),
         'subjects': subjects,
         'behaviors': behaviors,
         'modifiers': list(modifiers.values()),

@@ -15,6 +15,7 @@ PyBehaviorLog 0.9.1 strengthens interoperability with BORIS and CowLog around th
 - Session exports include a FERAL-compatible JSON label payload modeled on the BORIS FERAL export plugin.
 - Native `.boris` imports normalize BORIS image-observation event rows by preserving the image index as PyBehaviorLog `frame_index` and keeping the image path as event context when no explicit comment is present.
 - Native `.boris` imports trim modifier values with BORIS shortcut suffixes such as `fast (f)` and ignore `None` placeholder modifier tokens.
+- Native `.boris` imports preserve BORIS behavioral category colors from `behavioral_categories_config` when they are stored as hex colors.
 
 ### Implemented in 0.9
 
