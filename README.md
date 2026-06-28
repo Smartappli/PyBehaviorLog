@@ -120,6 +120,7 @@ Additional English documentation is available in:
 - `docs/compatibility.md`
 - `docs/certification.md`
 - `docs/compatibility_matrix.md`
+- `docs/native_boris_matrix.md`
 - `docs/dealhost.md`
 
 ## License

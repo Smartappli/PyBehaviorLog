@@ -14,6 +14,10 @@ an external contract or a larger certification corpus.
 
 ## BORIS
 
+The native `.boris` field-level contract is tracked in
+`docs/native_boris_matrix.md` and mirrored by the test fixture
+`tracker/tests/fixtures/boris_native_export_profile_matrix.json`.
+
 | Capability | Current status | Implementation | Main residual risk |
 | --- | --- | --- | --- |
 | Project JSON import/export | Certified baseline | `build_project_boris_payload`, `import_project_payload` | `boris-project-v*` is accepted by regex, so future schema drift must be tested with real files. |

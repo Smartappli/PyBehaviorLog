@@ -14,6 +14,7 @@
 - Added BORIS 9 native `media_info.display` output for media player visualization compatibility.
 - Added BORIS 8/9 native `observation time interval` metadata while omitting it from the BORIS 7 profile.
 - Added BORIS 9 native media playback defaults for creation-date offsets, scan sampling, and image display duration.
+- Added a detailed native BORIS 7/8/9 profile matrix plus a JSON fixture-backed test for profile key drift.
 
 ## 0.9.4
 

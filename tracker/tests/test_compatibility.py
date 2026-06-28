@@ -1,5 +1,6 @@
 import json
 from decimal import Decimal
+from pathlib import Path
 
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -37,6 +38,7 @@ from tracker.views import (
 )
 
 User = get_user_model()
+FIXTURES = Path(__file__).resolve().parent / 'fixtures'
 
 
 class CompatibilityTests(TestCase):
@@ -674,6 +676,65 @@ class CompatibilityTests(TestCase):
         self.assertIn('behavioral_categories_config', payload9)
         normalized = normalize_native_boris_project_payload(payload9)
         self.assertEqual(normalized['observations'][0]['events'][0]['frame_index'], 38)
+
+    def test_native_boris_export_profiles_match_matrix_fixture(self):
+        matrix = json.loads(
+            (FIXTURES / 'boris_native_export_profile_matrix.json').read_text(encoding='utf-8')
+        )
+        video = VideoAsset.objects.create(
+            project=self.project,
+            title='Matrix Clip',
+            file='videos/matrix-clip.mp4',
+        )
+        media_session = ObservationSession.objects.create(
+            project=self.project,
+            observer=self.user,
+            title='Matrix Session',
+            session_kind=ObservationSession.KIND_MEDIA,
+            video=video,
+        )
+        fps_definition = IndependentVariableDefinition.objects.create(
+            project=self.project,
+            label='fps',
+            value_type=IndependentVariableDefinition.TYPE_NUMERIC,
+        )
+        duration_definition = IndependentVariableDefinition.objects.create(
+            project=self.project,
+            label='duration',
+            value_type=IndependentVariableDefinition.TYPE_NUMERIC,
+        )
+        ObservationVariableValue.objects.create(
+            session=media_session,
+            definition=fps_definition,
+            value='25',
+        )
+        ObservationVariableValue.objects.create(
+            session=media_session,
+            definition=duration_definition,
+            value='4',
+        )
+
+        for profile, expectations in matrix['profiles'].items():
+            payload = build_native_boris_project_payload(
+                self.project, profile=profile, sessions=[media_session]
+            )
+            observation = payload['observations']['Matrix Session']
+            media_info = observation['media_info']
+
+            for key in expectations['required_project_keys']:
+                self.assertIn(key, payload, f'BORIS {profile} project key: {key}')
+            for key in expectations['forbidden_project_keys']:
+                self.assertNotIn(key, payload, f'BORIS {profile} project key: {key}')
+            for key in expectations['required_observation_keys']:
+                self.assertIn(key, observation, f'BORIS {profile} observation key: {key}')
+            for key in expectations['forbidden_observation_keys']:
+                self.assertNotIn(key, observation, f'BORIS {profile} observation key: {key}')
+            for key in expectations['required_media_info_keys']:
+                self.assertIn(key, media_info, f'BORIS {profile} media_info key: {key}')
+            for key in expectations['forbidden_media_info_keys']:
+                self.assertNotIn(key, media_info, f'BORIS {profile} media_info key: {key}')
+
+            self.assertEqual(media_info['frames']['videos/matrix-clip.mp4'], 100)
 
     def test_native_boris_export_includes_media_frame_count_when_known(self):
         video = VideoAsset.objects.create(

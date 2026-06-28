@@ -8,6 +8,7 @@ The repository ships reference fixtures under `tracker/tests/fixtures/` for:
 
 - BORIS observation JSON
 - BORIS project JSON
+- BORIS native `.boris` export profile keys for BORIS 7/8/9
 - CowLog-compatible plain-text results
 
 These fixtures are intentionally compact. They are meant to verify the documented interchange paths that PyBehaviorLog actively supports, not every historical file shape ever produced by third-party tools.
@@ -48,6 +49,7 @@ A future certification pass can extend the fixture corpus with:
 
 - BORIS live-observation payloads
 - BORIS picture-observation payloads
+- BORIS-authored native `.boris` gold projects for BORIS 7/8/9
 - multi-subject state-heavy projects
 - legacy or edge-case CowLog exports
 - gold files captured from real-world operator datasets

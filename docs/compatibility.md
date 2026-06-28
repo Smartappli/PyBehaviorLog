@@ -117,8 +117,9 @@ If you want to move toward a stronger "certified compatibility" claim, use this 
 
 That approach is the right path toward a future compatibility certification release.
 
-See `docs/compatibility_matrix.md` for the current per-application matrix and
-the CowCloud contract checklist.
+See `docs/compatibility_matrix.md` for the current per-application matrix,
+`docs/native_boris_matrix.md` for the detailed native `.boris` profile matrix,
+and the CowCloud contract checklist.
 
 
 ### Added in 0.9

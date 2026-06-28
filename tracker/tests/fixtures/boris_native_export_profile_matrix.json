@@ -1,0 +1,158 @@
+{
+  "source_version": "BORIS 9.12.1",
+  "profiles": {
+    "7": {
+      "required_project_keys": [
+        "time_format",
+        "project_name",
+        "project_date",
+        "project_description",
+        "project_format_version",
+        "subjects_conf",
+        "behaviors_conf",
+        "observations",
+        "behavioral_categories",
+        "independent_variables",
+        "coding_map",
+        "behaviors_coding_map",
+        "converters"
+      ],
+      "forbidden_project_keys": [
+        "behavioral_categories_config"
+      ],
+      "required_observation_keys": [
+        "date",
+        "file",
+        "type",
+        "visualize_spectrogram",
+        "time offset",
+        "independent_variables",
+        "close_behaviors_between_videos",
+        "events",
+        "description",
+        "media_info"
+      ],
+      "forbidden_observation_keys": [
+        "scan_sampling_time",
+        "observation time interval",
+        "visualize_waveform",
+        "start_from_current_time",
+        "media_creation_date_as_offset",
+        "media_scan_sampling_duration",
+        "image_display_duration"
+      ],
+      "required_media_info_keys": [
+        "length",
+        "fps",
+        "hasVideo",
+        "hasAudio",
+        "offset",
+        "frames"
+      ],
+      "forbidden_media_info_keys": [
+        "display"
+      ]
+    },
+    "8": {
+      "required_project_keys": [
+        "time_format",
+        "project_name",
+        "project_date",
+        "project_description",
+        "project_format_version",
+        "subjects_conf",
+        "behaviors_conf",
+        "observations",
+        "behavioral_categories",
+        "independent_variables",
+        "coding_map",
+        "behaviors_coding_map",
+        "converters"
+      ],
+      "forbidden_project_keys": [
+        "behavioral_categories_config"
+      ],
+      "required_observation_keys": [
+        "date",
+        "file",
+        "type",
+        "visualize_spectrogram",
+        "time offset",
+        "independent_variables",
+        "close_behaviors_between_videos",
+        "events",
+        "description",
+        "media_info",
+        "scan_sampling_time",
+        "observation time interval"
+      ],
+      "forbidden_observation_keys": [
+        "visualize_waveform",
+        "start_from_current_time",
+        "media_creation_date_as_offset",
+        "media_scan_sampling_duration",
+        "image_display_duration"
+      ],
+      "required_media_info_keys": [
+        "length",
+        "fps",
+        "hasVideo",
+        "hasAudio",
+        "offset",
+        "frames"
+      ],
+      "forbidden_media_info_keys": [
+        "display"
+      ]
+    },
+    "9": {
+      "required_project_keys": [
+        "time_format",
+        "project_name",
+        "project_date",
+        "project_description",
+        "project_format_version",
+        "subjects_conf",
+        "behaviors_conf",
+        "observations",
+        "behavioral_categories",
+        "behavioral_categories_config",
+        "independent_variables",
+        "coding_map",
+        "behaviors_coding_map",
+        "converters"
+      ],
+      "forbidden_project_keys": [],
+      "required_observation_keys": [
+        "date",
+        "file",
+        "type",
+        "visualize_spectrogram",
+        "time offset",
+        "independent_variables",
+        "close_behaviors_between_videos",
+        "events",
+        "description",
+        "media_info",
+        "scan_sampling_time",
+        "observation time interval",
+        "visualize_waveform",
+        "start_from_current_time",
+        "media_creation_date_as_offset",
+        "media_scan_sampling_duration",
+        "image_display_duration"
+      ],
+      "forbidden_observation_keys": [],
+      "required_media_info_keys": [
+        "length",
+        "fps",
+        "hasVideo",
+        "hasAudio",
+        "offset",
+        "frames",
+        "display"
+      ],
+      "forbidden_media_info_keys": []
+    }
+  }
+}
