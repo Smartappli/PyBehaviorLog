@@ -1,4 +1,4 @@
 -r requirements.txt
-coverage[toml]>=7.15.1,<8
+coverage[toml]>=7.15.2,<8
 pre-commit>=4.6.0,<5
 ruff>=0.15.21,<1
