@@ -48,7 +48,7 @@ services:
       - "8000:8000"
 
   db:
-    image: postgres:18-bookworm
+    image: postgres:19-bookworm
     environment:
       POSTGRES_DB: pybehaviorlog
       POSTGRES_USER: pybehaviorlog
